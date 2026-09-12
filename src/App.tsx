@@ -22,6 +22,20 @@ export default function App() {
 	const tEditor = useScopedT("editor");
 
 	useEffect(() => {
+		const directExport = new URLSearchParams(window.location.search).get("exportOnly") === "1";
+		// Electron can omit WebCodecs on a new renderer's cold load. This screen has
+		// no edits yet; reload once while the finalized session remains in the host.
+		if (
+			directExport &&
+			typeof VideoEncoder === "undefined" &&
+			!sessionStorage.getItem("openscreen-export-codec-reload")
+		) {
+			sessionStorage.setItem("openscreen-export-codec-reload", "1");
+			window.location.reload();
+		}
+	}, []);
+
+	useEffect(() => {
 		const type = new URLSearchParams(window.location.search).get("windowType") || "";
 		if (type !== windowType) {
 			setWindowType(type);
@@ -95,7 +109,9 @@ export default function App() {
 								</div>
 							}
 						>
-							<VideoEditor />
+							<VideoEditor
+								exportOnly={new URLSearchParams(window.location.search).get("exportOnly") === "1"}
+							/>
 							<ShortcutsConfigDialog />
 						</Suspense>
 					</ShortcutsProvider>

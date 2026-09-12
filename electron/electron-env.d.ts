@@ -29,6 +29,12 @@ interface Window {
 		) => Promise<import("../src/native/contracts").NativeBridgeResponse<TData>>;
 		getSources: (opts: Electron.SourcesOptions) => Promise<ProcessedDesktopSource[]>;
 		switchToEditor: () => Promise<void>;
+		finishRecording: () => Promise<void>;
+		configureAfterRecording: () => Promise<{
+			mode: "editor" | "external" | "export";
+			editorPath?: string;
+		}>;
+		openFullEditor: () => Promise<void>;
 		switchToHud: () => Promise<void>;
 		startNewRecording: () => Promise<{ success: boolean; error?: string }>;
 		openSourceSelector: () => Promise<{

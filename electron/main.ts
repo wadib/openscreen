@@ -364,14 +364,14 @@ function forceCloseEditorWindow(windowToClose: BrowserWindow | null) {
 	});
 }
 
-function createEditorWindowWrapper() {
+function createEditorWindowWrapper(exportOnly = false) {
 	if (mainWindow) {
 		isForceClosing = true;
 		mainWindow.close();
 		isForceClosing = false;
 		mainWindow = null;
 	}
-	mainWindow = createEditorWindow();
+	mainWindow = createEditorWindow(exportOnly);
 	editorHasUnsavedChanges = false;
 
 	mainWindow.on("close", (event) => {

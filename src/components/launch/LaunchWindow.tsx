@@ -1,4 +1,12 @@
-import { Check, ChevronDown, Clapperboard, Columns3, Languages, Rows3 } from "lucide-react";
+import {
+	Check,
+	ChevronDown,
+	Clapperboard,
+	Columns3,
+	Languages,
+	Rows3,
+	Settings2,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BsPauseCircle, BsPlayCircle, BsRecordCircle } from "react-icons/bs";
@@ -985,6 +993,20 @@ export function LaunchWindow() {
 						: null}
 
 					{/* Window controls */}
+					{!recording && (
+						<Tooltip content="After recording">
+							<button
+								type="button"
+								aria-label="After recording"
+								className={hudAuxIconBtnClasses}
+								onClick={() =>
+									void window.electronAPI.configureAfterRecording().catch(console.error)
+								}
+							>
+								<Settings2 size={ICON_SIZE} />
+							</button>
+						</Tooltip>
+					)}
 					<div
 						className={`flex items-center gap-0.5 ${trayLayout === "vertical" ? "flex-col" : ""}`}
 					>

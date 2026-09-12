@@ -67,6 +67,7 @@ import {
 	getNativeAspectRatioValue,
 	isPortraitAspectRatio,
 } from "@/utils/aspectRatioUtils";
+import { DirectExportControls } from "./DirectExportControls";
 import { EditorEmptyState } from "./EditorEmptyState";
 import { ExportDialog } from "./ExportDialog";
 import {
@@ -176,7 +177,7 @@ function buildSaveDiagnosticMessage(formatLabel: "GIF" | "Video", reason?: strin
 
 const CAPTION_WORD_CHOICES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
-export default function VideoEditor() {
+export default function VideoEditor({ exportOnly = false }: { exportOnly?: boolean }) {
 	const {
 		state: editorState,
 		pushState,
@@ -2349,6 +2350,149 @@ export default function VideoEditor() {
 		}
 	}, [exportError, editorState]);
 
+	if (exportOnly && !loading && !error) {
+		return (
+			<main className="flex h-screen flex-col bg-zinc-950 text-zinc-100 overflow-hidden">
+				<header className="flex shrink-0 items-center justify-between border-b border-white/10 px-6 py-4">
+					<h1 className="text-lg font-medium">Recording</h1>
+					<button
+						type="button"
+						disabled={isExporting}
+						onClick={() => void window.electronAPI.startNewRecording()}
+						className="text-sm text-zinc-400 hover:text-white disabled:opacity-40"
+					>
+						Done
+					</button>
+				</header>
+				<section className="min-h-0 flex-1 p-5 flex items-center justify-center overflow-hidden">
+					<div
+						className="h-full w-auto max-w-full"
+						style={{
+							aspectRatio:
+								aspectRatio === "native"
+									? getNativeAspectRatioValue(
+											videoPlaybackRef.current?.video?.videoWidth ||
+												DEFAULT_SOURCE_DIMENSIONS.width,
+											videoPlaybackRef.current?.video?.videoHeight ||
+												DEFAULT_SOURCE_DIMENSIONS.height,
+											cropRegion,
+										)
+									: getAspectRatioValue(aspectRatio),
+						}}
+					>
+						<VideoPlayback
+							ref={videoPlaybackRef}
+							videoPath={videoPath || ""}
+							webcamVideoPath={webcamVideoPath || undefined}
+							webcamLayoutPreset={webcamLayoutPreset}
+							webcamMaskShape={webcamMaskShape}
+							webcamMirrored={webcamMirrored}
+							webcamReactiveZoom={webcamReactiveZoom}
+							webcamSizePreset={webcamSizePreset}
+							webcamPosition={webcamPosition}
+							onDurationChange={setDuration}
+							onTimeUpdate={setCurrentTime}
+							currentTime={currentTime}
+							onPlayStateChange={setIsPlaying}
+							onError={setError}
+							isPlaying={isPlaying}
+							wallpaper={wallpaper}
+							zoomRegions={zoomRegions}
+							selectedZoomId={null}
+							onSelectZoom={() => undefined}
+							onZoomFocusChange={handleZoomFocusChange}
+							aspectRatio={aspectRatio}
+							shadowIntensity={shadowIntensity}
+							showShadow={shadowIntensity > 0}
+							showBlur={showBlur}
+							motionBlurAmount={motionBlurAmount}
+							borderRadius={borderRadius}
+							padding={padding}
+							cropRegion={cropRegion}
+							cursorRecordingData={cursorRecordingData}
+							cursorTelemetry={cursorTelemetry}
+							cursorClickTimestamps={cursorClickTimestamps}
+							cursorSize={cursorSize}
+							cursorSmoothing={cursorSmoothing}
+							cursorMotionBlur={cursorMotionBlur}
+							cursorClickBounce={cursorClickBounce}
+							cursorTheme={cursorTheme}
+							trimRegions={trimRegions}
+							speedRegions={speedRegions}
+							annotationRegions={annotationOnlyRegions}
+							blurRegions={blurRegions}
+						/>
+					</div>
+				</section>
+				<div className="shrink-0 px-6 pb-3">
+					<PlaybackControls
+						isPlaying={isPlaying}
+						currentTime={currentTime}
+						duration={duration}
+						isFullscreen={isFullscreen}
+						onToggleFullscreen={toggleFullscreen}
+						onTogglePlayPause={togglePlayPause}
+						onSeek={handleSeek}
+					/>
+				</div>
+				{exportError && (
+					<p
+						role="alert"
+						className="shrink-0 mx-6 mb-3 max-h-24 overflow-auto text-sm text-red-300"
+					>
+						{exportError}
+					</p>
+				)}
+				<DirectExportControls
+					format={exportFormat}
+					quality={exportQuality}
+					rate={gifFrameRate}
+					size={gifSizePreset}
+					loop={gifLoop}
+					onFormat={setExportFormat}
+					onQuality={setExportQuality}
+					onRate={setGifFrameRate}
+					onSize={setGifSizePreset}
+					onLoop={setGifLoop}
+					onExport={handleOpenExportDialog}
+					busy={isExporting}
+					ready={Boolean(videoPath) && duration > 0}
+					exportedPath={exportedFilePath}
+					onShowFile={() => {
+						if (exportedFilePath) void handleShowExportedFile(exportedFilePath);
+					}}
+					onCopyPath={() => {
+						if (exportedFilePath)
+							void navigator.clipboard
+								.writeText(exportedFilePath)
+								.catch(() => toast.error("Could not copy file path"));
+					}}
+				/>
+				{unsavedExport && (
+					<button
+						type="button"
+						className="shrink-0 p-3 text-sm text-amber-300"
+						onClick={() => void handleSaveUnsavedExport()}
+					>
+						Save exported recording
+					</button>
+				)}
+				<ExportDialog
+					isOpen={showExportDialog}
+					onClose={() => setShowExportDialog(false)}
+					progress={exportProgress}
+					isExporting={isExporting}
+					error={exportError}
+					onCancel={handleCancelExport}
+					exportFormat={exportFormat}
+					exportedFilePath={exportedFilePath || undefined}
+					onShowInFolder={
+						exportedFilePath ? () => void handleShowExportedFile(exportedFilePath) : undefined
+					}
+				/>
+			</main>
+		);
+	}
 	if (loading) {
 		return (
 			<div className="flex items-center justify-center h-screen bg-background">

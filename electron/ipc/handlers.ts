@@ -35,6 +35,11 @@ import type {
 	ProjectFileResult,
 	ProjectPathResult,
 } from "../../src/native/contracts";
+import {
+	configureAfterRecording,
+	launchExternalEditor,
+	readAfterRecording,
+} from "../afterRecording";
 import { mainT } from "../i18n";
 import { RECORDINGS_DIR } from "../main";
 import { createCursorRecordingSession } from "../native-bridge/cursor/recording/factory";
@@ -1258,7 +1263,7 @@ async function loadRecordedSessionForVideoPath(
 }
 
 export function registerIpcHandlers(
-	createEditorWindow: () => void,
+	createEditorWindow: (exportOnly?: boolean) => void,
 	createSourceSelectorWindow: () => BrowserWindow,
 	createCountdownOverlayWindow: () => BrowserWindow,
 	getMainWindow: () => BrowserWindow | null,
@@ -1461,6 +1466,26 @@ export function registerIpcHandlers(
 		// opening the editor. Closing it here too double-closes, leaving ghost
 		// transparent windows and compounding the HUD shadow each cycle.
 		createEditorWindow();
+	});
+
+	ipcMain.handle("configure-after-recording", () => configureAfterRecording());
+	ipcMain.handle("finish-recording", async () => {
+		const preference = await readAfterRecording();
+		if (preference.mode === "external" && preference.editorPath && currentVideoPath) {
+			try {
+				await launchExternalEditor(preference.editorPath, currentVideoPath);
+				_switchToHud?.();
+				return;
+			} catch (error) {
+				await dialog.showMessageBox({
+					type: "warning",
+					message: "Could not open the selected editor",
+					detail: String(error),
+					buttons: ["Open in Openscreen"],
+				});
+			}
+		}
+		createEditorWindow(preference.mode === "export");
 	});
 
 	ipcMain.handle("switch-to-hud", () => {

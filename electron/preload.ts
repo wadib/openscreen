@@ -38,6 +38,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	switchToEditor: () => {
 		return ipcRenderer.invoke("switch-to-editor");
 	},
+	finishRecording: () => ipcRenderer.invoke("finish-recording"),
+	configureAfterRecording: () => ipcRenderer.invoke("configure-after-recording"),
+	openFullEditor: () => {
+		return ipcRenderer.invoke("switch-to-editor");
+	},
 	switchToHud: () => {
 		return ipcRenderer.invoke("switch-to-hud");
 	},
