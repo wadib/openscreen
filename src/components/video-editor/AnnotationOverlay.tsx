@@ -1,20 +1,10 @@
 import { type CSSProperties, type PointerEvent, useEffect, useRef, useState } from "react";
 import { Rnd } from "react-rnd";
 import { getTextAnimationState } from "@/lib/annotationTextAnimation";
-import {
-	getBlurOverlayColor,
-	getMosaicGridOverlayColor,
-	getNormalizedMosaicBlockSize,
-} from "@/lib/blurEffects";
+import { renderBlur } from "@/lib/exporter/annotationRenderer";
 import { cn } from "@/lib/utils";
 import { getArrowComponent } from "./ArrowSvgs";
-import {
-	type AnnotationRegion,
-	type BlurData,
-	DEFAULT_BLUR_BLOCK_SIZE,
-	DEFAULT_BLUR_DATA,
-	DEFAULT_BLUR_INTENSITY,
-} from "./types";
+import { type AnnotationRegion, type BlurData, DEFAULT_BLUR_DATA } from "./types";
 
 const FREEHAND_POINT_THRESHOLD = 1;
 type PreviewCanvasSource = {
@@ -52,6 +42,9 @@ interface AnnotationOverlayProps {
 	previewSourceCanvas?: PreviewCanvasSource | null;
 	previewFrameVersion?: number;
 	currentTimeMs: number;
+	blurScaleFactor?: number;
+	previewBlurRegions?: AnnotationRegion[];
+	sourceBlurScaleFactor?: number;
 }
 
 export function AnnotationOverlay({
@@ -69,6 +62,9 @@ export function AnnotationOverlay({
 	previewSourceCanvas,
 	previewFrameVersion,
 	currentTimeMs,
+	blurScaleFactor = 1,
+	previewBlurRegions,
+	sourceBlurScaleFactor = 1,
 }: AnnotationOverlayProps) {
 	const committedX = (annotation.position.x / 100) * containerWidth;
 	const committedY = (annotation.position.y / 100) * containerHeight;
@@ -85,11 +81,7 @@ export function AnnotationOverlay({
 	);
 	const [livePointerPoint, setLivePointerPoint] = useState<{ x: number; y: number } | null>(null);
 	const mosaicCanvasRef = useRef<HTMLCanvasElement | null>(null);
-	const blurType = "mosaic";
-	const blurOverlayColor =
-		annotation.type === "blur" ? getBlurOverlayColor(annotation.blurData) : "";
-	const mosaicGridOverlayColor =
-		annotation.type === "blur" ? getMosaicGridOverlayColor(annotation.blurData) : "";
+	const blurScratchRef = useRef<HTMLCanvasElement | null>(null);
 	const [liveRect, setLiveRect] = useState({
 		x: committedX,
 		y: committedY,
@@ -120,67 +112,46 @@ export function AnnotationOverlay({
 			return;
 		}
 
-		const sourceWidth = sourceCanvas.width;
-		const sourceHeight = sourceCanvas.height;
-		const sourceClientWidth = sourceCanvas.clientWidth || containerWidth || sourceWidth;
-		const sourceClientHeight = sourceCanvas.clientHeight || containerHeight || sourceHeight;
-		if (
-			sourceWidth <= 0 ||
-			sourceHeight <= 0 ||
-			sourceClientWidth <= 0 ||
-			sourceClientHeight <= 0
-		) {
-			return;
+		if (containerWidth <= 0 || containerHeight <= 0 || width <= 0 || height <= 0) return;
+		const scratch = blurScratchRef.current ?? document.createElement("canvas");
+		blurScratchRef.current = scratch;
+		scratch.width = Math.ceil(containerWidth);
+		scratch.height = Math.ceil(containerHeight);
+		const context = scratch.getContext("2d");
+		if (!context) return;
+		context.drawImage(sourceCanvas as CanvasImageSource, 0, 0, containerWidth, containerHeight);
+		const regions = [...(previewBlurRegions ?? [annotation])].sort((a, b) => a.zIndex - b.zIndex);
+		for (const region of regions) {
+			const current = region.id === annotation.id;
+			renderBlur(
+				context,
+				region,
+				current ? x : (region.position.x / 100) * containerWidth,
+				current ? y : (region.position.y / 100) * containerHeight,
+				current ? width : (region.size.width / 100) * containerWidth,
+				current ? height : (region.size.height / 100) * containerHeight,
+				current
+					? blurScaleFactor
+					: region.annotationSource === "live-blur"
+						? sourceBlurScaleFactor
+						: 1,
+			);
 		}
-
-		const drawWidth = Math.max(1, Math.round(width));
-		const drawHeight = Math.max(1, Math.round(height));
-		if (drawWidth <= 0 || drawHeight <= 0) {
-			return;
-		}
-
-		canvas.width = drawWidth;
-		canvas.height = drawHeight;
-
-		const context = canvas.getContext("2d", { willReadFrequently: true });
-		if (!context) {
-			return;
-		}
-
-		const scaleX = sourceWidth / sourceClientWidth;
-		const scaleY = sourceHeight / sourceClientHeight;
-		const sourceX = Math.max(0, Math.floor(x * scaleX));
-		const sourceY = Math.max(0, Math.floor(y * scaleY));
-		const sourceSampleWidth = Math.max(1, Math.ceil(drawWidth * scaleX));
-		const sourceSampleHeight = Math.max(1, Math.ceil(drawHeight * scaleY));
-		const clampedSampleWidth = Math.max(1, Math.min(sourceSampleWidth, sourceWidth - sourceX));
-		const clampedSampleHeight = Math.max(1, Math.min(sourceSampleHeight, sourceHeight - sourceY));
-		const blockSize = getNormalizedMosaicBlockSize(annotation.blurData);
-		const downscaledWidth = Math.max(1, Math.round(drawWidth / blockSize));
-		const downscaledHeight = Math.max(1, Math.round(drawHeight / blockSize));
-		canvas.width = downscaledWidth;
-		canvas.height = downscaledHeight;
-
-		context.clearRect(0, 0, downscaledWidth, downscaledHeight);
-		context.imageSmoothingEnabled = true;
-		context.drawImage(
-			sourceCanvas as CanvasImageSource,
-			sourceX,
-			sourceY,
-			clampedSampleWidth,
-			clampedSampleHeight,
-			0,
-			0,
-			downscaledWidth,
-			downscaledHeight,
-		);
+		canvas.width = Math.max(1, Math.ceil(width));
+		canvas.height = Math.max(1, Math.ceil(height));
+		canvas
+			.getContext("2d")
+			?.drawImage(scratch, x, y, width, height, 0, 0, canvas.width, canvas.height);
 	}, [
 		annotation,
+		blurScaleFactor,
 		containerHeight,
 		containerWidth,
 		height,
 		previewFrameVersion,
 		previewSourceCanvas,
+		previewBlurRegions,
+		sourceBlurScaleFactor,
 		width,
 		x,
 		y,
@@ -367,14 +338,6 @@ export function AnnotationOverlay({
 
 			case "blur": {
 				const shape = annotation.blurData?.shape ?? "rectangle";
-				const blurIntensity = Math.max(
-					1,
-					Math.round(annotation.blurData?.intensity ?? DEFAULT_BLUR_INTENSITY),
-				);
-				const blockSize = Math.max(
-					1,
-					Math.round(annotation.blurData?.blockSize ?? DEFAULT_BLUR_BLOCK_SIZE),
-				);
 				const activeFreehandPoints =
 					shape === "freehand"
 						? isFreehandDrawing
@@ -423,45 +386,11 @@ export function AnnotationOverlay({
 								isolation: "isolate",
 							}}
 						>
-							<div
-								className="absolute inset-0"
-								style={{
-									...shapeMaskStyle,
-									backdropFilter: blurType === "mosaic" ? "none" : `blur(${blurIntensity}px)`,
-									WebkitBackdropFilter: blurType === "mosaic" ? "none" : `blur(${blurIntensity}px)`,
-									backgroundColor: blurOverlayColor,
-									opacity: shouldShowFreehandBlurFill ? 1 : 0,
-								}}
-							/>
-							{blurType === "mosaic" && shouldShowFreehandBlurFill && (
+							{shouldShowFreehandBlurFill && (
 								<canvas
 									ref={mosaicCanvasRef}
 									className="absolute inset-0 w-full h-full"
-									style={{
-										...shapeMaskStyle,
-										imageRendering: "pixelated",
-									}}
-								/>
-							)}
-							{blurType === "mosaic" && shouldShowFreehandBlurFill && (
-								<div
-									className="absolute inset-0 pointer-events-none"
-									style={{
-										...shapeMaskStyle,
-										backgroundColor: blurOverlayColor,
-									}}
-								/>
-							)}
-							{blurType === "mosaic" && (
-								<div
-									className="absolute inset-0 pointer-events-none"
-									style={{
-										...shapeMaskStyle,
-										backgroundImage: `linear-gradient(${mosaicGridOverlayColor} 1px, transparent 1px), linear-gradient(90deg, ${mosaicGridOverlayColor} 1px, transparent 1px)`,
-										backgroundSize: `${blockSize}px ${blockSize}px`,
-										mixBlendMode: "screen",
-										opacity: 0.35,
-									}}
+									style={shapeMaskStyle}
 								/>
 							)}
 							{isSelected && shape !== "freehand" && (

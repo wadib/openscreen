@@ -1,4 +1,30 @@
 {
+	"settings": {
+		"general": "一般",
+		"hideAfterRecording": "錄製結束後隱藏",
+		"hideAfterVideo": "影片儲存或關閉後隱藏",
+		"quietRecording": "免打擾錄製",
+		"quietUnavailable": "此系統不支援免打擾錄製。",
+		"title": "設定",
+		"afterRecording": "錄製停止時",
+		"openEditor": "在 Openscreen 中開啟",
+		"externalEditor": "選擇其他編輯器",
+		"exportDirectly": "直接匯出",
+		"videoEditor": "影片編輯器",
+		"chooseEditor": "選擇影片編輯器",
+		"loadError": "無法載入設定。請重新開啟設定後再試。",
+		"chooseError": "無法選擇編輯器。請再試一次。",
+		"saveError": "無法儲存設定。請檢查所選編輯器後再試。"
+	},
+	"preview": {
+		"open": "顯示錄製預覽",
+		"close": "隱藏錄製預覽",
+		"title": "錄製預覽",
+		"connecting": "正在連線...",
+		"unavailable": "預覽無法使用",
+		"selectSource": "選擇螢幕或視窗",
+		"retry": "重試預覽"
+	},
 	"tooltips": {
 		"hideHUD": "隱藏控制面板",
 		"closeApp": "關閉應用程式",
@@ -27,6 +53,9 @@
 		"unavailable": "攝影機不可用"
 	},
 	"cursor": {
+		"show": "顯示游標",
+		"hide": "隱藏游標",
+		"mode": "游標模式",
 		"useEditableCursor": "使用可編輯游標",
 		"useSystemCursor": "使用系統游標"
 	},

@@ -6,13 +6,17 @@ import type {
 	GifSizePreset,
 } from "@/lib/exporter/types";
 
+export type DirectExportFormat = ExportFormat | "original";
+
 interface Props {
-	format: ExportFormat;
+	format: DirectExportFormat;
 	quality: ExportQuality;
 	rate: GifFrameRate;
 	size: GifSizePreset;
 	loop: boolean;
-	onFormat: (value: ExportFormat) => void;
+	onFormat: (value: DirectExportFormat) => void;
+	canExportOriginal: boolean;
+	originalExclusions: string[];
 	onQuality: (value: ExportQuality) => void;
 	onRate: (value: GifFrameRate) => void;
 	onSize: (value: GifSizePreset) => void;
@@ -36,9 +40,16 @@ export function DirectExportControls(props: Props) {
 						value={props.format}
 						aria-label="Format"
 						disabled={props.busy}
-						onChange={(e) => props.onFormat(e.target.value as ExportFormat)}
+						onChange={(e) => props.onFormat(e.target.value as DirectExportFormat)}
 					>
-						<option value="mp4">MP4</option>
+						<option
+							value="original"
+							disabled={!props.canExportOriginal}
+							title="Copy the original MP4 without editor effects or separate cursor/webcam layers"
+						>
+							Original MP4 (fast)
+						</option>
+						<option value="mp4">MP4 (styled)</option>
 						<option value="gif">GIF</option>
 					</select>
 				</label>
@@ -57,7 +68,7 @@ export function DirectExportControls(props: Props) {
 							<option value="source">Source</option>
 						</select>
 					</label>
-				) : (
+				) : props.format === "gif" ? (
 					<>
 						<label className="grid gap-1 text-xs text-zinc-400">
 							Frame rate
@@ -99,17 +110,23 @@ export function DirectExportControls(props: Props) {
 							Loop
 						</label>
 					</>
-				)}
+				) : null}
 				<button
 					type="button"
 					className="ml-auto flex h-9 items-center gap-2 rounded-md bg-emerald-600 px-4 text-sm text-white disabled:opacity-40"
 					onClick={props.onExport}
 					disabled={props.busy || !props.ready}
+					title="Export the recording and copy its saved path to the clipboard"
 				>
 					<Download size={16} />
-					Export
+					Export &amp; copy path
 				</button>
 			</div>
+			{props.format === "original" && props.originalExclusions.length > 0 && (
+				<p role="status" className="text-xs text-amber-300">
+					Not included: {props.originalExclusions.join(", ")}
+				</p>
+			)}
 			<div className="flex flex-wrap items-center gap-4 text-sm text-zinc-400">
 				<button
 					type="button"

@@ -1,14 +1,15 @@
 import {
-	Check,
 	ChevronDown,
 	Clapperboard,
 	Columns3,
-	Languages,
+	Eye,
+	EyeOff,
+	LoaderCircle,
 	Rows3,
+	ScanEye,
 	Settings2,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { BsPauseCircle, BsPlayCircle, BsRecordCircle } from "react-icons/bs";
 import { FaRegStopCircle } from "react-icons/fa";
 import { FaFolderOpen } from "react-icons/fa6";
@@ -27,8 +28,10 @@ import {
 	MdVolumeUp,
 } from "react-icons/md";
 import { RxDragHandleDots2 } from "react-icons/rx";
+import { toast } from "sonner";
 import { useI18n, useScopedT } from "@/contexts/I18nContext";
-import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
+import { useBlurryToggle } from "@/hooks/useBlurryToggle";
+import { getLocaleName } from "@/i18n/loader";
 import { loadUserPreferences, saveUserPreferences } from "@/lib/userPreferences";
 import { nativeBridgeClient } from "@/native";
 import { useAudioLevelMeter } from "../../hooks/useAudioLevelMeter";
@@ -99,20 +102,14 @@ const hudSidebarVerticalClasses =
 /** Launches the floating recording HUD and its recorder controls. */
 export function LaunchWindow() {
 	const t = useScopedT("launch");
-	const availableLocales = getAvailableLocales();
-	const {
-		locale,
-		setLocale,
-		systemLocaleSuggestion,
-		acceptSystemLocaleSuggestion,
-		dismissSystemLocaleSuggestion,
-		resolveSystemLocaleSuggestion,
-	} = useI18n();
+	const blurT = useScopedT("settings");
+	const { systemLocaleSuggestion, acceptSystemLocaleSuggestion, dismissSystemLocaleSuggestion } =
+		useI18n();
 	const suggestedLanguageName = systemLocaleSuggestion ? getLocaleName(systemLocaleSuggestion) : "";
-	const activeLanguageLabel = getLocaleName(locale).split(/\s+/)[0] || locale.toUpperCase();
 
 	const {
 		recording,
+		countdownActive,
 		paused,
 		elapsedSeconds,
 		toggleRecording,
@@ -136,8 +133,8 @@ export function LaunchWindow() {
 		setCursorCaptureMode,
 	} = useScreenRecorder();
 
-	const showMicControls = microphoneEnabled && !recording;
-	const showWebcamControls = webcamEnabled && !recording;
+	const showMicControls = microphoneEnabled && !recording && !countdownActive;
+	const showWebcamControls = webcamEnabled && !recording && !countdownActive;
 
 	const [isMicHovered, setIsMicHovered] = useState(false);
 	const [isMicFocused, setIsMicFocused] = useState(false);
@@ -146,39 +143,34 @@ export function LaunchWindow() {
 	const [isWebcamHovered, setIsWebcamHovered] = useState(false);
 	const [isWebcamFocused, setIsWebcamFocused] = useState(false);
 	const webcamExpanded = isWebcamHovered || isWebcamFocused;
-	const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
 	const [trayLayout, setTrayLayout] = useState<"horizontal" | "vertical">(
 		() => loadUserPreferences().trayLayout,
 	);
 	const [supportsCursorModeToggle, setSupportsCursorModeToggle] = useState(false);
-	const languageTriggerRef = useRef<HTMLButtonElement | null>(null);
-	const languageMenuPanelRef = useRef<HTMLDivElement | null>(null);
+	const [previewSupported, setPreviewSupported] = useState(false);
+	const blurry = useBlurryToggle(previewSupported);
+	const [previewOpen, setPreviewOpen] = useState(false);
+	const [previewBusy, setPreviewBusy] = useState(false);
+	const visibleCursorMode = useRef<"editable-overlay" | "system">(
+		cursorCaptureMode === "system" ? "system" : "editable-overlay",
+	);
 	const hudBarRef = useRef<HTMLDivElement | null>(null);
 	const deviceSelectorRef = useRef<HTMLDivElement | null>(null);
 	// Measured bar height, anchors the popups above the tall vertical tray so they don't overlap it.
 	const [hudBarHeight, setHudBarHeight] = useState(0);
-	const [languageMenuStyle, setLanguageMenuStyle] = useState<{
-		right: number;
-		top: number;
-		maxHeight: number;
-	}>({
-		right: 12,
-		top: 12,
-		maxHeight: 240,
-	});
 
 	const {
 		devices: micDevices,
 		selectedDeviceId: selectedMicId,
 		setSelectedDeviceId: setSelectedMicId,
-	} = useMicrophoneDevices(microphoneEnabled);
+	} = useMicrophoneDevices(microphoneEnabled, microphoneDeviceId);
 	const {
 		devices: cameraDevices,
 		selectedDeviceId: selectedCameraId,
 		setSelectedDeviceId: setSelectedCameraId,
 		isLoading: isCameraDevicesLoading,
 		error: cameraDevicesError,
-	} = useCameraDevices(webcamEnabled);
+	} = useCameraDevices(webcamEnabled, webcamDeviceId);
 
 	const selectedMicLabel =
 		micDevices.find((d) => d.deviceId === (microphoneDeviceId || selectedMicId))?.label ||
@@ -200,16 +192,18 @@ export function LaunchWindow() {
 	});
 
 	useEffect(() => {
-		if (selectedMicId && selectedMicId !== "default") {
+		if (selectedMicId) {
 			setMicrophoneDeviceId(selectedMicId);
-			setMicrophoneDeviceName(micDevices.find((d) => d.deviceId === selectedMicId)?.label);
+			const device = micDevices.find((d) => d.deviceId === selectedMicId);
+			if (device) setMicrophoneDeviceName(device.label);
 		}
 	}, [selectedMicId, micDevices, setMicrophoneDeviceId, setMicrophoneDeviceName]);
 
 	useEffect(() => {
 		if (selectedCameraId) {
 			setWebcamDeviceId(selectedCameraId);
-			setWebcamDeviceName(cameraDevices.find((d) => d.deviceId === selectedCameraId)?.label);
+			const device = cameraDevices.find((d) => d.deviceId === selectedCameraId);
+			if (device) setWebcamDeviceName(device.label);
 		}
 	}, [selectedCameraId, cameraDevices, setWebcamDeviceId, setWebcamDeviceName]);
 
@@ -243,71 +237,6 @@ export function LaunchWindow() {
 		});
 	}, []);
 
-	useEffect(() => {
-		if (!isLanguageMenuOpen) return;
-
-		const handlePointerDown = (event: PointerEvent) => {
-			const target = event.target as Node;
-			const clickedTrigger = languageTriggerRef.current?.contains(target);
-			const clickedMenu = languageMenuPanelRef.current?.contains(target);
-			if (!clickedTrigger && !clickedMenu) {
-				setIsLanguageMenuOpen(false);
-			}
-		};
-
-		const handleEscape = (event: KeyboardEvent) => {
-			if (event.key === "Escape") {
-				setIsLanguageMenuOpen(false);
-			}
-		};
-
-		window.addEventListener("pointerdown", handlePointerDown);
-		window.addEventListener("keydown", handleEscape);
-
-		return () => {
-			window.removeEventListener("pointerdown", handlePointerDown);
-			window.removeEventListener("keydown", handleEscape);
-		};
-	}, [isLanguageMenuOpen]);
-
-	useEffect(() => {
-		if (!isLanguageMenuOpen || !languageTriggerRef.current) return;
-
-		const updatePosition = () => {
-			if (!languageTriggerRef.current) return;
-			const rect = languageTriggerRef.current.getBoundingClientRect();
-			const gap = 8;
-			const viewportPadding = 8;
-			const availableHeight = Math.max(80, rect.top - viewportPadding - gap);
-			const top = Math.max(viewportPadding, rect.top - gap - availableHeight);
-
-			setLanguageMenuStyle({
-				right: Math.max(viewportPadding, window.innerWidth - rect.right),
-				top,
-				maxHeight: availableHeight,
-			});
-		};
-
-		updatePosition();
-		window.addEventListener("resize", updatePosition);
-		window.addEventListener("scroll", updatePosition, true);
-
-		return () => {
-			window.removeEventListener("resize", updatePosition);
-			window.removeEventListener("scroll", updatePosition, true);
-		};
-	}, [isLanguageMenuOpen]);
-
-	useEffect(() => {
-		if (!isLanguageMenuOpen || !languageMenuPanelRef.current) return;
-		const id = requestAnimationFrame(() => {
-			if (languageMenuPanelRef.current) {
-				languageMenuPanelRef.current.scrollTop = 0;
-			}
-		});
-		return () => cancelAnimationFrame(id);
-	}, [isLanguageMenuOpen]);
-
 	// Resize the overlay window to fit content, else the taller vertical tray gets clipped
 	// and scrolls. Measure from the window's bottom-centre (the anchor the main process
 	// preserves) so fixed bottom/centre offsets keep this stable and it doesn't oscillate.
@@ -321,11 +250,10 @@ export function LaunchWindow() {
 		// gap = 20px) so the window stays tall enough that the cap never engages and adds a scrollbar.
 		const SIDE_MARGIN = 24;
 		const TOP_MARGIN = 24;
-		// Wide enough that the language menu (11rem) never clips, even when the bar is narrow.
+		// Leave room for device selectors even when the bar is narrow.
 		const MIN_WIDTH = 220;
 
 		const viewportHeight = window.innerHeight;
-		const centerX = window.innerWidth / 2;
 
 		// Use natural (scroll) size, not the clipped box: vertical mode's max-h cap is a
 		// small-screen fallback, and reading clipped height would pin the window to it.
@@ -347,13 +275,6 @@ export function LaunchWindow() {
 				topFromBottom = Math.max(topFromBottom, popupBottomOffset + rect.height);
 				halfWidth = Math.max(halfWidth, rect.width / 2);
 			}
-		}
-
-		// The language menu scrolls within available height, so it only influences width.
-		// Its presence in the DOM means it's open.
-		if (languageMenuPanelRef.current) {
-			const rect = languageMenuPanelRef.current.getBoundingClientRect();
-			halfWidth = Math.max(halfWidth, centerX - rect.left, rect.right - centerX);
 		}
 
 		setHudBarHeight((prev) => {
@@ -403,10 +324,6 @@ export function LaunchWindow() {
 		(el: HTMLDivElement | null) => observeHudElement(el, deviceSelectorRef),
 		[observeHudElement],
 	);
-	const setLanguageMenuPanelEl = useCallback(
-		(el: HTMLDivElement | null) => observeHudElement(el, languageMenuPanelRef),
-		[observeHudElement],
-	);
 
 	const hudMouseEventsEnabledRef = useRef<boolean | undefined>(undefined);
 	const setHudMouseEventsEnabled = useCallback((enabled: boolean) => {
@@ -424,13 +341,44 @@ export function LaunchWindow() {
 		};
 	}, [setHudMouseEventsEnabled]);
 
-	useEffect(() => {
-		setHudMouseEventsEnabled(isLanguageMenuOpen);
-	}, [isLanguageMenuOpen, setHudMouseEventsEnabled]);
-
 	const [selectedSource, setSelectedSource] = useState("Screen");
 	const [hasSelectedSource, setHasSelectedSource] = useState(false);
 	const [, setRecordPointerDownCount] = useState(0);
+
+	useEffect(() => {
+		let cancelled = false;
+		let changed = false;
+		const unsubscribe = window.electronAPI.onRecordingPreviewChanged((open) => {
+			changed = true;
+			setPreviewOpen(open);
+		});
+		void window.electronAPI
+			.getRecordingPreviewState()
+			.then((state) => {
+				if (cancelled) return;
+				setPreviewSupported(state.supported);
+				if (!changed) setPreviewOpen(state.open);
+			})
+			.catch(() => undefined);
+		return () => {
+			cancelled = true;
+			unsubscribe();
+		};
+	}, []);
+
+	const togglePreview = async () => {
+		if (previewBusy) return;
+		setPreviewBusy(true);
+		try {
+			const result = await window.electronAPI.toggleRecordingPreview();
+			setPreviewOpen(result.open);
+			if (!result.success) toast.error(t("preview.unavailable"));
+		} catch {
+			toast.error(t("preview.unavailable"));
+		} finally {
+			setPreviewBusy(false);
+		}
+	};
 
 	useEffect(() => {
 		const checkSelectedSource = async () => {
@@ -514,15 +462,10 @@ export function LaunchWindow() {
 			className={`h-full w-full min-w-0 max-w-full overflow-x-hidden overflow-y-hidden bg-transparent ${styles.electronDrag}`}
 			onPointerMove={(event) => {
 				const target = event.target as HTMLElement | null;
-				const shouldCapture =
-					isLanguageMenuOpen || Boolean(target?.closest("[data-hud-interactive='true']"));
+				const shouldCapture = Boolean(target?.closest("[data-hud-interactive='true']"));
 				setHudMouseEventsEnabled(shouldCapture);
 			}}
-			onPointerLeave={() => {
-				if (!isLanguageMenuOpen) {
-					setHudMouseEventsEnabled(false);
-				}
-			}}
+			onPointerLeave={() => setHudMouseEventsEnabled(false)}
 		>
 			{systemLocaleSuggestion && (
 				<div
@@ -717,11 +660,7 @@ export function LaunchWindow() {
 				onPointerEnter={() => setHudMouseEventsEnabled(true)}
 				onPointerDown={() => setHudMouseEventsEnabled(true)}
 				onMouseEnter={() => setHudMouseEventsEnabled(true)}
-				onMouseLeave={() => {
-					if (!isLanguageMenuOpen) {
-						setHudMouseEventsEnabled(false);
-					}
-				}}
+				onMouseLeave={() => setHudMouseEventsEnabled(false)}
 			>
 				{/* Drag handle */}
 				<div
@@ -766,7 +705,7 @@ export function LaunchWindow() {
 					data-testid="launch-source-selector-button"
 					className={`${hudGroupClasses} h-8 ${trayLayout === "vertical" ? "w-8 justify-center px-0" : "px-2.5"} ${styles.electronNoDrag}`}
 					onClick={openSourceSelector}
-					disabled={recording}
+					disabled={recording || countdownActive}
 					title={selectedSource}
 					aria-label={selectedSource}
 				>
@@ -779,6 +718,26 @@ export function LaunchWindow() {
 				</button>
 
 				{/* Audio controls group */}
+				{previewSupported && (
+					<Tooltip content={t(previewOpen ? "preview.close" : "preview.open")}>
+						<button
+							type="button"
+							data-testid="launch-recording-preview-button"
+							aria-label={t(previewOpen ? "preview.close" : "preview.open")}
+							aria-pressed={previewOpen}
+							className={`${hudIconBtnClasses} ${styles.electronNoDrag}`}
+							disabled={previewBusy || (!hasSelectedSource && !previewOpen)}
+							onClick={togglePreview}
+						>
+							{previewOpen ? (
+								<EyeOff size={ICON_SIZE} className="text-green-400" />
+							) : (
+								<Eye size={ICON_SIZE} className="text-white/70" />
+							)}
+						</button>
+					</Tooltip>
+				)}
+
 				<div
 					className={`${hudGroupClasses} ${trayLayout === "vertical" ? "flex-col py-1" : ""} ${styles.electronNoDrag}`}
 				>
@@ -786,7 +745,7 @@ export function LaunchWindow() {
 						data-testid="launch-system-audio-button"
 						className={`${hudIconBtnClasses} ${systemAudioEnabled ? "drop-shadow-[0_0_4px_rgba(74,222,128,0.4)]" : ""}`}
 						onClick={() => !recording && setSystemAudioEnabled(!systemAudioEnabled)}
-						disabled={recording}
+						disabled={recording || countdownActive}
 						title={
 							systemAudioEnabled ? t("audio.disableSystemAudio") : t("audio.enableSystemAudio")
 						}
@@ -799,7 +758,7 @@ export function LaunchWindow() {
 						data-testid="launch-microphone-button"
 						className={`${hudIconBtnClasses} ${microphoneEnabled ? "drop-shadow-[0_0_4px_rgba(74,222,128,0.4)]" : ""}`}
 						onClick={toggleMicrophone}
-						disabled={recording}
+						disabled={recording || countdownActive}
 						title={microphoneEnabled ? t("audio.disableMicrophone") : t("audio.enableMicrophone")}
 						onPointerDown={() => {
 							setRecordPointerDownCount((count) => count + 1);
@@ -815,45 +774,83 @@ export function LaunchWindow() {
 						onClick={async () => {
 							await setWebcamEnabled(!webcamEnabled);
 						}}
-						disabled={recording}
+						disabled={recording || countdownActive}
 						title={webcamEnabled ? t("webcam.disableWebcam") : t("webcam.enableWebcam")}
 					>
 						{webcamEnabled
 							? getIcon("webcamOn", "text-green-400")
 							: getIcon("webcamOff", "text-white/40")}
 					</button>
+					{previewSupported && (
+						<Tooltip content={blurT("annotation.typeBlur")}>
+							<button
+								type="button"
+								data-testid="launch-live-blur-button"
+								aria-label={blurT("annotation.typeBlur")}
+								aria-pressed={blurry.selected}
+								disabled={blurry.busy}
+								className={`${hudIconBtnClasses} ${styles.electronNoDrag} ${blurry.selected ? "bg-green-400/10 drop-shadow-[0_0_4px_rgba(74,222,128,0.4)]" : ""}`}
+								onClick={() => void blurry.toggle()}
+							>
+								<ScanEye
+									size={ICON_SIZE}
+									className={blurry.selected ? "text-green-400" : "text-white/70"}
+								/>
+							</button>
+						</Tooltip>
+					)}
 					{supportsCursorModeToggle && (
-						<button
-							data-testid="launch-cursor-mode-button"
-							className={`${hudIconBtnClasses} ${
-								cursorCaptureMode === "editable-overlay"
-									? "drop-shadow-[0_0_4px_rgba(74,222,128,0.4)]"
-									: ""
-							}`}
-							onClick={() =>
-								!recording &&
-								setCursorCaptureMode(
-									cursorCaptureMode === "editable-overlay" ? "system" : "editable-overlay",
-								)
-							}
-							disabled={recording}
-							title={
-								cursorCaptureMode === "editable-overlay"
-									? t("cursor.useSystemCursor")
-									: t("cursor.useEditableCursor")
-							}
-						>
-							{getIcon(
-								"cursor",
-								cursorCaptureMode === "editable-overlay" ? "text-green-400" : "text-white/40",
-							)}
-						</button>
+						<div className="flex items-center">
+							<button
+								data-testid="launch-cursor-mode-button"
+								aria-pressed={cursorCaptureMode !== "hidden"}
+								aria-label={t(cursorCaptureMode === "hidden" ? "cursor.show" : "cursor.hide")}
+								className={`${hudIconBtnClasses} ${
+									cursorCaptureMode !== "hidden" ? "drop-shadow-[0_0_4px_rgba(74,222,128,0.4)]" : ""
+								}`}
+								onClick={() =>
+									!recording &&
+									setCursorCaptureMode(
+										cursorCaptureMode === "hidden" ? visibleCursorMode.current : "hidden",
+									)
+								}
+								disabled={recording || countdownActive}
+								title={t(cursorCaptureMode === "hidden" ? "cursor.show" : "cursor.hide")}
+							>
+								{getIcon(
+									"cursor",
+									cursorCaptureMode !== "hidden" ? "text-green-400" : "text-white/40",
+								)}
+							</button>
+							<Tooltip content={t("cursor.mode")}>
+								<button
+									type="button"
+									data-testid="launch-cursor-options-button"
+									aria-label={t("cursor.mode")}
+									className="flex h-7 w-4 items-center justify-center rounded-sm text-white/60 hover:bg-white/10 disabled:opacity-40"
+									disabled={recording || countdownActive}
+									onClick={async () => {
+										const mode = await window.electronAPI.chooseRecordingCursorMode(
+											visibleCursorMode.current,
+											[t("cursor.useEditableCursor"), t("cursor.useSystemCursor")],
+										);
+										if (mode) {
+											visibleCursorMode.current = mode;
+											setCursorCaptureMode(mode);
+										}
+									}}
+								>
+									<ChevronDown size={12} />
+								</button>
+							</Tooltip>
+						</div>
 					)}
 				</div>
 
 				{/* Record/Stop group */}
 				<button
 					data-testid="launch-record-button"
+					aria-busy={countdownActive}
 					className={`flex items-center justify-center rounded-full p-2 transition-[min-width,background-color] duration-150 ${recording ? "min-w-[78px]" : "min-w-[36px]"} ${trayLayout === "vertical" ? "min-h-9" : ""} ${styles.electronNoDrag} ${
 						recording
 							? paused
@@ -866,9 +863,13 @@ export function LaunchWindow() {
 					style={{ flex: "0 0 auto" }}
 				>
 					<div className={`flex items-center justify-center ${recording ? "gap-1.5" : ""}`}>
-						{recording
-							? getIcon("stop", paused ? "text-amber-400" : "text-red-400")
-							: getIcon("record", hasSelectedSource ? "text-white/80" : "text-white/30")}
+						{recording ? (
+							getIcon("stop", paused ? "text-amber-400" : "text-red-400")
+						) : countdownActive ? (
+							<LoaderCircle size={ICON_SIZE} className="animate-spin text-white/80" />
+						) : (
+							getIcon("record", hasSelectedSource ? "text-white/80" : "text-white/30")
+						)}
 						{recording && (
 							<span
 								className={`${paused ? "text-amber-400" : "text-red-400"} inline-block w-[34px] text-left text-xs font-semibold tabular-nums`}
@@ -887,7 +888,13 @@ export function LaunchWindow() {
 							<Tooltip
 								content={paused ? t("tooltips.resumeRecording") : t("tooltips.pauseRecording")}
 							>
-								<button className={hudAuxIconBtnClasses} onClick={togglePaused}>
+								<button
+									type="button"
+									data-testid="launch-pause-button"
+									aria-label={paused ? t("tooltips.resumeRecording") : t("tooltips.pauseRecording")}
+									className={hudAuxIconBtnClasses}
+									onClick={togglePaused}
+								>
 									{getIcon(
 										paused ? "resume" : "pause",
 										paused ? "text-amber-400" : "text-white/60",
@@ -909,9 +916,25 @@ export function LaunchWindow() {
 				)}
 
 				{!recording && (
+					<Tooltip content={t("settings.title")}>
+						<button
+							type="button"
+							aria-label={t("settings.title")}
+							data-testid="launch-settings-button"
+							disabled={countdownActive}
+							className={`${hudAuxIconBtnClasses} ${styles.electronNoDrag}`}
+							onClick={() => void window.electronAPI.configureAfterRecording().catch(console.error)}
+						>
+							<Settings2 size={ICON_SIZE} />
+						</button>
+					</Tooltip>
+				)}
+
+				{!recording && (
 					<Tooltip content={t("tooltips.openStudio")}>
 						<button
 							data-testid="launch-open-studio-button"
+							disabled={countdownActive}
 							className={`${hudIconBtnClasses} ${styles.electronNoDrag}`}
 							onClick={() => window.electronAPI.switchToEditor()}
 						>
@@ -924,89 +947,7 @@ export function LaunchWindow() {
 				<div
 					className={`${trayLayout === "vertical" ? hudSidebarVerticalClasses : hudSidebarClasses} ${styles.electronNoDrag}`}
 				>
-					<div className={`${styles.languageMenuContainer} ${styles.electronNoDrag}`}>
-						<button
-							ref={languageTriggerRef}
-							type="button"
-							aria-label={t("language")}
-							aria-expanded={isLanguageMenuOpen}
-							aria-haspopup="menu"
-							onClick={() => setIsLanguageMenuOpen((open) => !open)}
-							title={activeLanguageLabel}
-							className={`flex h-8 items-center rounded-lg border border-white/10 bg-white/[0.045] text-white/85 shadow-none transition-colors hover:bg-white/10 ${
-								trayLayout === "vertical" ? "w-8 justify-center px-0" : "gap-1.5 px-2"
-							} ${styles.electronNoDrag}`}
-						>
-							<Languages size={13} className="text-white/70" />
-							<span
-								className={`${trayLayout === "vertical" ? "sr-only" : "max-w-[54px]"} truncate text-[10px] font-semibold text-white/75`}
-							>
-								{activeLanguageLabel}
-							</span>
-						</button>
-					</div>
-
-					{isLanguageMenuOpen
-						? createPortal(
-								<div
-									ref={setLanguageMenuPanelEl}
-									data-hud-interactive="true"
-									role="menu"
-									className={`${styles.languageMenuPanel} ${styles.languageMenuScroll} ${styles.electronNoDrag}`}
-									style={
-										{
-											WebkitAppRegion: "no-drag",
-											pointerEvents: "auto",
-											right: `${languageMenuStyle.right}px`,
-											top: `${languageMenuStyle.top}px`,
-											maxHeight: `${languageMenuStyle.maxHeight}px`,
-										} as React.CSSProperties
-									}
-									onPointerDown={(event) => event.stopPropagation()}
-									onPointerEnter={() => setHudMouseEventsEnabled(true)}
-									onPointerMove={() => setHudMouseEventsEnabled(true)}
-									onWheel={(event) => {
-										setHudMouseEventsEnabled(true);
-										event.stopPropagation();
-									}}
-								>
-									{availableLocales.map((loc) => (
-										<button
-											key={loc}
-											type="button"
-											role="menuitemradio"
-											aria-checked={loc === locale}
-											onClick={() => {
-												setLocale(loc);
-												resolveSystemLocaleSuggestion();
-												setIsLanguageMenuOpen(false);
-											}}
-											className={`${styles.languageMenuItem} ${loc === locale ? styles.languageMenuItemActive : ""}`}
-										>
-											<span className="truncate">{getLocaleName(loc)}</span>
-											{loc === locale ? <Check size={11} className="text-white/85" /> : null}
-										</button>
-									))}
-								</div>,
-								document.body,
-							)
-						: null}
-
 					{/* Window controls */}
-					{!recording && (
-						<Tooltip content="After recording">
-							<button
-								type="button"
-								aria-label="After recording"
-								className={hudAuxIconBtnClasses}
-								onClick={() =>
-									void window.electronAPI.configureAfterRecording().catch(console.error)
-								}
-							>
-								<Settings2 size={ICON_SIZE} />
-							</button>
-						</Tooltip>
-					)}
 					<div
 						className={`flex items-center gap-0.5 ${trayLayout === "vertical" ? "flex-col" : ""}`}
 					>

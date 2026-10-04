@@ -9,6 +9,7 @@ import type { DesktopCapturerSource } from "electron";
 import {
 	app,
 	BrowserWindow,
+	clipboard,
 	desktopCapturer,
 	dialog,
 	ipcMain,
@@ -35,17 +36,43 @@ import type {
 	ProjectFileResult,
 	ProjectPathResult,
 } from "../../src/native/contracts";
-import {
-	configureAfterRecording,
-	launchExternalEditor,
-	readAfterRecording,
-} from "../afterRecording";
+import { launchExternalEditor, readAfterRecording, writeAfterRecording } from "../afterRecording";
 import { mainT } from "../i18n";
 import { RECORDINGS_DIR } from "../main";
 import { createCursorRecordingSession } from "../native-bridge/cursor/recording/factory";
 import { requestMacCursorAccessibilityAccess } from "../native-bridge/cursor/recording/macNativeCursorRecordingSession";
 import type { CursorRecordingSession } from "../native-bridge/cursor/recording/session";
+import { CaptureStopPendingError, waitForCaptureStop } from "../recording/capture-stop";
+import { RecordingDiagnostics } from "../recording/diagnostics";
+import {
+	liveBlurRecorder,
+	notifyLiveBlurState,
+	registerLiveBlurHandlers,
+} from "../recording/live-blur";
+import { copyOriginalRecording } from "../recording/original-export";
+import { RecordingPreviewCapture } from "../recording/preview-capture";
+import {
+	getQuietRecordingSupport,
+	launchQuietRecording,
+	QuietRecordingController,
+} from "../recording/quiet-recording";
+import { validateFinalizedMp4 } from "../recording/validate-mp4";
 import { patchWebmDurationOnDisk } from "../recording/webm-duration";
+import { readWindowBounds } from "../recording/window-bounds";
+import {
+	closeRecordingPreviewWindow,
+	closeSettingsWindow,
+	createRecordingPreviewWindow,
+	createSettingsWindow,
+	getRecordingPreviewConfiguration,
+	isRecorderWindow,
+	isRecordingPreviewOpen,
+	isRecordingPreviewSource,
+	isRecordingPreviewSupported,
+	isRecordingPreviewVisible,
+	isSettingsWindow,
+	updateRecordingPreviewSource,
+} from "../windows";
 import { registerNativeBridgeHandlers } from "./nativeBridge";
 import { RecordingStreamRegistry, registerRecordingStreamHandlers } from "./recordingStream";
 
@@ -66,6 +93,37 @@ const ALLOWED_IMPORT_VIDEO_EXTENSIONS = new Set([
 ]);
 const PREVIEW_AUDIO_DIR = path.join(app.getPath("userData"), "preview-audio");
 const nativeMacCaptureEvents = new EventEmitter();
+let previewCapture: RecordingPreviewCapture | null = null;
+let previewCaptureId: string | null = null;
+function stopPreviewCapture() {
+	previewCaptureId = null;
+	previewCapture?.stop();
+	previewCapture = null;
+}
+app.on("before-quit", stopPreviewCapture);
+let quietOwner: Electron.WebContents | undefined;
+let quietOwnerLost = false;
+const quietRecording = new QuietRecordingController(() =>
+	launchQuietRecording(process.platform, false, (message) => {
+		console.error("[quiet-recording]", message);
+		if (quietOwner && !quietOwner.isDestroyed()) quietOwner.send("stop-recording-from-tray");
+		void dialog.showMessageBox({ type: "warning", title: "Quiet recording", message });
+	}),
+);
+function releaseQuietRecording() {
+	return quietRecording.stop().catch((error) => {
+		console.error("[quiet-recording] restoration failed", error);
+		void dialog.showMessageBox({
+			type: "warning",
+			title: "Quiet recording",
+			message: error instanceof Error ? error.message : String(error),
+		});
+		throw error;
+	});
+}
+app.on("before-quit", () => {
+	void releaseQuietRecording().catch(() => undefined);
+});
 
 // Paths the user approved via file picker or project load (i.e. outside the default dirs).
 const approvedPaths = new Set<string>();
@@ -407,6 +465,7 @@ const MAX_CURSOR_SAMPLES = 60 * 60 * 30; // 1 hour @ 30Hz
 let cursorRecordingSession: CursorRecordingSession | null = null;
 let pendingCursorRecordingData: CursorRecordingData | null = null;
 let nativeWindowsCaptureProcess: ChildProcessWithoutNullStreams | null = null;
+let nativeWindowsCaptureStopping = false;
 let nativeWindowsCaptureOutput = "";
 let nativeWindowsCaptureTargetPath: string | null = null;
 let nativeWindowsCaptureWebcamTargetPath: string | null = null;
@@ -417,7 +476,28 @@ let nativeWindowsCursorRecordingStartMs = 0;
 let nativeWindowsPauseStartedAtMs: number | null = null;
 let nativeWindowsPauseRanges: Array<{ startMs: number; endMs: number }> = [];
 let nativeWindowsIsPaused = false;
-const NATIVE_WINDOWS_CAPTURE_STOP_TIMEOUT_MS = 15_000;
+let nativeWindowsDiagnostics: RecordingDiagnostics | null = null;
+let nativeWindowsStopNoticeShown = false;
+let nativeWindowsDiscardRequested = false;
+
+function showRecordingFailure(message: string, detail: string, logPath?: string) {
+	const options: Electron.MessageBoxOptions = {
+		type: "warning",
+		title: "Recording",
+		message,
+		detail: `${detail}\n\nDiagnostic log: ${logPath ?? "unavailable"}`,
+		buttons: ["OK", "Copy Details", "Show Files"],
+		defaultId: 0,
+		cancelId: 0,
+	};
+	void dialog
+		.showMessageBox(options)
+		.then(({ response }) => {
+			if (response === 1) clipboard.writeText(`${message}\n\n${options.detail}`);
+			if (response === 2 && logPath) shell.showItemInFolder(logPath);
+		})
+		.catch((error) => console.error("Could not show recording failure:", error));
+}
 let nativeMacCaptureProcess: ChildProcessWithoutNullStreams | null = null;
 let nativeMacCaptureOutput = "";
 let nativeMacCaptureTargetPath: string | null = null;
@@ -596,6 +676,30 @@ function getSelectedDisplay() {
 	}
 
 	return screen.getAllDisplays().find((display) => display.id === sourceDisplayId) ?? null;
+}
+
+async function getCountdownSourceBounds(): Promise<Electron.Rectangle> {
+	if (selectedSource?.id?.startsWith("screen:")) {
+		const display = getSelectedDisplay();
+		if (display) return display.bounds;
+	} else if (selectedSource?.id?.startsWith("window:")) {
+		if (process.platform === "win32") {
+			const helpers = getNativeWindowsCaptureHelperCandidates();
+			for (const helper of helpers) {
+				try {
+					return screen.screenToDipRect(null, await readWindowBounds(helper, selectedSource.id));
+				} catch {
+					// Older development-cache helpers may not support bounds queries.
+				}
+			}
+		} else {
+			const target = BrowserWindow.getAllWindows().find(
+				(window) => !window.isDestroyed() && window.getMediaSourceId() === selectedSource?.id,
+			);
+			if (target) return target.getBounds();
+		}
+	}
+	throw new Error("Selected recording source bounds unavailable");
 }
 
 function resolveUnpackedAppPath(...segments: string[]) {
@@ -925,8 +1029,7 @@ function waitForNativeWindowsCaptureStart(proc: ChildProcessWithoutNullStreams) 
 			reject(new Error("Timed out waiting for native Windows capture to start"));
 		}, 12000);
 
-		const onOutput = (chunk: Buffer) => {
-			nativeWindowsCaptureOutput += chunk.toString();
+		const onOutput = () => {
 			if (nativeWindowsCaptureOutput.includes("Recording started")) {
 				cleanup();
 				resolve();
@@ -961,58 +1064,11 @@ function waitForNativeWindowsCaptureStart(proc: ChildProcessWithoutNullStreams) 
 }
 
 function waitForNativeWindowsCaptureStop(proc: ChildProcessWithoutNullStreams) {
-	return new Promise<string>((resolve, reject) => {
-		const timer = setTimeout(() => {
-			cleanup();
-			if (!proc.killed) {
-				proc.kill();
-			}
-			reject(
-				new Error(
-					`Timed out waiting for native Windows capture to stop. Output path: ${
-						nativeWindowsCaptureTargetPath ?? "unknown"
-					}. Output: ${nativeWindowsCaptureOutput.trim()}`,
-				),
-			);
-		}, NATIVE_WINDOWS_CAPTURE_STOP_TIMEOUT_MS);
-		const onOutput = (chunk: Buffer) => {
-			nativeWindowsCaptureOutput += chunk.toString();
-		};
-		const onClose = (code: number | null) => {
-			cleanup();
-			const match = nativeWindowsCaptureOutput.match(/Recording stopped\. Output path: (.+)/);
-			if (match?.[1]) {
-				resolve(match[1].trim());
-				return;
-			}
-			if (code === 0 && nativeWindowsCaptureTargetPath) {
-				resolve(nativeWindowsCaptureTargetPath);
-				return;
-			}
-			reject(
-				new Error(
-					nativeWindowsCaptureOutput.trim() ||
-						`Native Windows capture exited with code=${code ?? "unknown"}`,
-				),
-			);
-		};
-		const onError = (error: Error) => {
-			cleanup();
-			reject(error);
-		};
-		const cleanup = () => {
-			clearTimeout(timer);
-			proc.stdout.off("data", onOutput);
-			proc.stderr.off("data", onOutput);
-			proc.off("close", onClose);
-			proc.off("error", onError);
-		};
-
-		proc.stdout.on("data", onOutput);
-		proc.stderr.on("data", onOutput);
-		proc.once("close", onClose);
-		proc.once("error", onError);
-	});
+	return waitForCaptureStop(
+		proc,
+		nativeWindowsCaptureTargetPath ?? "",
+		() => nativeWindowsCaptureOutput,
+	);
 }
 
 function readNativeWindowsWebcamFormat(output: string) {
@@ -1263,15 +1319,16 @@ async function loadRecordedSessionForVideoPath(
 }
 
 export function registerIpcHandlers(
-	createEditorWindow: (exportOnly?: boolean) => void,
+	createEditorWindow: (exportOnly?: boolean, showInitially?: boolean) => void,
 	createSourceSelectorWindow: () => BrowserWindow,
 	createCountdownOverlayWindow: () => BrowserWindow,
 	getMainWindow: () => BrowserWindow | null,
 	getSourceSelectorWindow: () => BrowserWindow | null,
 	getCountdownOverlayWindow?: () => BrowserWindow | null,
 	onRecordingStateChange?: (recording: boolean, sourceName: string) => void,
-	_switchToHud?: () => void,
+	_switchToHud?: (showInitially?: boolean) => void,
 ) {
+	registerLiveBlurHandlers(() => selectedSource?.id);
 	async function requestScreenAccess() {
 		if (process.platform !== "darwin") {
 			return { success: true, granted: true, status: "granted" };
@@ -1310,7 +1367,9 @@ export function registerIpcHandlers(
 	}
 
 	ipcMain.handle("get-sources", async (_, opts) => {
-		const sources = await desktopCapturer.getSources(opts);
+		const sources = (await desktopCapturer.getSources(opts)).filter(
+			(source) => !isRecordingPreviewSource(source.id),
+		);
 		lastEnumeratedSources = new Map(sources.map((source) => [source.id, source]));
 		return sources.map((source) => ({
 			id: source.id,
@@ -1341,6 +1400,9 @@ export function registerIpcHandlers(
 				selectedDesktopSource = null;
 			}
 		}
+		updateRecordingPreviewSource(selectedSource);
+		liveBlurRecorder.selectSource(selectedSource?.id);
+		notifyLiveBlurState();
 		const sourceSelectorWin = getSourceSelectorWindow();
 		if (sourceSelectorWin) {
 			sourceSelectorWin.close();
@@ -1350,6 +1412,73 @@ export function registerIpcHandlers(
 
 	ipcMain.handle("get-selected-source", () => {
 		return selectedSource;
+	});
+
+	ipcMain.handle("get-recording-preview-state", () => ({
+		supported: isRecordingPreviewSupported(),
+		open: isRecordingPreviewOpen(),
+		visible: isRecordingPreviewVisible(),
+	}));
+	ipcMain.handle("start-recording-preview-capture", async (event, id: string, sourceId: string) => {
+		const settings = getRecordingPreviewConfiguration(event.sender.id);
+		if (
+			!settings ||
+			!isRecordingPreviewSupported() ||
+			selectedSource?.id !== sourceId ||
+			typeof id !== "string" ||
+			id.length > 80
+		)
+			return { success: false };
+		stopPreviewCapture();
+		previewCaptureId = id;
+		const helper = await findNativeWindowsCaptureHelperPath();
+		if (
+			!helper ||
+			previewCaptureId !== id ||
+			event.sender.isDestroyed() ||
+			selectedSource?.id !== sourceId
+		)
+			return { success: false };
+		const bounds = getSelectedSourceBounds();
+		previewCapture = new RecordingPreviewCapture(
+			helper,
+			{
+				preview: true,
+				sourceType: sourceId.startsWith("window:") ? "window" : "display",
+				sourceId,
+				displayId: Number(selectedSource.display_id) || 0,
+				displayX: bounds.x,
+				displayY: bounds.y,
+				displayW: bounds.width,
+				displayH: bounds.height,
+				hasDisplayBounds: true,
+				fps: 15,
+				captureCursor: settings.cursorCaptureMode !== "hidden",
+			},
+			event.sender,
+			id,
+		);
+		return { success: true };
+	});
+	ipcMain.handle("stop-recording-preview-capture", (event, id: string) => {
+		if (getRecordingPreviewConfiguration(event.sender.id) && previewCaptureId === id)
+			stopPreviewCapture();
+	});
+	ipcMain.handle("toggle-recording-preview", async () => {
+		if (isRecordingPreviewOpen()) {
+			closeRecordingPreviewWindow();
+			return { success: true, open: false };
+		}
+		if (!isRecordingPreviewSupported() || !selectedDesktopSource) {
+			return { success: false, open: false };
+		}
+		try {
+			await createRecordingPreviewWindow();
+			return { success: true, open: true };
+		} catch (error) {
+			console.error("Could not open recording preview:", error);
+			return { success: false, open: false };
+		}
 	});
 
 	ipcMain.handle("request-camera-access", async () => {
@@ -1468,13 +1597,79 @@ export function registerIpcHandlers(
 		createEditorWindow();
 	});
 
-	ipcMain.handle("configure-after-recording", () => configureAfterRecording());
+	ipcMain.handle("configure-after-recording", () => {
+		createSettingsWindow();
+	});
+	ipcMain.handle("get-quiet-recording-support", (event) => {
+		if (!isSettingsWindow(event.sender.id)) throw new Error("Settings window required");
+		return getQuietRecordingSupport();
+	});
+	ipcMain.handle("prepare-quiet-recording", async (event) => {
+		if (!isRecorderWindow(event.sender.id)) throw new Error("Recorder window required");
+		if (!quietOwner || quietOwner.isDestroyed()) {
+			quietOwner = event.sender;
+			quietOwnerLost = false;
+			event.sender.once("destroyed", () => {
+				quietOwnerLost = true;
+				void releaseQuietRecording().catch(() => undefined);
+			});
+			event.sender.on("render-process-gone", () => {
+				quietOwnerLost = true;
+				void releaseQuietRecording().catch(() => undefined);
+			});
+		}
+		if (quietOwner.id !== event.sender.id)
+			throw new Error("Quiet recording belongs to another window");
+		const settings = await readAfterRecording();
+		if (!settings.quietRecording) return;
+		if (quietOwnerLost || event.sender.isDestroyed()) throw new Error("Recorder window closed");
+		await quietRecording.start();
+		if (quietOwnerLost || event.sender.isDestroyed()) await releaseQuietRecording();
+	});
+	ipcMain.handle("release-quiet-recording", (event) => {
+		if (!isRecorderWindow(event.sender.id) && event.sender.id !== quietOwner?.id)
+			throw new Error("Recorder window required");
+		return releaseQuietRecording();
+	});
+	ipcMain.handle("read-after-recording-settings", (event) => {
+		if (!isSettingsWindow(event.sender.id)) throw new Error("Settings window required");
+		return readAfterRecording();
+	});
+	ipcMain.handle("save-after-recording-settings", (event, settings: unknown) => {
+		if (!isSettingsWindow(event.sender.id)) throw new Error("Settings window required");
+		return writeAfterRecording(settings);
+	});
+	ipcMain.handle("choose-recording-editor", async (event) => {
+		if (!isSettingsWindow(event.sender.id)) throw new Error("Settings window required");
+		const selected = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender)!, {
+			title: "Choose video editor",
+			properties: ["openFile"],
+			...(process.platform === "win32"
+				? { filters: [{ name: "Applications", extensions: ["exe"] }] }
+				: {}),
+		});
+		return selected.canceled ? null : (selected.filePaths[0] ?? null);
+	});
+	ipcMain.handle("close-settings", (event) => {
+		if (isSettingsWindow(event.sender.id)) closeSettingsWindow();
+	});
 	ipcMain.handle("finish-recording", async () => {
 		const preference = await readAfterRecording();
 		if (preference.mode === "external" && preference.editorPath && currentVideoPath) {
+			if (currentRecordingSession?.recordedBlurs?.length) {
+				await dialog.showMessageBox({
+					type: "info",
+					message: "This recording has editable live blur",
+					detail:
+						"Export from Openscreen to include the blur before opening the video in another editor.",
+					buttons: ["Open in Openscreen"],
+				});
+				createEditorWindow(false, !preference.hideAfterRecording);
+				return;
+			}
 			try {
 				await launchExternalEditor(preference.editorPath, currentVideoPath);
-				_switchToHud?.();
+				_switchToHud?.(!preference.hideAfterRecording);
 				return;
 			} catch (error) {
 				await dialog.showMessageBox({
@@ -1485,7 +1680,27 @@ export function registerIpcHandlers(
 				});
 			}
 		}
-		createEditorWindow(preference.mode === "export");
+		createEditorWindow(preference.mode === "export", !preference.hideAfterRecording);
+	});
+	ipcMain.handle("recording-video-saved", async (event, filePath: unknown) => {
+		const win = BrowserWindow.fromWebContents(event.sender);
+		if (!win || !win.webContents.getURL().includes("windowType=editor"))
+			throw new Error("Editor window required");
+		if (typeof filePath !== "string" || !path.isAbsolute(filePath))
+			throw new Error("Saved video path required");
+		const preference = await readAfterRecording();
+		if (preference.hideAfterVideo) {
+			await fs.access(filePath);
+			if (!win.isDestroyed()) win.hide();
+		}
+	});
+	ipcMain.handle("dismiss-recording-video", async (event) => {
+		const win = BrowserWindow.fromWebContents(event.sender);
+		if (!win || !win.webContents.getURL().includes("windowType=editor"))
+			throw new Error("Editor window required");
+		const preference = await readAfterRecording();
+		_switchToHud?.(!preference.hideAfterVideo);
+		return { success: true };
 	});
 
 	ipcMain.handle("switch-to-hud", () => {
@@ -1499,6 +1714,7 @@ export function registerIpcHandlers(
 	});
 
 	ipcMain.handle("countdown-overlay-show", async (_, value: number, runId: number) => {
+		const sourceBounds = await getCountdownSourceBounds();
 		const overlayWindow = getCountdownOverlayWindow?.() ?? createCountdownOverlayWindow();
 		if (overlayWindow.isDestroyed()) {
 			return;
@@ -1512,17 +1728,36 @@ export function registerIpcHandlers(
 			});
 		}
 
+		const bounds = overlayWindow.getBounds();
+		overlayWindow.setPosition(
+			Math.round(sourceBounds.x + (sourceBounds.width - bounds.width) / 2),
+			Math.round(sourceBounds.y + (sourceBounds.height - bounds.height) / 2),
+		);
+		overlayWindow.setAlwaysOnTop(true, "screen-saver");
 		if (!overlayWindow.isVisible()) {
 			overlayWindow.showInactive();
 		}
+		overlayWindow.moveTop();
 
 		overlayWindow.webContents.send("countdown-overlay-value", value, runId);
 	});
 
-	ipcMain.handle("countdown-overlay-set-value", (_, value: number, runId: number) => {
+	ipcMain.handle("countdown-overlay-set-value", async (_, value: number, runId: number) => {
 		const overlayWindow = getCountdownOverlayWindow?.();
 		if (!overlayWindow || overlayWindow.isDestroyed()) {
 			return;
+		}
+		try {
+			const sourceBounds = await getCountdownSourceBounds();
+			const bounds = overlayWindow.getBounds();
+			overlayWindow.setPosition(
+				Math.round(sourceBounds.x + (sourceBounds.width - bounds.width) / 2),
+				Math.round(sourceBounds.y + (sourceBounds.height - bounds.height) / 2),
+			);
+			overlayWindow.setAlwaysOnTop(true, "screen-saver");
+			overlayWindow.moveTop();
+		} catch (error) {
+			console.warn("Failed to keep countdown on selected recording source:", error);
 		}
 
 		overlayWindow.webContents.send("countdown-overlay-value", value, runId);
@@ -1562,7 +1797,7 @@ export function registerIpcHandlers(
 
 	ipcMain.handle(
 		"start-native-windows-recording",
-		async (_, request: NativeWindowsRecordingRequest) => {
+		async (event, request: NativeWindowsRecordingRequest) => {
 			try {
 				if (!isWindowsGraphicsCaptureOsSupported()) {
 					return {
@@ -1672,6 +1907,18 @@ export function registerIpcHandlers(
 				});
 
 				await fs.mkdir(RECORDINGS_DIR, { recursive: true });
+				nativeWindowsDiagnostics = await RecordingDiagnostics.open(
+					path.join(RECORDINGS_DIR, `recording-${recordingId}.diagnostic.jsonl`),
+					{
+						version: app.getVersion(),
+						platform: process.platform,
+						systemVersion: process.getSystemVersion(),
+						helperPath,
+						config,
+					},
+				);
+				nativeWindowsStopNoticeShown = false;
+				nativeWindowsDiscardRequested = false;
 				nativeWindowsCaptureOutput = "";
 				nativeWindowsCaptureTargetPath = outputPath;
 				nativeWindowsCaptureWebcamTargetPath = request.webcam.enabled ? webcamOutputPath : null;
@@ -1701,9 +1948,59 @@ export function registerIpcHandlers(
 					windowsHide: true,
 				});
 				nativeWindowsCaptureProcess = proc;
+				const diagnostics = nativeWindowsDiagnostics;
+				diagnostics.write("helper-spawn", { pid: proc.pid });
+				proc.stdout.on("data", (chunk: Buffer) =>
+					diagnostics.write("helper-stdout", { text: chunk.toString() }),
+				);
+				proc.stderr.on("data", (chunk: Buffer) =>
+					diagnostics.write("helper-stderr", { text: chunk.toString() }),
+				);
+				proc.once("error", (error) => diagnostics.write("helper-error", { error: String(error) }));
+				proc.once("close", (code, signal) => diagnostics.write("helper-close", { code, signal }));
+				nativeWindowsCaptureStopping = false;
+				let progressBuffer = "";
+				let mediaTimeMs = 0;
+				const progress = (chunk: Buffer) => {
+					progressBuffer += chunk.toString();
+					const lines = progressBuffer.split(/\r?\n/);
+					progressBuffer = lines.pop() ?? "";
+					for (const line of lines) {
+						const status = tryParseNativeHelperEvent(line);
+						if (status?.event === "recording-progress" && typeof status.elapsedMs === "number") {
+							mediaTimeMs = status.elapsedMs;
+							if (nativeWindowsCaptureProcess === proc) liveBlurRecorder.setMediaTime(mediaTimeMs);
+						}
+					}
+				};
+				proc.stdout.on("data", progress);
+				const drain = (chunk: Buffer) => {
+					nativeWindowsCaptureOutput = (nativeWindowsCaptureOutput + chunk.toString()).slice(
+						-128_000,
+					);
+				};
+				proc.stdout.on("data", drain);
+				proc.stderr.on("data", drain);
+				proc.stdin.on("error", () => undefined);
+				proc.once("close", () => {
+					proc.stdout.off("data", progress);
+					proc.stdout.off("data", drain);
+					proc.stderr.off("data", drain);
+					if (
+						nativeWindowsCaptureProcess === proc &&
+						!nativeWindowsCaptureStopping &&
+						!event.sender.isDestroyed()
+					) {
+						event.sender.send("stop-recording-from-tray");
+					}
+				});
 
 				await waitForNativeWindowsCaptureStart(proc);
 				const captureStartedAtMs = Date.now();
+				liveBlurRecorder.selectSource(selectedSource?.id);
+				liveBlurRecorder.start(recordingId, captureStartedAtMs);
+				liveBlurRecorder.setMediaTime(mediaTimeMs);
+				notifyLiveBlurState();
 				nativeWindowsCursorOffsetMs =
 					cursorCaptureMode === "editable-overlay"
 						? Math.max(0, captureStartedAtMs - cursorStartTimeMs)
@@ -1728,6 +2025,9 @@ export function registerIpcHandlers(
 				};
 			} catch (error) {
 				console.error("Failed to start native Windows recording:", error);
+				nativeWindowsDiagnostics?.write("start-error", { error: String(error) });
+				await nativeWindowsDiagnostics?.finish();
+				nativeWindowsDiagnostics = null;
 				nativeWindowsCaptureProcess?.kill();
 				nativeWindowsCaptureProcess = null;
 				nativeWindowsCaptureTargetPath = null;
@@ -1800,7 +2100,7 @@ export function registerIpcHandlers(
 				},
 				video: {
 					...request.video,
-					hideSystemCursor: cursorCaptureMode === "editable-overlay",
+					hideSystemCursor: cursorCaptureMode !== "system",
 				},
 				webcam: {
 					...request.webcam,
@@ -1855,6 +2155,9 @@ export function registerIpcHandlers(
 
 			await waitForNativeMacCaptureStart(proc);
 			const captureStartedAtMs = Date.now();
+			liveBlurRecorder.selectSource(selectedSource?.id);
+			liveBlurRecorder.start(recordingId, captureStartedAtMs);
+			notifyLiveBlurState();
 			nativeMacCursorOffsetMs =
 				cursorCaptureMode === "editable-overlay"
 					? Math.max(0, captureStartedAtMs - cursorStartTimeMs)
@@ -1906,6 +2209,8 @@ export function registerIpcHandlers(
 
 		try {
 			proc.stdin.write("pause\n");
+			liveBlurRecorder.pause();
+			notifyLiveBlurState();
 			nativeMacIsPaused = true;
 			nativeMacPauseStartedAtMs = Date.now();
 			return { success: true };
@@ -1932,6 +2237,8 @@ export function registerIpcHandlers(
 
 		try {
 			proc.stdin.write("resume\n");
+			liveBlurRecorder.resume();
+			notifyLiveBlurState();
 			completeNativeMacCursorPauseRange();
 			nativeMacIsPaused = false;
 			return { success: true };
@@ -1956,6 +2263,8 @@ export function registerIpcHandlers(
 			proc.stdin.write("pause\n");
 			nativeWindowsIsPaused = true;
 			nativeWindowsPauseStartedAtMs = Date.now();
+			liveBlurRecorder.pause();
+			notifyLiveBlurState();
 			return { success: true };
 		} catch (error) {
 			return { success: false, error: error instanceof Error ? error.message : String(error) };
@@ -1978,28 +2287,43 @@ export function registerIpcHandlers(
 			proc.stdin.write("resume\n");
 			completeNativeWindowsCursorPauseRange();
 			nativeWindowsIsPaused = false;
+			liveBlurRecorder.resume();
+			notifyLiveBlurState();
 			return { success: true };
 		} catch (error) {
 			return { success: false, error: error instanceof Error ? error.message : String(error) };
 		}
 	});
 
-	ipcMain.handle("stop-native-windows-recording", async (_, discard?: boolean) => {
+	ipcMain.handle("stop-native-windows-recording", async (event, discard?: boolean) => {
+		const stopRequestedAtMs = Date.now();
 		const proc = nativeWindowsCaptureProcess;
 		const preferredPath = nativeWindowsCaptureTargetPath;
 		const preferredWebcamPath = nativeWindowsCaptureWebcamTargetPath;
 		const recordingId = nativeWindowsCaptureRecordingId ?? Date.now();
 		const cursorCaptureMode = nativeWindowsCursorCaptureMode;
+		const diagnostics = nativeWindowsDiagnostics;
+		nativeWindowsDiscardRequested ||= Boolean(discard);
+		const discardRequested = nativeWindowsDiscardRequested;
+		diagnostics?.write("stop-request", {
+			discard: Boolean(discard),
+			outputPath: preferredPath,
+			pid: proc?.pid,
+		});
 
-		if (!proc) {
-			return { success: false, error: "Native Windows capture is not running." };
-		}
-
+		let captureStopped = !proc;
 		try {
+			if (!proc) return { success: true, stopped: true, discarded: Boolean(discard) };
+			nativeWindowsCaptureStopping = true;
 			completeNativeWindowsCursorPauseRange();
 			const stoppedPathPromise = waitForNativeWindowsCaptureStop(proc);
-			proc.stdin.write("stop\n");
+			void stoppedPathPromise.catch(() => undefined);
+			if (proc.exitCode === null && proc.signalCode === null && proc.stdin.writable)
+				proc.stdin.write("stop\n");
 			const stoppedPath = await stoppedPathPromise;
+			captureStopped = true;
+			liveBlurRecorder.finish(recordingId, stopRequestedAtMs);
+			notifyLiveBlurState();
 			const screenVideoPath = stoppedPath || preferredPath;
 			if (!screenVideoPath) {
 				throw new Error("Native Windows capture did not return an output path.");
@@ -2010,7 +2334,7 @@ export function registerIpcHandlers(
 			} else {
 				pendingCursorRecordingData = null;
 			}
-			if (discard) {
+			if (discardRequested) {
 				pendingCursorRecordingData = null;
 				await Promise.all([
 					fs.rm(screenVideoPath, { force: true }),
@@ -2026,6 +2350,8 @@ export function registerIpcHandlers(
 				await writePendingCursorTelemetry(screenVideoPath);
 			}
 			let webcamVideoPath: string | undefined;
+			await validateFinalizedMp4(screenVideoPath);
+			diagnostics?.write("mp4-validated", { outputPath: screenVideoPath });
 			if (preferredWebcamPath) {
 				try {
 					await fs.access(preferredWebcamPath, fsConstants.R_OK);
@@ -2037,6 +2363,7 @@ export function registerIpcHandlers(
 			const session: RecordingSession = webcamVideoPath
 				? { screenVideoPath, webcamVideoPath, createdAt: recordingId, cursorCaptureMode }
 				: { screenVideoPath, createdAt: recordingId, cursorCaptureMode };
+			session.recordedBlurs = liveBlurRecorder.finish(recordingId);
 			setCurrentRecordingSessionState(session);
 			currentProjectPath = null;
 
@@ -2045,6 +2372,7 @@ export function registerIpcHandlers(
 				`${path.parse(screenVideoPath).name}${RECORDING_SESSION_SUFFIX}`,
 			);
 			await fs.writeFile(sessionManifestPath, JSON.stringify(session, null, 2), "utf-8");
+			diagnostics?.write("session-stored", { sessionManifestPath });
 
 			return {
 				success: true,
@@ -2054,23 +2382,64 @@ export function registerIpcHandlers(
 			};
 		} catch (error) {
 			console.error("Failed to stop native Windows recording:", error);
-			await stopCursorRecording();
-			return { success: false, error: String(error) };
-		} finally {
-			nativeWindowsCaptureProcess = null;
-			nativeWindowsCaptureTargetPath = null;
-			nativeWindowsCaptureWebcamTargetPath = null;
-			nativeWindowsCaptureRecordingId = null;
-			nativeWindowsCursorOffsetMs = 0;
-			nativeWindowsCursorCaptureMode = "editable-overlay";
-			nativeWindowsCursorRecordingStartMs = 0;
-			nativeWindowsPauseStartedAtMs = null;
-			nativeWindowsPauseRanges = [];
-			nativeWindowsIsPaused = false;
-			const source = selectedSource || { name: "Screen" };
-			if (onRecordingStateChange) {
-				onRecordingStateChange(false, source.name);
+			const pending = error instanceof CaptureStopPendingError;
+			captureStopped = !pending && (!proc || proc.exitCode !== null || proc.signalCode !== null);
+			diagnostics?.write(pending ? "stop-pending" : "stop-error", {
+				error: String(error),
+				outputPath: preferredPath,
+				captureStopped,
+			});
+			if (!pending || !nativeWindowsStopNoticeShown) {
+				nativeWindowsStopNoticeShown = true;
+				showRecordingFailure(
+					pending ? "Recording is still being saved" : "Recording could not be finalized",
+					`${String(error)}\n\nOriginal recording preserved: ${preferredPath ?? "unknown"}`,
+					diagnostics?.filePath,
+				);
 			}
+			if (
+				pending &&
+				proc &&
+				(proc.exitCode !== null || proc.signalCode !== null) &&
+				!event.sender.isDestroyed()
+			) {
+				setTimeout(() => {
+					if (!event.sender.isDestroyed()) event.sender.send("stop-recording-from-tray");
+				}, 0);
+			}
+			return {
+				success: false,
+				stopped: captureStopped,
+				error: pending
+					? error.message
+					: "Recording could not be finalized. See the recording dialog for full details and the diagnostic log.",
+				logPath: diagnostics?.filePath,
+			};
+		} finally {
+			if (captureStopped) {
+				await diagnostics?.finish();
+				if (nativeWindowsDiagnostics === diagnostics) nativeWindowsDiagnostics = null;
+				liveBlurRecorder.finish(recordingId, stopRequestedAtMs);
+				notifyLiveBlurState();
+				await stopCursorRecording();
+				await releaseQuietRecording().catch(() => undefined);
+				nativeWindowsCaptureProcess = null;
+				nativeWindowsCaptureStopping = false;
+				nativeWindowsCaptureTargetPath = null;
+				nativeWindowsCaptureWebcamTargetPath = null;
+				nativeWindowsCaptureRecordingId = null;
+				nativeWindowsCursorOffsetMs = 0;
+				nativeWindowsCursorCaptureMode = "editable-overlay";
+				nativeWindowsCursorRecordingStartMs = 0;
+				nativeWindowsPauseStartedAtMs = null;
+				nativeWindowsPauseRanges = [];
+				nativeWindowsIsPaused = false;
+				const source = selectedSource || { name: "Screen" };
+				if (onRecordingStateChange) {
+					onRecordingStateChange(false, source.name);
+				}
+			}
+			nativeWindowsCaptureStopping = false;
 		}
 	});
 
@@ -2082,6 +2451,7 @@ export function registerIpcHandlers(
 		const proc = nativeMacCaptureProcess;
 		const preferredPath = nativeMacCaptureTargetPath;
 		const recordingId = nativeMacCaptureRecordingId ?? Date.now();
+		const stopRequestedAtMs = Date.now();
 		const cursorCaptureMode = nativeMacCursorCaptureMode;
 
 		if (!proc) {
@@ -2094,6 +2464,8 @@ export function registerIpcHandlers(
 			proc.stdin.write("stop\n");
 			const stoppedPath = await stoppedPathPromise;
 			const screenVideoPath = stoppedPath || preferredPath;
+			liveBlurRecorder.finish(recordingId, stopRequestedAtMs);
+			notifyLiveBlurState();
 			if (!screenVideoPath) {
 				throw new Error("Native macOS capture did not return an output path.");
 			}
@@ -2122,6 +2494,7 @@ export function registerIpcHandlers(
 				screenVideoPath,
 				createdAt: recordingId,
 				cursorCaptureMode,
+				recordedBlurs: liveBlurRecorder.finish(recordingId),
 			};
 			setCurrentRecordingSessionState(session);
 			currentProjectPath = null;
@@ -2143,7 +2516,10 @@ export function registerIpcHandlers(
 			await stopCursorRecording();
 			return { success: false, error: error instanceof Error ? error.message : String(error) };
 		} finally {
+			await releaseQuietRecording().catch(() => undefined);
 			nativeMacCaptureProcess = null;
+			liveBlurRecorder.finish(recordingId, stopRequestedAtMs);
+			notifyLiveBlurState();
 			nativeMacCaptureTargetPath = null;
 			nativeMacCaptureRecordingId = null;
 			nativeMacCursorOffsetMs = 0;
@@ -2193,6 +2569,7 @@ export function registerIpcHandlers(
 					screenVideoPath,
 					webcamVideoPath,
 					createdAt,
+					recordedBlurs: liveBlurRecorder.finish(createdAt),
 					...(cursorCaptureMode ? { cursorCaptureMode } : {}),
 				};
 				setCurrentRecordingSessionState(session);
@@ -2286,6 +2663,7 @@ export function registerIpcHandlers(
 					...(cursorCaptureMode ? { cursorCaptureMode } : {}),
 				}
 			: { screenVideoPath, createdAt, ...(cursorCaptureMode ? { cursorCaptureMode } : {}) };
+		session.recordedBlurs = liveBlurRecorder.finish(createdAt);
 		setCurrentRecordingSessionState(session);
 		currentProjectPath = null;
 
@@ -2348,7 +2726,20 @@ export function registerIpcHandlers(
 
 	ipcMain.handle(
 		"set-recording-state",
-		async (_, recording: boolean, recordingId?: number, cursorCaptureMode?: CursorCaptureMode) => {
+		async (
+			event,
+			recording: boolean,
+			recordingId?: number,
+			cursorCaptureMode?: CursorCaptureMode,
+		) => {
+			if (recording && typeof recordingId === "number") {
+				liveBlurRecorder.selectSource(selectedSource?.id);
+				liveBlurRecorder.start(recordingId);
+			} else if (!recording) {
+				liveBlurRecorder.finish();
+			}
+			notifyLiveBlurState();
+			if (!recording && event.sender.id === quietOwner?.id) await releaseQuietRecording();
 			const normalizedCursorCaptureMode =
 				normalizeCursorCaptureMode(cursorCaptureMode) ?? "editable-overlay";
 			if (recording && normalizedCursorCaptureMode === "editable-overlay") {
@@ -2388,6 +2779,13 @@ export function registerIpcHandlers(
 	// Return base path for assets so renderer can resolve file:// paths in production
 	ipcMain.handle("get-asset-base-path", () => {
 		return resolveAssetBasePath();
+	});
+
+	ipcMain.handle("copy-file-path", (_, filePath: unknown) => {
+		if (typeof filePath !== "string" || filePath.includes("\0") || !path.isAbsolute(filePath)) {
+			throw new Error("Invalid file path");
+		}
+		clipboard.writeText(filePath);
 	});
 
 	ipcMain.handle("pick-export-save-path", async (_, fileName: string, exportFolder?: string) => {
@@ -2437,6 +2835,21 @@ export function registerIpcHandlers(
 				success: false,
 				message: "Failed to show save dialog",
 				error: String(error),
+			};
+		}
+	});
+
+	ipcMain.handle("export-original-recording", async (_, filePath: string) => {
+		try {
+			const source = resolveApprovedVideoPath(currentVideoPath);
+			if (!source) return { success: false, message: "No approved recording is loaded" };
+			if (currentRecordingSession?.recordedBlurs?.length)
+				return { success: false, message: "Live blur requires styled MP4 or GIF export" };
+			return { success: true, path: await copyOriginalRecording(source, filePath) };
+		} catch (error) {
+			return {
+				success: false,
+				message: error instanceof Error ? error.message : "Failed to export original recording",
 			};
 		}
 	});
@@ -2867,16 +3280,6 @@ export function registerIpcHandlers(
 			return JSON.parse(data);
 		} catch {
 			return null;
-		}
-	});
-
-	ipcMain.handle("save-shortcuts", async (_, shortcuts: unknown) => {
-		try {
-			await fs.writeFile(SHORTCUTS_FILE, JSON.stringify(shortcuts, null, 2), "utf-8");
-			return { success: true };
-		} catch (error) {
-			console.error("Failed to save shortcuts:", error);
-			return { success: false, error: String(error) };
 		}
 	});
 

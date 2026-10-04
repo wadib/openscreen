@@ -1,4 +1,30 @@
 {
+	"settings": {
+		"general": "Genel",
+		"hideAfterRecording": "Kayıt bitince gizle",
+		"hideAfterVideo": "Video kaydedildiğinde veya kapatıldığında gizle",
+		"quietRecording": "Rahatsız edilmeden kayıt",
+		"quietUnavailable": "Rahatsız edilmeden kayıt bu sistemde kullanılamıyor.",
+		"title": "Ayarlar",
+		"afterRecording": "Kayıt durduğunda",
+		"openEditor": "Openscreen ile aç",
+		"externalEditor": "Başka bir düzenleyici seç",
+		"exportDirectly": "Doğrudan dışa aktar",
+		"videoEditor": "Video düzenleyici",
+		"chooseEditor": "Video düzenleyici seç",
+		"loadError": "Ayarlar yüklenemedi. Tekrar denemek için Ayarlar’ı yeniden açın.",
+		"chooseError": "Düzenleyici seçilemedi. Tekrar deneyin.",
+		"saveError": "Ayarlar kaydedilemedi. Seçilen düzenleyiciyi kontrol edip tekrar deneyin."
+	},
+	"preview": {
+		"open": "Kayıt önizlemesini göster",
+		"close": "Kayıt önizlemesini gizle",
+		"title": "Kayıt önizlemesi",
+		"connecting": "Bağlanıyor...",
+		"unavailable": "Önizleme kullanılamıyor",
+		"selectSource": "Bir ekran veya pencere seçin",
+		"retry": "Önizlemeyi yeniden dene"
+	},
 	"tooltips": {
 		"hideHUD": "Kontrol panelini gizle",
 		"closeApp": "Uygulamayı kapat",
@@ -27,6 +53,9 @@
 		"unavailable": "Kamera kullanılamıyor"
 	},
 	"cursor": {
+		"show": "İmleci göster",
+		"hide": "İmleci gizle",
+		"mode": "İmleç modu",
 		"useEditableCursor": "Düzenlenebilir imleci kullan",
 		"useSystemCursor": "Sistem imlecini kullan"
 	},

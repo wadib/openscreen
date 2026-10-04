@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, "..");
 const SOURCE_DIR = path.join(ROOT, "electron", "native", "wgc-capture");
-const BUILD_DIR = path.join(SOURCE_DIR, "build");
+const BUILD_DIR = process.env.WGC_BUILD_DIR
+	? path.resolve(process.env.WGC_BUILD_DIR)
+	: path.join(SOURCE_DIR, "build");
 const COMPAT_LIB_DIR = path.join(BUILD_DIR, "compat-libs");
 const BIN_DIR = path.join(ROOT, "electron", "native", "bin", "win32-x64");
 const CMAKE = process.env.CMAKE_EXE ?? "cmake";

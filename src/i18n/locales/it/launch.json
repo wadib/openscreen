@@ -1,4 +1,30 @@
 {
+	"settings": {
+		"general": "Generali",
+		"hideAfterRecording": "Nascondi al termine della registrazione",
+		"hideAfterVideo": "Nascondi dopo aver salvato o chiuso il video",
+		"quietRecording": "Registrazione senza disturbi",
+		"quietUnavailable": "La registrazione senza disturbi non è disponibile su questo sistema.",
+		"title": "Impostazioni",
+		"afterRecording": "Al termine della registrazione",
+		"openEditor": "Apri in Openscreen",
+		"externalEditor": "Scegli un altro editor",
+		"exportDirectly": "Esporta direttamente",
+		"videoEditor": "Editor video",
+		"chooseEditor": "Scegli editor video",
+		"loadError": "Impossibile caricare le impostazioni. Riaprile per riprovare.",
+		"chooseError": "Impossibile selezionare un editor. Riprova.",
+		"saveError": "Impossibile salvare le impostazioni. Verifica l’editor selezionato e riprova."
+	},
+	"preview": {
+		"open": "Mostra anteprima della registrazione",
+		"close": "Nascondi anteprima della registrazione",
+		"title": "Anteprima della registrazione",
+		"connecting": "Connessione...",
+		"unavailable": "Anteprima non disponibile",
+		"selectSource": "Seleziona uno schermo o una finestra",
+		"retry": "Riprova anteprima"
+	},
 	"tooltips": {
 		"hideHUD": "Nascondi",
 		"closeApp": "Chiudi app",
@@ -27,6 +53,9 @@
 		"unavailable": "Fotocamera non disponibile"
 	},
 	"cursor": {
+		"show": "Mostra cursore",
+		"hide": "Nascondi cursore",
+		"mode": "Modalità cursore",
 		"useEditableCursor": "Usa cursore modificabile",
 		"useSystemCursor": "Usa cursore di sistema"
 	},

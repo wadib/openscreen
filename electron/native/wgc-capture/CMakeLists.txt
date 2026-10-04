@@ -16,9 +16,14 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_executable(wgc-capture
   src/audio_sample_utils.cpp
   src/audio_sample_utils.h
+  src/capture_clock.h
   src/dshow_webcam_capture.cpp
   src/dshow_webcam_capture.h
   src/main.cpp
+  src/preview.cpp
+  src/preview.h
+  src/popup_overlay_capture.cpp
+  src/popup_overlay_capture.h
   src/mf_encoder.cpp
   src/mf_encoder.h
   src/monitor_utils.cpp
@@ -40,6 +45,7 @@ target_compile_definitions(wgc-capture PRIVATE
 target_compile_options(wgc-capture PRIVATE /EHsc /W4 /utf-8 /await)
 
 target_link_libraries(wgc-capture PRIVATE
+  dwmapi
   d3d11
   dxgi
   mf
@@ -48,6 +54,7 @@ target_link_libraries(wgc-capture PRIVATE
   mfuuid
   runtimeobject
   windowsapp
+  windowscodecs
 )
 
 add_executable(cursor-sampler
@@ -65,3 +72,13 @@ target_link_libraries(cursor-sampler PRIVATE
   gdi32
   gdiplus
 )
+
+option(OPENSCREEN_BUILD_NATIVE_TESTS "Build focused native capture regression tests" OFF)
+if(OPENSCREEN_BUILD_NATIVE_TESTS)
+  enable_testing()
+  add_executable(audio-mixer-tests tests/audio-mixer-tests.cpp src/audio_sample_utils.cpp)
+  target_compile_definitions(audio-mixer-tests PRIVATE NOMINMAX WIN32_LEAN_AND_MEAN)
+  target_compile_options(audio-mixer-tests PRIVATE /EHsc /W4 /utf-8)
+  target_link_libraries(audio-mixer-tests PRIVATE mfuuid)
+  add_test(NAME audio-mixer-tests COMMAND audio-mixer-tests)
+endif()

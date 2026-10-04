@@ -50,6 +50,7 @@ import {
 	VideoExporter,
 } from "@/lib/exporter";
 import { computeFrameStepTime } from "@/lib/frameStep";
+import { recordedBlursToAnnotations } from "@/lib/liveBlur";
 import type { CursorCaptureMode, ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
 import {
@@ -99,6 +100,7 @@ import {
 	DEFAULT_ANNOTATION_SIZE,
 	DEFAULT_ANNOTATION_STYLE,
 	DEFAULT_BLUR_DATA,
+	DEFAULT_CROP_REGION,
 	DEFAULT_FIGURE_DATA,
 	DEFAULT_PLAYBACK_SPEED,
 	DEFAULT_ZOOM_DEPTH,
@@ -242,6 +244,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 		DEFAULT_EXPORT_SETTINGS.quality,
 	);
 	const [exportFormat, setExportFormat] = useState<ExportFormat>(DEFAULT_EXPORT_SETTINGS.format);
+	const [originalExport, setOriginalExport] = useState(false);
 	const [gifFrameRate, setGifFrameRate] = useState<GifFrameRate>(DEFAULT_GIF_SETTINGS.frameRate);
 	const [gifLoop, setGifLoop] = useState(DEFAULT_GIF_SETTINGS.loop);
 	const [gifSizePreset, setGifSizePreset] = useState<GifSizePreset>(
@@ -296,6 +299,14 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 		useState<CursorCaptureMode | null>(null);
 
 	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
+	const [recordedBlurSource, setRecordedBlurSource] = useState<string | null>(null);
+	const canExportOriginal =
+		recordedBlurSource !== fromFileUrl(videoSourcePath ?? videoPath ?? "") &&
+		!annotationRegions.some((region) => region.type === "blur") &&
+		/\.mp4$/i.test(videoSourcePath ?? fromFileUrl(videoPath ?? ""));
+	useEffect(() => {
+		if (!canExportOriginal) setOriginalExport(false);
+	}, [canExportOriginal]);
 
 	const nextZoomIdRef = useRef(1);
 	const nextTrimIdRef = useRef(1);
@@ -555,7 +566,13 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 				const currentSessionResult = await window.electronAPI.getCurrentRecordingSession();
 				if (currentSessionResult.success && currentSessionResult.session) {
 					const session = currentSessionResult.session;
+					const annotations = recordedBlursToAnnotations(session.recordedBlurs ?? []);
+					const sessionEditor = { ...INITIAL_EDITOR_STATE, annotationRegions: annotations };
+					resetState(sessionEditor);
+					nextAnnotationZIndexRef.current =
+						Math.max(0, ...annotations.map((area) => area.zIndex)) + 1;
 					const sourcePath = fromFileUrl(session.screenVideoPath);
+					setRecordedBlurSource(annotations.length ? sourcePath : null);
 					const webcamSourcePath = session.webcamVideoPath
 						? fromFileUrl(session.webcamVideoPath)
 						: null;
@@ -574,7 +591,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 									? { cursorCaptureMode: session.cursorCaptureMode }
 									: {}),
 							},
-							INITIAL_EDITOR_STATE,
+							sessionEditor,
 						),
 					);
 					return;
@@ -600,7 +617,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 		}
 
 		loadInitialData();
-	}, [applyLoadedProject]);
+	}, [applyLoadedProject, resetState]);
 
 	// Avoid overwriting saved prefs with defaults before they've loaded.
 	const [prefsHydrated, setPrefsHydrated] = useState(false);
@@ -1389,12 +1406,13 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 				startMs: Math.round(span.start),
 				endMs: Math.round(span.end),
 				type: "blur",
+				annotationSource: "live-blur",
 				content: "",
 				position: { ...DEFAULT_ANNOTATION_POSITION },
 				size: { ...DEFAULT_ANNOTATION_SIZE },
 				style: { ...DEFAULT_ANNOTATION_STYLE },
 				zIndex,
-				blurData: { ...DEFAULT_BLUR_DATA },
+				blurData: { ...DEFAULT_BLUR_DATA, type: "blur" },
 			};
 			pushState((prev) => ({
 				annotationRegions: [...prev.annotationRegions, newRegion],
@@ -1765,6 +1783,19 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 	const handleExportSaved = useCallback(
 		(formatLabel: "GIF" | "Video", filePath: string) => {
 			setExportedFilePath(filePath);
+			if (exportOnly) {
+				void window.electronAPI
+					.copyFilePath(filePath)
+					.catch(() => {
+						toast.warning("Recording exported, but its path could not be copied");
+					})
+					.then(() => window.electronAPI.recordingVideoSaved(filePath))
+					.catch((error) => console.error("Could not apply video visibility setting:", error));
+			} else {
+				void window.electronAPI
+					.recordingVideoSaved(filePath)
+					.catch((error) => console.error("Could not apply video visibility setting:", error));
+			}
 			const folder = parentDirectoryOf(filePath);
 			if (folder) {
 				saveUserPreferences({ exportFolder: folder });
@@ -1784,8 +1815,37 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 				},
 			);
 		},
-		[handleShowExportedFile, t, rawT],
+		[exportOnly, handleShowExportedFile, t, rawT],
 	);
+
+	const handleOriginalExport = useCallback(async () => {
+		if (!canExportOriginal || isExporting) return;
+		setIsExporting(true);
+		setExportError(null);
+		try {
+			const pickResult = await window.electronAPI.pickExportSavePath(
+				`original-${Date.now()}.mp4`,
+				getExportFolder(),
+			);
+			if (pickResult.canceled) return;
+			if (!pickResult.success || !pickResult.path) {
+				throw new Error(pickResult.message || "Could not choose an export destination");
+			}
+			const result = await window.electronAPI.exportOriginalRecording(pickResult.path);
+			if (!result.success || !result.path) {
+				throw new Error(result.message || "Could not export the original recording");
+			}
+			setUnsavedExport(null);
+			handleExportSaved("Video", result.path);
+		} catch (error) {
+			const message =
+				error instanceof Error ? error.message : "Could not export original recording";
+			setExportError(message);
+			toast.error(message);
+		} finally {
+			setIsExporting(false);
+		}
+	}, [canExportOriginal, isExporting, handleExportSaved]);
 
 	const handleSaveUnsavedExport = useCallback(async () => {
 		if (!unsavedExport) return;
@@ -2358,7 +2418,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 					<button
 						type="button"
 						disabled={isExporting}
-						onClick={() => void window.electronAPI.startNewRecording()}
+						onClick={() => void window.electronAPI.dismissRecordingVideo()}
 						className="text-sm text-zinc-400 hover:text-white disabled:opacity-40"
 					>
 						Done
@@ -2369,13 +2429,13 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 						className="h-full w-auto max-w-full"
 						style={{
 							aspectRatio:
-								aspectRatio === "native"
+								originalExport || aspectRatio === "native"
 									? getNativeAspectRatioValue(
 											videoPlaybackRef.current?.video?.videoWidth ||
 												DEFAULT_SOURCE_DIMENSIONS.width,
 											videoPlaybackRef.current?.video?.videoHeight ||
 												DEFAULT_SOURCE_DIMENSIONS.height,
-											cropRegion,
+											originalExport ? DEFAULT_CROP_REGION : cropRegion,
 										)
 									: getAspectRatioValue(aspectRatio),
 						}}
@@ -2383,7 +2443,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 						<VideoPlayback
 							ref={videoPlaybackRef}
 							videoPath={videoPath || ""}
-							webcamVideoPath={webcamVideoPath || undefined}
+							webcamVideoPath={originalExport ? undefined : webcamVideoPath || undefined}
 							webcamLayoutPreset={webcamLayoutPreset}
 							webcamMaskShape={webcamMaskShape}
 							webcamMirrored={webcamMirrored}
@@ -2397,30 +2457,31 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 							onError={setError}
 							isPlaying={isPlaying}
 							wallpaper={wallpaper}
-							zoomRegions={zoomRegions}
+							zoomRegions={originalExport ? [] : zoomRegions}
 							selectedZoomId={null}
 							onSelectZoom={() => undefined}
 							onZoomFocusChange={handleZoomFocusChange}
-							aspectRatio={aspectRatio}
-							shadowIntensity={shadowIntensity}
-							showShadow={shadowIntensity > 0}
-							showBlur={showBlur}
-							motionBlurAmount={motionBlurAmount}
-							borderRadius={borderRadius}
-							padding={padding}
-							cropRegion={cropRegion}
-							cursorRecordingData={cursorRecordingData}
-							cursorTelemetry={cursorTelemetry}
-							cursorClickTimestamps={cursorClickTimestamps}
-							cursorSize={cursorSize}
+							aspectRatio={originalExport ? "native" : aspectRatio}
+							shadowIntensity={originalExport ? 0 : shadowIntensity}
+							showShadow={!originalExport && shadowIntensity > 0}
+							showBlur={!originalExport && showBlur}
+							motionBlurAmount={originalExport ? 0 : motionBlurAmount}
+							borderRadius={originalExport ? 0 : borderRadius}
+							padding={originalExport ? 0 : padding}
+							cropRegion={originalExport ? DEFAULT_CROP_REGION : cropRegion}
+							cursorRecordingData={originalExport ? null : cursorRecordingData}
+							cursorTelemetry={originalExport ? [] : cursorTelemetry}
+							cursorClickTimestamps={originalExport ? [] : cursorClickTimestamps}
+							cursorSize={originalExport ? 0 : cursorSize}
+							showCursor={!originalExport && effectiveShowCursor}
 							cursorSmoothing={cursorSmoothing}
 							cursorMotionBlur={cursorMotionBlur}
 							cursorClickBounce={cursorClickBounce}
 							cursorTheme={cursorTheme}
-							trimRegions={trimRegions}
-							speedRegions={speedRegions}
-							annotationRegions={annotationOnlyRegions}
-							blurRegions={blurRegions}
+							trimRegions={originalExport ? [] : trimRegions}
+							speedRegions={originalExport ? [] : speedRegions}
+							annotationRegions={originalExport ? [] : annotationOnlyRegions}
+							blurRegions={originalExport ? [] : blurRegions}
 						/>
 					</div>
 				</section>
@@ -2444,27 +2505,35 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 					</p>
 				)}
 				<DirectExportControls
-					format={exportFormat}
+					format={originalExport ? "original" : exportFormat}
+					canExportOriginal={canExportOriginal}
+					originalExclusions={[
+						...(recordingCursorCaptureMode === "editable-overlay" ? ["editable cursor"] : []),
+						...(webcamVideoPath ? ["webcam"] : []),
+					]}
 					quality={exportQuality}
 					rate={gifFrameRate}
 					size={gifSizePreset}
 					loop={gifLoop}
-					onFormat={setExportFormat}
+					onFormat={(format) => {
+						setOriginalExport(format === "original");
+						if (format !== "original") setExportFormat(format);
+					}}
 					onQuality={setExportQuality}
 					onRate={setGifFrameRate}
 					onSize={setGifSizePreset}
 					onLoop={setGifLoop}
-					onExport={handleOpenExportDialog}
+					onExport={originalExport ? handleOriginalExport : handleOpenExportDialog}
 					busy={isExporting}
-					ready={Boolean(videoPath) && duration > 0}
+					ready={Boolean(videoPath) && (originalExport ? canExportOriginal : duration > 0)}
 					exportedPath={exportedFilePath}
 					onShowFile={() => {
 						if (exportedFilePath) void handleShowExportedFile(exportedFilePath);
 					}}
 					onCopyPath={() => {
 						if (exportedFilePath)
-							void navigator.clipboard
-								.writeText(exportedFilePath)
+							void window.electronAPI
+								.copyFilePath(exportedFilePath)
 								.catch(() => toast.error("Could not copy file path"));
 					}}
 				/>
@@ -2949,6 +3018,12 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 										selectedBlurId={selectedBlurId}
 										blurRegions={blurRegions}
 										onBlurDataChange={handleBlurDataPanelChange}
+										onBlurAdd={() =>
+											handleBlurAdded({
+												start: currentTime * 1000,
+												end: Math.min(duration * 1000, currentTime * 1000 + 5000),
+											})
+										}
 										onBlurDataCommit={commitState}
 										onBlurDelete={handleAnnotationDelete}
 										selectedSpeedId={selectedSpeedId}
@@ -3026,7 +3101,6 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 									selectedAnnotationId={selectedAnnotationId}
 									onSelectAnnotation={handleSelectAnnotation}
 									blurRegions={blurRegions}
-									onBlurAdded={handleBlurAdded}
 									onBlurSpanChange={handleAnnotationSpanChange}
 									onBlurDelete={handleAnnotationDelete}
 									selectedBlurId={selectedBlurId}

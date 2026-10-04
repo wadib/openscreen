@@ -115,6 +115,17 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 	}, [locale]);
 
 	useEffect(() => {
+		const syncLocale = (event: StorageEvent) => {
+			if (event.key !== LOCALE_STORAGE_KEY || !event.newValue || !isSupportedLocale(event.newValue))
+				return;
+			setLocaleState(event.newValue);
+			setSystemLocaleSuggestion(null);
+		};
+		window.addEventListener("storage", syncLocale);
+		return () => window.removeEventListener("storage", syncLocale);
+	}, []);
+
+	useEffect(() => {
 		if (hasRunSystemLocaleCheckRef.current) return;
 		hasRunSystemLocaleCheckRef.current = true;
 

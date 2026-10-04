@@ -10,11 +10,20 @@
 #include <cstdint>
 #include <mutex>
 #include <string>
+#include <vector>
 
 struct BgraFrameView {
     const BYTE* data = nullptr;
     int width = 0;
     int height = 0;
+};
+
+struct BgraOverlayView {
+    const BYTE* data = nullptr;
+    int width = 0;
+    int height = 0;
+    int destinationX = 0;
+    int destinationY = 0;
 };
 
 struct AudioInputFormat {
@@ -43,7 +52,11 @@ public:
         ID3D11Device* device,
         ID3D11DeviceContext* context,
         const AudioInputFormat* audioFormat = nullptr);
-    bool writeFrame(ID3D11Texture2D* texture, int64_t timestampHns, const BgraFrameView* webcamFrame = nullptr);
+    bool writeFrame(
+        ID3D11Texture2D* texture,
+        int64_t timestampHns,
+        const BgraFrameView* webcamFrame = nullptr,
+        const std::vector<BgraOverlayView>* overlays = nullptr);
     bool writeBgraFrame(const BgraFrameView& frame, int64_t timestampHns);
     bool writeAudio(const BYTE* data, DWORD byteCount, int64_t timestampHns, int64_t durationHns);
     bool finalize();
@@ -54,7 +67,8 @@ private:
         ID3D11Texture2D* texture,
         BYTE* destination,
         DWORD destinationSize,
-        const BgraFrameView* webcamFrame);
+        const BgraFrameView* webcamFrame,
+        const std::vector<BgraOverlayView>* overlays);
     bool copyBgraFrameToBuffer(const BgraFrameView& frame, BYTE* destination, DWORD destinationSize);
     bool configureAudioStream(const AudioInputFormat& audioFormat);
 
@@ -69,7 +83,6 @@ private:
     int width_ = 0;
     int height_ = 0;
     int fps_ = 60;
-    int64_t firstTimestampHns_ = -1;
     int64_t lastTimestampHns_ = -1;
     bool finalized_ = false;
 };

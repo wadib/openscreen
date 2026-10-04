@@ -9,6 +9,8 @@ const props = () => ({
 	size: "medium" as const,
 	loop: true,
 	onFormat: vi.fn(),
+	canExportOriginal: true,
+	originalExclusions: [],
 	onQuality: vi.fn(),
 	onRate: vi.fn(),
 	onSize: vi.fn(),
@@ -22,12 +24,38 @@ const props = () => ({
 });
 afterEach(cleanup);
 describe("compact direct export controls", () => {
+	it("offers original export separately and hides render settings", () => {
+		const value = props();
+		render(<DirectExportControls {...value} format="original" />);
+		fireEvent.change(screen.getByLabelText("Format"), { target: { value: "original" } });
+		expect(value.onFormat).toHaveBeenCalledWith("original");
+		expect(screen.queryByLabelText("Quality")).toBeNull();
+		expect(screen.queryByLabelText("Frame rate")).toBeNull();
+		fireEvent.click(screen.getByRole("button", { name: "Export & copy path", exact: true }));
+		expect(value.onExport).toHaveBeenCalledOnce();
+	});
+	it("disables original export when the source is not an MP4", () => {
+		render(<DirectExportControls {...props()} canExportOriginal={false} />);
+		expect(
+			(screen.getByRole("option", { name: "Original MP4 (fast)" }) as HTMLOptionElement).disabled,
+		).toBe(true);
+	});
+	it("shows separate layers excluded from the original recording", () => {
+		render(
+			<DirectExportControls
+				{...props()}
+				format="original"
+				originalExclusions={["editable cursor", "webcam"]}
+			/>,
+		);
+		expect(screen.getByRole("status").textContent).toBe("Not included: editable cursor, webcam");
+	});
 	it("exposes MP4 quality without editor tools", () => {
 		const value = props();
 		render(<DirectExportControls {...value} />);
 		fireEvent.change(screen.getByLabelText("Quality"), { target: { value: "source" } });
 		expect(value.onQuality).toHaveBeenCalledWith("source");
-		fireEvent.click(screen.getByRole("button", { name: "Export", exact: true }));
+		fireEvent.click(screen.getByRole("button", { name: "Export & copy path", exact: true }));
 		expect(value.onExport).toHaveBeenCalledOnce();
 		expect(screen.queryByLabelText("Frame rate")).toBeNull();
 	});
@@ -37,7 +65,8 @@ describe("compact direct export controls", () => {
 		fireEvent.change(screen.getByLabelText("Frame rate"), { target: { value: "30" } });
 		expect(value.onRate).toHaveBeenCalledWith(30);
 		expect(
-			(screen.getByRole("button", { name: "Export", exact: true }) as HTMLButtonElement).disabled,
+			(screen.getByRole("button", { name: "Export & copy path", exact: true }) as HTMLButtonElement)
+				.disabled,
 		).toBe(true);
 		expect(screen.queryByLabelText("Quality")).toBeNull();
 	});

@@ -6,7 +6,9 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <chrono>
 #include <cstdint>
+#include <deque>
 #include <functional>
 #include <mutex>
 #include <thread>
@@ -33,6 +35,20 @@ void mixAudioInPlace(
     DWORD byteCount,
     const AudioInputFormat& format);
 
+class TimestampedAudioQueue {
+public:
+    void clear();
+    void append(std::vector<BYTE> data, int64_t firstFrame, uint32_t blockAlign);
+    void read(std::vector<BYTE>& chunk, int64_t firstFrame, uint32_t frames, uint32_t blockAlign);
+
+private:
+    struct Packet {
+        int64_t firstFrame;
+        std::vector<BYTE> data;
+    };
+    std::deque<Packet> packets_;
+};
+
 class AudioMixer {
 public:
     using OutputCallback = std::function<bool(const BYTE* data, DWORD byteCount, int64_t timestampHns, int64_t durationHns)>;
@@ -51,20 +67,20 @@ public:
     AudioMixer& operator=(const AudioMixer&) = delete;
 
     bool start();
-    void beginTimeline();
+    void beginTimeline(int64_t epochHns = 0);
     void setPaused(bool paused);
     void stop();
-    void pushSystem(const BYTE* data, DWORD byteCount);
-    void pushMicrophone(const BYTE* data, DWORD byteCount);
+    void pushSystem(const BYTE* data, DWORD byteCount, int64_t timestampHns);
+    void pushMicrophone(const BYTE* data, DWORD byteCount, int64_t timestampHns);
 
 private:
     void append(
-        std::vector<BYTE>& queue,
+        TimestampedAudioQueue& queue,
         const BYTE* data,
         DWORD byteCount,
         const AudioInputFormat& sourceFormat,
-        double gain);
-    bool pop(std::vector<BYTE>& queue, std::vector<BYTE>& chunk, size_t byteCount);
+        double gain,
+        int64_t timestampHns);
     void mixLoop();
 
     AudioInputFormat format_{};
@@ -76,12 +92,21 @@ private:
     OutputCallback output_;
     std::mutex mutex_;
     std::condition_variable cv_;
-    std::vector<BYTE> systemQueue_;
-    std::vector<BYTE> microphoneQueue_;
+    TimestampedAudioQueue systemQueue_;
+    TimestampedAudioQueue microphoneQueue_;
     std::vector<BYTE> gainBuffer_;
     std::thread thread_;
     std::atomic<bool> stopRequested_ = false;
     bool timelineStarted_ = false;
     bool paused_ = false;
     uint64_t emittedFrames_ = 0;
+    int64_t epochHns_ = 0;
+    int64_t activeStartHns_ = 0;
+    int64_t pauseStartHns_ = 0;
+    int64_t pausedHns_ = 0;
+    uint64_t stopAtFrames_ = 0;
+    uint64_t packetCount_ = 0;
+    uint64_t discardedPacketCount_ = 0;
+    int64_t maxDeliveryHns_ = 0;
+    std::chrono::steady_clock::time_point clockStart_;
 };

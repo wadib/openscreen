@@ -1,4 +1,30 @@
 {
+	"settings": {
+		"general": "Geral",
+		"hideAfterRecording": "Ocultar ao terminar a gravação",
+		"hideAfterVideo": "Ocultar após salvar ou dispensar o vídeo",
+		"quietRecording": "Gravação sem interrupções",
+		"quietUnavailable": "A gravação sem interrupções não está disponível neste sistema.",
+		"title": "Configurações",
+		"afterRecording": "Ao parar a gravação",
+		"openEditor": "Abrir no Openscreen",
+		"externalEditor": "Escolher outro editor",
+		"exportDirectly": "Exportar diretamente",
+		"videoEditor": "Editor de vídeo",
+		"chooseEditor": "Escolher editor de vídeo",
+		"loadError": "Não foi possível carregar as configurações. Reabra-as para tentar novamente.",
+		"chooseError": "Não foi possível selecionar um editor. Tente novamente.",
+		"saveError": "Não foi possível salvar as configurações. Confira o editor selecionado e tente novamente."
+	},
+	"preview": {
+		"open": "Mostrar prévia da gravação",
+		"close": "Ocultar prévia da gravação",
+		"title": "Prévia da gravação",
+		"connecting": "Conectando...",
+		"unavailable": "Prévia indisponível",
+		"selectSource": "Selecione uma tela ou janela",
+		"retry": "Tentar prévia novamente"
+	},
 	"tooltips": {
 		"hideHUD": "Ocultar HUD",
 		"closeApp": "Fechar App",
@@ -25,6 +51,9 @@
 		"unavailable": "Câmera indisponível"
 	},
 	"cursor": {
+		"show": "Mostrar cursor",
+		"hide": "Ocultar cursor",
+		"mode": "Modo do cursor",
 		"useEditableCursor": "Usar cursor editável",
 		"useSystemCursor": "Usar cursor do sistema"
 	},

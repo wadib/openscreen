@@ -7,6 +7,7 @@ const Toaster = ({ className, ...props }: ToasterProps) => {
 	return (
 		<Sonner
 			theme="dark"
+			closeButton
 			className={cn(
 				"dark toaster group pointer-events-none [&_[data-sonner-toast]]:pointer-events-auto",
 				className,

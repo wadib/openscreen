@@ -30,10 +30,29 @@ interface Window {
 		getSources: (opts: Electron.SourcesOptions) => Promise<ProcessedDesktopSource[]>;
 		switchToEditor: () => Promise<void>;
 		finishRecording: () => Promise<void>;
-		configureAfterRecording: () => Promise<{
-			mode: "editor" | "external" | "export";
-			editorPath?: string;
-		}>;
+		getLiveBlurState: () => Promise<import("../src/lib/liveBlur").LiveBlurState>;
+		openBlurrySettings: () => Promise<void>;
+		getBlurrySelected: () => Promise<boolean>;
+		setBlurrySelected: (selected: boolean) => Promise<boolean>;
+		setLiveBlurAreas: (
+			areas: import("../src/lib/liveBlur").LiveBlurArea[],
+		) => Promise<import("../src/lib/liveBlur").LiveBlurState>;
+		setLiveBlurPaused: (paused: boolean) => Promise<void>;
+		onLiveBlurStateChanged: (
+			callback: (state: import("../src/lib/liveBlur").LiveBlurState) => void,
+		) => () => void;
+		configureAfterRecording: () => Promise<void>;
+		readAfterRecordingSettings: () => Promise<import("./afterRecording").AfterRecording>;
+		getQuietRecordingSupport: () => Promise<import("./recording/quiet-recording").QuietSupport>;
+		prepareQuietRecording: () => Promise<void>;
+		releaseQuietRecording: () => Promise<void>;
+		saveAfterRecordingSettings: (
+			settings: import("./afterRecording").AfterRecording,
+		) => Promise<import("./afterRecording").AfterRecording>;
+		chooseRecordingEditor: () => Promise<string | null>;
+		closeSettings: () => Promise<void>;
+		recordingVideoSaved: (filePath: string) => Promise<void>;
+		dismissRecordingVideo: () => Promise<{ success: boolean }>;
 		openFullEditor: () => Promise<void>;
 		switchToHud: () => Promise<void>;
 		startNewRecording: () => Promise<{ success: boolean; error?: string }>;
@@ -49,6 +68,47 @@ interface Window {
 		}>;
 		selectSource: (source: ProcessedDesktopSource) => Promise<ProcessedDesktopSource | null>;
 		getSelectedSource: () => Promise<ProcessedDesktopSource | null>;
+		startRecordingPreviewCapture: (id: string, sourceId: string) => Promise<{ success: boolean }>;
+		stopRecordingPreviewCapture: (id: string) => Promise<void>;
+		onRecordingPreviewFrame: (
+			callback: (frame: {
+				captureId: string;
+				imageDataUrl?: string;
+				sourceWidth?: number;
+				sourceHeight?: number;
+				unavailable?: boolean;
+			}) => void,
+		) => () => void;
+		getRecordingPreviewSettings: () => Promise<
+			import("../src/lib/recordingPreview").RecordingPreviewSettings
+		>;
+		setRecordingPreviewSettings: (
+			settings: import("../src/lib/recordingPreview").RecordingPreviewSettings,
+		) => void;
+		chooseRecordingCursorMode: (
+			mode: string,
+			labels: string[],
+		) => Promise<"editable-overlay" | "system" | null>;
+		onRecordingPreviewSettingsChanged: (
+			callback: (settings: import("../src/lib/recordingPreview").RecordingPreviewSettings) => void,
+		) => () => void;
+		sendWebcamPreviewSignal: (
+			signal: import("../src/lib/recordingPreview").WebcamPreviewSignal,
+		) => void;
+		onWebcamPreviewSignal: (
+			callback: (signal: import("../src/lib/recordingPreview").WebcamPreviewSignal) => void,
+		) => () => void;
+		getRecordingPreviewState: () => Promise<{
+			supported: boolean;
+			open: boolean;
+			visible: boolean;
+		}>;
+		onRecordingPreviewVisibilityChanged: (callback: (visible: boolean) => void) => () => void;
+		toggleRecordingPreview: () => Promise<{ success: boolean; open: boolean }>;
+		onRecordingPreviewChanged: (callback: (open: boolean) => void) => () => void;
+		onRecordingPreviewSourceChanged: (
+			callback: (source: Pick<ProcessedDesktopSource, "id" | "name"> | null) => void,
+		) => () => void;
 		requestCameraAccess: () => Promise<{
 			success: boolean;
 			granted: boolean;
@@ -123,6 +183,8 @@ interface Window {
 		) => Promise<import("../src/lib/nativeWindowsRecording").NativeWindowsRecordingStartResult>;
 		stopNativeWindowsRecording: (discard?: boolean) => Promise<{
 			success: boolean;
+			logPath?: string;
+			stopped?: boolean;
 			path?: string;
 			session?: import("../src/lib/recordingSession").RecordingSession;
 			message?: string;
@@ -196,6 +258,12 @@ interface Window {
 			path?: string;
 			message?: string;
 			error?: string;
+		}>;
+		copyFilePath: (filePath: string) => Promise<void>;
+		exportOriginalRecording: (filePath: string) => Promise<{
+			success: boolean;
+			path?: string;
+			message?: string;
 		}>;
 		openVideoFilePicker: () => Promise<{ success: boolean; path?: string; canceled?: boolean }>;
 		setCurrentVideoPath: (path: string) => Promise<{ success: boolean }>;
@@ -271,6 +339,7 @@ interface Window {
 		) => Promise<{ success: boolean; error?: string; message?: string }>;
 		getShortcuts: () => Promise<Record<string, unknown> | null>;
 		saveShortcuts: (shortcuts: unknown) => Promise<{ success: boolean; error?: string }>;
+		onShortcutsChanged: (callback: (config: unknown) => void) => () => void;
 		updateGlobalShortcut: (binding: {
 			key: string;
 			ctrl?: boolean;

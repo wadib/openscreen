@@ -1,4 +1,30 @@
 {
+	"settings": {
+		"general": "常规",
+		"hideAfterRecording": "录制结束后隐藏",
+		"hideAfterVideo": "视频保存或关闭后隐藏",
+		"quietRecording": "免打扰录制",
+		"quietUnavailable": "此系统不支持免打扰录制。",
+		"title": "设置",
+		"afterRecording": "录制停止时",
+		"openEditor": "在 Openscreen 中打开",
+		"externalEditor": "选择其他编辑器",
+		"exportDirectly": "直接导出",
+		"videoEditor": "视频编辑器",
+		"chooseEditor": "选择视频编辑器",
+		"loadError": "无法加载设置。请重新打开设置后重试。",
+		"chooseError": "无法选择编辑器。请重试。",
+		"saveError": "无法保存设置。请检查所选编辑器后重试。"
+	},
+	"preview": {
+		"open": "显示录制预览",
+		"close": "隐藏录制预览",
+		"title": "录制预览",
+		"connecting": "正在连接...",
+		"unavailable": "预览不可用",
+		"selectSource": "选择屏幕或窗口",
+		"retry": "重试预览"
+	},
 	"tooltips": {
 		"hideHUD": "隐藏控制面板",
 		"closeApp": "关闭应用",
@@ -27,6 +53,9 @@
 		"unavailable": "摄像头不可用"
 	},
 	"cursor": {
+		"show": "显示光标",
+		"hide": "隐藏光标",
+		"mode": "光标模式",
 		"useEditableCursor": "使用可编辑光标",
 		"useSystemCursor": "使用系统光标"
 	},

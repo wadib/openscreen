@@ -1,4 +1,30 @@
 {
+	"settings": {
+		"general": "일반",
+		"hideAfterRecording": "녹화 완료 후 숨기기",
+		"hideAfterVideo": "동영상 저장 또는 닫기 후 숨기기",
+		"quietRecording": "방해 없는 녹화",
+		"quietUnavailable": "이 시스템에서는 방해 없는 녹화를 사용할 수 없습니다.",
+		"title": "설정",
+		"afterRecording": "녹화 종료 시",
+		"openEditor": "Openscreen에서 열기",
+		"externalEditor": "다른 편집기 선택",
+		"exportDirectly": "바로 내보내기",
+		"videoEditor": "동영상 편집기",
+		"chooseEditor": "동영상 편집기 선택",
+		"loadError": "설정을 불러올 수 없습니다. 설정을 다시 열어 주세요.",
+		"chooseError": "편집기를 선택할 수 없습니다. 다시 시도해 주세요.",
+		"saveError": "설정을 저장할 수 없습니다. 선택한 편집기를 확인하고 다시 시도해 주세요."
+	},
+	"preview": {
+		"open": "녹화 미리보기 표시",
+		"close": "녹화 미리보기 숨기기",
+		"title": "녹화 미리보기",
+		"connecting": "연결 중...",
+		"unavailable": "미리보기를 사용할 수 없습니다",
+		"selectSource": "화면 또는 창 선택",
+		"retry": "미리보기 다시 시도"
+	},
 	"tooltips": {
 		"hideHUD": "HUD 숨기기",
 		"closeApp": "앱 닫기",
@@ -27,6 +53,9 @@
 		"unavailable": "카메라를 사용할 수 없음"
 	},
 	"cursor": {
+		"show": "커서 표시",
+		"hide": "커서 숨기기",
+		"mode": "커서 모드",
 		"useEditableCursor": "편집 가능한 커서 사용",
 		"useSystemCursor": "시스템 커서 사용"
 	},

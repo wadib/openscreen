@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { NativeMacRecordingRequest } from "../src/lib/nativeMacRecording";
 import type { NativeWindowsRecordingRequest } from "../src/lib/nativeWindowsRecording";
+import type { RecordingPreviewSettings, WebcamPreviewSignal } from "../src/lib/recordingPreview";
 import type { RecordingSession, StoreRecordedSessionInput } from "../src/lib/recordingSession";
 import type { ShortcutBinding } from "../src/lib/shortcuts";
 import { NATIVE_BRIDGE_CHANNEL, type NativeBridgeRequest } from "../src/native/contracts";
@@ -11,6 +12,14 @@ import { NATIVE_BRIDGE_CHANNEL, type NativeBridgeRequest } from "../src/native/c
 const ASSET_BASE_URL_ARG_PREFIX = "--asset-base-url=";
 const assetBaseUrlArg = process.argv.find((arg) => arg.startsWith(ASSET_BASE_URL_ARG_PREFIX));
 const assetBaseUrl = assetBaseUrlArg ? assetBaseUrlArg.slice(ASSET_BASE_URL_ARG_PREFIX.length) : "";
+
+// Retain numbers delivered before React mounts the transparent overlay.
+let countdownValue: number | null = null;
+const countdownListeners = new Set<(value: number | null) => void>();
+ipcRenderer.on("countdown-overlay-value", (_event, value: number | null) => {
+	countdownValue = value;
+	for (const listener of countdownListeners) listener(value);
+});
 
 contextBridge.exposeInMainWorld("electronAPI", {
 	assetBaseUrl,
@@ -39,7 +48,34 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		return ipcRenderer.invoke("switch-to-editor");
 	},
 	finishRecording: () => ipcRenderer.invoke("finish-recording"),
+	getLiveBlurState: () => ipcRenderer.invoke("get-live-blur-state"),
+	openBlurrySettings: () => ipcRenderer.invoke("open-blurry-settings"),
+	getBlurrySelected: () => ipcRenderer.invoke("get-blurry-selected"),
+	setBlurrySelected: (selected: boolean) => ipcRenderer.invoke("set-blurry-selected", selected),
+	setLiveBlurAreas: (areas: import("../src/lib/liveBlur").LiveBlurArea[]) =>
+		ipcRenderer.invoke("set-live-blur-areas", areas),
+	setLiveBlurPaused: (paused: boolean) => ipcRenderer.invoke("set-live-blur-paused", paused),
+	onLiveBlurStateChanged: (
+		callback: (state: import("../src/lib/liveBlur").LiveBlurState) => void,
+	) => {
+		const listener = (
+			_event: Electron.IpcRendererEvent,
+			state: import("../src/lib/liveBlur").LiveBlurState,
+		) => callback(state);
+		ipcRenderer.on("live-blur-state-changed", listener);
+		return () => ipcRenderer.removeListener("live-blur-state-changed", listener);
+	},
+	recordingVideoSaved: (filePath: string) => ipcRenderer.invoke("recording-video-saved", filePath),
+	dismissRecordingVideo: () => ipcRenderer.invoke("dismiss-recording-video"),
 	configureAfterRecording: () => ipcRenderer.invoke("configure-after-recording"),
+	readAfterRecordingSettings: () => ipcRenderer.invoke("read-after-recording-settings"),
+	getQuietRecordingSupport: () => ipcRenderer.invoke("get-quiet-recording-support"),
+	prepareQuietRecording: () => ipcRenderer.invoke("prepare-quiet-recording"),
+	releaseQuietRecording: () => ipcRenderer.invoke("release-quiet-recording"),
+	saveAfterRecordingSettings: (settings: import("./afterRecording").AfterRecording) =>
+		ipcRenderer.invoke("save-after-recording-settings", settings),
+	chooseRecordingEditor: () => ipcRenderer.invoke("choose-recording-editor"),
+	closeSettings: () => ipcRenderer.invoke("close-settings"),
 	openFullEditor: () => {
 		return ipcRenderer.invoke("switch-to-editor");
 	},
@@ -57,6 +93,73 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 	getSelectedSource: () => {
 		return ipcRenderer.invoke("get-selected-source");
+	},
+	getRecordingPreviewState: () => ipcRenderer.invoke("get-recording-preview-state"),
+	startRecordingPreviewCapture: (id: string, sourceId: string) =>
+		ipcRenderer.invoke("start-recording-preview-capture", id, sourceId),
+	stopRecordingPreviewCapture: (id: string) =>
+		ipcRenderer.invoke("stop-recording-preview-capture", id),
+	onRecordingPreviewFrame: (
+		callback: (frame: {
+			captureId: string;
+			imageDataUrl?: string;
+			unavailable?: boolean;
+			sourceWidth?: number;
+			sourceHeight?: number;
+		}) => void,
+	) => {
+		const listener = (
+			_event: Electron.IpcRendererEvent,
+			frame: {
+				captureId: string;
+				imageDataUrl?: string;
+				unavailable?: boolean;
+				sourceWidth?: number;
+				sourceHeight?: number;
+			},
+		) => callback(frame);
+		ipcRenderer.on("recording-preview-frame", listener);
+		return () => ipcRenderer.removeListener("recording-preview-frame", listener);
+	},
+	getRecordingPreviewSettings: () => ipcRenderer.invoke("get-recording-preview-settings"),
+	setRecordingPreviewSettings: (settings: RecordingPreviewSettings) =>
+		ipcRenderer.send("set-recording-preview-settings", settings),
+	chooseRecordingCursorMode: (mode: string, labels: string[]) =>
+		ipcRenderer.invoke("choose-recording-cursor-mode", mode, labels),
+	onRecordingPreviewSettingsChanged: (callback: (settings: RecordingPreviewSettings) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, settings: RecordingPreviewSettings) =>
+			callback(settings);
+		ipcRenderer.on("recording-preview-settings-changed", listener);
+		return () => ipcRenderer.removeListener("recording-preview-settings-changed", listener);
+	},
+	sendWebcamPreviewSignal: (signal: WebcamPreviewSignal) =>
+		ipcRenderer.send("webcam-preview-signal", signal),
+	onWebcamPreviewSignal: (callback: (signal: WebcamPreviewSignal) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, signal: WebcamPreviewSignal) =>
+			callback(signal);
+		ipcRenderer.on("webcam-preview-signal", listener);
+		return () => ipcRenderer.removeListener("webcam-preview-signal", listener);
+	},
+	onRecordingPreviewVisibilityChanged: (callback: (visible: boolean) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, visible: boolean) => callback(visible);
+		ipcRenderer.on("recording-preview-visibility-changed", listener);
+		return () => ipcRenderer.removeListener("recording-preview-visibility-changed", listener);
+	},
+	toggleRecordingPreview: () => ipcRenderer.invoke("toggle-recording-preview"),
+	onRecordingPreviewChanged: (callback: (open: boolean) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, open: boolean) => callback(open);
+		ipcRenderer.on("recording-preview-changed", listener);
+		return () => ipcRenderer.removeListener("recording-preview-changed", listener);
+	},
+	onRecordingPreviewSourceChanged: (
+		callback: (source: Pick<ProcessedDesktopSource, "id" | "name"> | null) => void,
+	) => {
+		const listener = (
+			_event: Electron.IpcRendererEvent,
+			source: Pick<ProcessedDesktopSource, "id" | "name"> | null,
+		) => callback(source);
+		ipcRenderer.on("recording-preview-source-changed", listener);
+		return () => ipcRenderer.removeListener("recording-preview-source-changed", listener);
 	},
 	requestCameraAccess: () => {
 		return ipcRenderer.invoke("request-camera-access");
@@ -151,6 +254,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	writeExportToPath: (videoData: ArrayBuffer, filePath: string) => {
 		return ipcRenderer.invoke("write-export-to-path", videoData, filePath);
 	},
+	copyFilePath: (filePath: string) => ipcRenderer.invoke("copy-file-path", filePath),
+	exportOriginalRecording: (filePath: string) =>
+		ipcRenderer.invoke("export-original-recording", filePath),
 	openVideoFilePicker: () => {
 		return ipcRenderer.invoke("open-video-file-picker");
 	},
@@ -231,6 +337,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	saveShortcuts: (shortcuts: unknown) => {
 		return ipcRenderer.invoke("save-shortcuts", shortcuts);
 	},
+	onShortcutsChanged: (callback: (config: unknown) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, config: unknown) => callback(config);
+		ipcRenderer.on("shortcuts-changed", listener);
+		return () => ipcRenderer.removeListener("shortcuts-changed", listener);
+	},
 	updateGlobalShortcut: (binding: ShortcutBinding) => {
 		return ipcRenderer.invoke("update-global-shortcut", binding);
 	},
@@ -261,9 +372,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		return ipcRenderer.invoke("countdown-overlay-hide", runId);
 	},
 	onCountdownOverlayValue: (callback: (value: number | null) => void) => {
-		const listener = (_event: unknown, value: number | null) => callback(value);
-		ipcRenderer.on("countdown-overlay-value", listener);
-		return () => ipcRenderer.removeListener("countdown-overlay-value", listener);
+		countdownListeners.add(callback);
+		callback(countdownValue);
+		return () => {
+			countdownListeners.delete(callback);
+		};
 	},
 	onRequestSaveBeforeClose: (callback: () => Promise<boolean> | boolean) => {
 		const listener = async () => {

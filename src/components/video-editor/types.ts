@@ -285,6 +285,8 @@ export interface AnnotationTextStyle {
 }
 
 export interface AnnotationRegion {
+	// Render-only clipping for source-anchored blur; never persisted.
+	blurClip?: { x: number; y: number; width: number; height: number };
 	id: string;
 	startMs: number;
 	endMs: number;
@@ -296,8 +298,8 @@ export interface AnnotationRegion {
 	size: AnnotationSize;
 	style: AnnotationTextStyle;
 	zIndex: number;
-	/** When set, layout/style edits on one region can sync to all auto-caption siblings. */
-	annotationSource?: "auto-caption";
+	/** Identifies caption siblings or source-anchored live blur geometry. */
+	annotationSource?: "auto-caption" | "live-blur";
 	figureData?: FigureData;
 	blurData?: BlurData;
 }

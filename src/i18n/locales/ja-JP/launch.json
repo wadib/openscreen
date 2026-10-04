@@ -1,4 +1,30 @@
 {
+	"settings": {
+		"general": "一般",
+		"hideAfterRecording": "録画終了後に非表示",
+		"hideAfterVideo": "動画の保存・終了後に非表示",
+		"quietRecording": "通知を抑えて録画",
+		"quietUnavailable": "このシステムでは通知を抑える録画を利用できません。",
+		"title": "設定",
+		"afterRecording": "録画停止時",
+		"openEditor": "Openscreenで開く",
+		"externalEditor": "別のエディターを選択",
+		"exportDirectly": "直接エクスポート",
+		"videoEditor": "動画エディター",
+		"chooseEditor": "動画エディターを選択",
+		"loadError": "設定を読み込めませんでした。設定を開き直してください。",
+		"chooseError": "エディターを選択できませんでした。もう一度お試しください。",
+		"saveError": "設定を保存できませんでした。選択したエディターを確認してください。"
+	},
+	"preview": {
+		"open": "録画プレビューを表示",
+		"close": "録画プレビューを非表示",
+		"title": "録画プレビュー",
+		"connecting": "接続中...",
+		"unavailable": "プレビューを利用できません",
+		"selectSource": "画面またはウィンドウを選択",
+		"retry": "プレビューを再試行"
+	},
 	"tooltips": {
 		"hideHUD": "HUDを隠す",
 		"closeApp": "アプリを閉じる",
@@ -27,6 +53,9 @@
 		"unavailable": "カメラが利用できません"
 	},
 	"cursor": {
+		"show": "カーソルを表示",
+		"hide": "カーソルを非表示",
+		"mode": "カーソルモード",
 		"useEditableCursor": "編集可能なカーソルを使う",
 		"useSystemCursor": "システムカーソルを使う"
 	},

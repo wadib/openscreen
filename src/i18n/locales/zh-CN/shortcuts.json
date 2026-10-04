@@ -1,4 +1,5 @@
 {
+	"saveFailed": "无法保存键盘快捷键。请重试。",
 	"title": "键盘快捷键",
 	"customize": "自定义",
 	"configurable": "可配置",

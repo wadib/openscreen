@@ -1530,7 +1530,7 @@ export default function TimelineEditor({
 					>
 						<MessageSquare className="w-4 h-4" />
 					</Button>
-					{BLUR_REGIONS_ENABLED && (
+					{BLUR_REGIONS_ENABLED && onBlurAdded && (
 						<Button
 							onClick={handleAddBlur}
 							variant="ghost"

@@ -1,4 +1,30 @@
 {
+	"settings": {
+		"general": "Général",
+		"hideAfterRecording": "Masquer à la fin de l'enregistrement",
+		"hideAfterVideo": "Masquer après l'enregistrement ou le rejet de la vidéo",
+		"quietRecording": "Enregistrement sans interruptions",
+		"quietUnavailable": "L’enregistrement sans interruptions n’est pas disponible sur ce système.",
+		"title": "Paramètres",
+		"afterRecording": "À l’arrêt de l’enregistrement",
+		"openEditor": "Ouvrir dans Openscreen",
+		"externalEditor": "Choisir un autre éditeur",
+		"exportDirectly": "Exporter directement",
+		"videoEditor": "Éditeur vidéo",
+		"chooseEditor": "Choisir un éditeur vidéo",
+		"loadError": "Impossible de charger les paramètres. Rouvrez-les pour réessayer.",
+		"chooseError": "Impossible de sélectionner un éditeur. Réessayez.",
+		"saveError": "Impossible d’enregistrer les paramètres. Vérifiez l’éditeur sélectionné et réessayez."
+	},
+	"preview": {
+		"open": "Afficher l'aperçu de l'enregistrement",
+		"close": "Masquer l'aperçu de l'enregistrement",
+		"title": "Aperçu de l'enregistrement",
+		"connecting": "Connexion...",
+		"unavailable": "Aperçu indisponible",
+		"selectSource": "Sélectionnez un écran ou une fenêtre",
+		"retry": "Réessayer l'aperçu"
+	},
 	"tooltips": {
 		"hideHUD": "Masquer le HUD",
 		"closeApp": "Fermer l'application",
@@ -27,6 +53,9 @@
 		"unavailable": "Caméra non disponible"
 	},
 	"cursor": {
+		"show": "Afficher le curseur",
+		"hide": "Masquer le curseur",
+		"mode": "Mode du curseur",
 		"useEditableCursor": "Utiliser le curseur éditable",
 		"useSystemCursor": "Utiliser le curseur système"
 	},

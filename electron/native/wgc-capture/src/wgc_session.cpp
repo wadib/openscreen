@@ -140,7 +140,7 @@ bool WgcSession::createCaptureItem(HWND window) {
     return width_ > 0 && height_ > 0;
 }
 
-bool WgcSession::applySessionOptions(bool captureCursor) {
+bool WgcSession::applySessionOptions(bool captureCursor, bool includeSecondaryWindows) {
     captureCursor_ = captureCursor;
 
     try {
@@ -183,11 +183,44 @@ bool WgcSession::applySessionOptions(bool captureCursor) {
         // IsBorderRequired is Windows 11-only. Ignore it on older builds.
     }
 
+    if (includeSecondaryWindows) {
+        try {
+            auto session6 = session_.try_as<wgcap::IGraphicsCaptureSession6>();
+            if (session6) {
+                session6.IncludeSecondaryWindows(true);
+                const bool applied = session6.IncludeSecondaryWindows();
+                std::cout << "{\"event\":\"secondary-window-capture\",\"schemaVersion\":2,"
+                          << "\"supported\":true,\"applied\":"
+                          << (applied ? "true" : "false") << "}" << std::endl;
+                if (!applied) {
+                    std::cerr << "WARNING: Windows did not enable secondary-window capture; "
+                                 "dropdown menus may be omitted"
+                              << std::endl;
+                }
+            } else {
+                std::cout << "{\"event\":\"secondary-window-capture\",\"schemaVersion\":2,"
+                             "\"supported\":false,\"applied\":false}"
+                          << std::endl;
+                std::cerr << "WARNING: Secondary-window capture is unavailable on this Windows version; "
+                             "dropdown menus may be omitted"
+                          << std::endl;
+            }
+        } catch (winrt::hresult_error const& error) {
+            std::cerr << "WARNING: Failed to enable secondary-window capture (hr=0x" << std::hex
+                      << static_cast<uint32_t>(error.code()) << std::dec << "); dropdown menus may be omitted"
+                      << std::endl;
+        } catch (...) {
+            std::cerr << "WARNING: Failed to enable secondary-window capture; dropdown menus may be omitted"
+                      << std::endl;
+        }
+    }
+
     return true;
 }
 
 bool WgcSession::initialize(HMONITOR monitor, int fps, bool captureCursor) {
     fps_ = fps > 0 ? fps : 60;
+    includeSecondaryWindows_ = false;
     if (!createD3DDevice()) {
         return false;
     }
@@ -202,7 +235,7 @@ bool WgcSession::initialize(HMONITOR monitor, int fps, bool captureCursor) {
         item_.Size());
     session_ = framePool_.CreateCaptureSession(item_);
 
-    if (!applySessionOptions(captureCursor)) {
+    if (!applySessionOptions(captureCursor, false)) {
         return false;
     }
 
@@ -212,6 +245,7 @@ bool WgcSession::initialize(HMONITOR monitor, int fps, bool captureCursor) {
 
 bool WgcSession::initialize(HWND window, int fps, bool captureCursor) {
     fps_ = fps > 0 ? fps : 60;
+    includeSecondaryWindows_ = true;
     if (!createD3DDevice()) {
         return false;
     }
@@ -226,7 +260,7 @@ bool WgcSession::initialize(HWND window, int fps, bool captureCursor) {
         item_.Size());
     session_ = framePool_.CreateCaptureSession(item_);
 
-    if (!applySessionOptions(captureCursor)) {
+    if (!applySessionOptions(captureCursor, true)) {
         return false;
     }
 
@@ -243,7 +277,7 @@ bool WgcSession::start() {
     if (!session_) {
         return false;
     }
-    if (!applySessionOptions(captureCursor_)) {
+    if (!applySessionOptions(captureCursor_, includeSecondaryWindows_)) {
         return false;
     }
     session_.StartCapture();

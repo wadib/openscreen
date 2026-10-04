@@ -89,11 +89,16 @@
       "nsis"
     ],
     "icon": "icons/icons/win/icon.ico",
+    "artifactName": "${productName}-Windows-${arch}-${version}-Installer.${ext}",
     "extraResources": [
       {
         "from": "electron/native/bin",
         "to": "electron/native/bin",
         "filter": ["win32-*/*"]
+      },
+      {
+        "from": "electron/native/blurry/win32-x64",
+        "to": "blurry"
       }
     ]
   },

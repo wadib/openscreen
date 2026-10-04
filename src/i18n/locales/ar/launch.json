@@ -1,4 +1,30 @@
 {
+	"settings": {
+		"general": "عام",
+		"hideAfterRecording": "إخفاء بعد انتهاء التسجيل",
+		"hideAfterVideo": "إخفاء بعد حفظ الفيديو أو إغلاقه",
+		"quietRecording": "تسجيل دون إزعاج",
+		"quietUnavailable": "التسجيل دون إزعاج غير متاح على هذا النظام.",
+		"title": "الإعدادات",
+		"afterRecording": "عند إيقاف التسجيل",
+		"openEditor": "فتح في Openscreen",
+		"externalEditor": "اختيار محرر آخر",
+		"exportDirectly": "تصدير مباشرة",
+		"videoEditor": "محرر الفيديو",
+		"chooseEditor": "اختيار محرر فيديو",
+		"loadError": "تعذر تحميل الإعدادات. أعد فتح الإعدادات للمحاولة مجدداً.",
+		"chooseError": "تعذر اختيار محرر. حاول مجدداً.",
+		"saveError": "تعذر حفظ الإعدادات. تحقق من المحرر المحدد وحاول مجدداً."
+	},
+	"preview": {
+		"open": "إظهار معاينة التسجيل",
+		"close": "إخفاء معاينة التسجيل",
+		"title": "معاينة التسجيل",
+		"connecting": "جار الاتصال...",
+		"unavailable": "المعاينة غير متاحة",
+		"selectSource": "اختر شاشة أو نافذة",
+		"retry": "إعادة محاولة المعاينة"
+	},
 	"tooltips": {
 		"hideHUD": "إخفاء واجهة العرض",
 		"closeApp": "إغلاق التطبيق",
@@ -43,6 +69,9 @@
 		"keepDefault": "الاحتفاظ باللغة الحالية"
 	},
 	"cursor": {
+		"show": "إظهار المؤشر",
+		"hide": "إخفاء المؤشر",
+		"mode": "وضع المؤشر",
 		"useEditableCursor": "استخدام مؤشر قابل للتحرير",
 		"useSystemCursor": "استخدام مؤشر النظام"
 	}

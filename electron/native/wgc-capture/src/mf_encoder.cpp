@@ -77,6 +77,29 @@ void compositeWebcam(BYTE* destination, int width, int height, const BgraFrameVi
     }
 }
 
+void compositeOverlay(BYTE* destination, int width, int height, const BgraOverlayView& overlay) {
+    if (!overlay.data || overlay.width <= 0 || overlay.height <= 0 || width <= 0 || height <= 0) {
+        return;
+    }
+
+    const int sourceLeft = std::max(0, -overlay.destinationX);
+    const int sourceTop = std::max(0, -overlay.destinationY);
+    const int destinationLeft = std::max(0, overlay.destinationX);
+    const int destinationTop = std::max(0, overlay.destinationY);
+    const int copyWidth = std::min(overlay.width - sourceLeft, width - destinationLeft);
+    const int copyHeight = std::min(overlay.height - sourceTop, height - destinationTop);
+    if (copyWidth <= 0 || copyHeight <= 0) {
+        return;
+    }
+
+    for (int row = 0; row < copyHeight; row += 1) {
+        std::memcpy(
+            destination + (static_cast<size_t>(destinationTop + row) * width + destinationLeft) * 4,
+            overlay.data + (static_cast<size_t>(sourceTop + row) * overlay.width + sourceLeft) * 4,
+            static_cast<size_t>(copyWidth) * 4);
+    }
+}
+
 } // namespace
 
 MFEncoder::~MFEncoder() {
@@ -196,14 +219,17 @@ bool MFEncoder::configureAudioStream(const AudioInputFormat& audioFormat) {
 }
 
 bool MFEncoder::ensureStagingTexture(ID3D11Texture2D* texture) {
-    if (stagingTexture_) {
-        return true;
-    }
-
     D3D11_TEXTURE2D_DESC desc{};
     texture->GetDesc(&desc);
-    desc.Width = static_cast<UINT>(width_);
-    desc.Height = static_cast<UINT>(height_);
+    if (stagingTexture_) {
+        D3D11_TEXTURE2D_DESC stagingDesc{};
+        stagingTexture_->GetDesc(&stagingDesc);
+        if (stagingDesc.Width == desc.Width && stagingDesc.Height == desc.Height &&
+            stagingDesc.Format == desc.Format) return true;
+        stagingTexture_.Reset();
+    }
+
+    // GPU copies require the capture texture dimensions, not H.264's even dimensions.
     desc.MipLevels = 1;
     desc.ArraySize = 1;
     desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -222,7 +248,8 @@ bool MFEncoder::copyFrameToBuffer(
     ID3D11Texture2D* texture,
     BYTE* destination,
     DWORD destinationSize,
-    const BgraFrameView* webcamFrame) {
+    const BgraFrameView* webcamFrame,
+    const std::vector<BgraOverlayView>* overlays) {
     if (!ensureStagingTexture(texture)) {
         return false;
     }
@@ -243,8 +270,18 @@ bool MFEncoder::copyFrameToBuffer(
     }
 
     auto* source = static_cast<const BYTE*>(mapped.pData);
-    for (int y = 0; y < height_; y += 1) {
-        std::memcpy(destination + rowBytes * y, source + mapped.RowPitch * y, rowBytes);
+    D3D11_TEXTURE2D_DESC sourceDesc{};
+    texture->GetDesc(&sourceDesc);
+    const DWORD copyRowBytes = std::min<DWORD>(rowBytes, sourceDesc.Width * 4);
+    const int copyRows = std::min(height_, static_cast<int>(sourceDesc.Height));
+    if (copyRowBytes < rowBytes || copyRows < height_) std::memset(destination, 0, requiredBytes);
+    for (int y = 0; y < copyRows; y += 1) {
+        std::memcpy(destination + rowBytes * y, source + mapped.RowPitch * y, copyRowBytes);
+    }
+    if (overlays) {
+        for (const auto& overlay : *overlays) {
+            compositeOverlay(destination, width_, height_, overlay);
+        }
     }
     if (webcamFrame) {
         compositeWebcam(destination, width_, height_, *webcamFrame);
@@ -293,17 +330,17 @@ bool MFEncoder::copyBgraFrameToBuffer(const BgraFrameView& frame, BYTE* destinat
     return true;
 }
 
-bool MFEncoder::writeFrame(ID3D11Texture2D* texture, int64_t timestampHns, const BgraFrameView* webcamFrame) {
+bool MFEncoder::writeFrame(
+    ID3D11Texture2D* texture,
+    int64_t timestampHns,
+    const BgraFrameView* webcamFrame,
+    const std::vector<BgraOverlayView>* overlays) {
     std::scoped_lock writerLock(writerMutex_);
     if (!sinkWriter_ || finalized_) {
         return false;
     }
 
-    if (firstTimestampHns_ < 0) {
-        firstTimestampHns_ = timestampHns;
-    }
-
-    int64_t sampleTime = timestampHns - firstTimestampHns_;
+    int64_t sampleTime = std::max<int64_t>(0, timestampHns);
     if (sampleTime <= lastTimestampHns_) {
         sampleTime = lastTimestampHns_ + (10'000'000LL / fps_);
     }
@@ -323,7 +360,7 @@ bool MFEncoder::writeFrame(ID3D11Texture2D* texture, int64_t timestampHns, const
         return false;
     }
 
-    const bool copied = copyFrameToBuffer(texture, data, maxLength, webcamFrame);
+    const bool copied = copyFrameToBuffer(texture, data, maxLength, webcamFrame, overlays);
     buffer->Unlock();
     if (!copied) {
         return false;
@@ -347,11 +384,7 @@ bool MFEncoder::writeBgraFrame(const BgraFrameView& frame, int64_t timestampHns)
         return false;
     }
 
-    if (firstTimestampHns_ < 0) {
-        firstTimestampHns_ = timestampHns;
-    }
-
-    int64_t sampleTime = timestampHns - firstTimestampHns_;
+    int64_t sampleTime = std::max<int64_t>(0, timestampHns);
     if (sampleTime <= lastTimestampHns_) {
         sampleTime = lastTimestampHns_ + (10'000'000LL / fps_);
     }

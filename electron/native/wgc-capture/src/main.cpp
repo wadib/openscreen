@@ -1,11 +1,15 @@
 #include "audio_sample_utils.h"
+#include "capture_clock.h"
 #include "mf_encoder.h"
 #include "monitor_utils.h"
+#include "popup_overlay_capture.h"
 #include "wasapi_loopback_capture.h"
 #include "webcam_capture.h"
 #include "wgc_session.h"
+#include "preview.h"
 
 #include <winrt/Windows.Foundation.h>
+#include <dwmapi.h>
 
 #include <algorithm>
 #include <atomic>
@@ -19,6 +23,7 @@
 #include <mutex>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace {
 
@@ -39,6 +44,7 @@ struct CaptureConfig {
     bool captureSystemAudio = false;
     bool captureMic = false;
     bool captureCursor = false;
+    bool preview = false;
     bool webcamEnabled = false;
     std::string microphoneDeviceId;
     std::string microphoneDeviceName;
@@ -306,12 +312,13 @@ HWND parseWindowHandle(const std::string& value) {
 }
 
 bool parseConfig(const std::string& json, CaptureConfig& config) {
+    config.preview = findBool(json, "preview", false);
     config.schemaVersion = findInt(json, "schemaVersion", 1);
     config.outputPath = findString(json, "screenPath");
     if (config.outputPath.empty()) {
         config.outputPath = findString(json, "outputPath");
     }
-    if (config.outputPath.empty()) {
+    if (config.outputPath.empty() && !config.preview) {
         return false;
     }
 
@@ -381,9 +388,29 @@ void readCaptureCommands(CaptureControl& control, const std::function<void(bool)
 } // namespace
 
 int main(int argc, char* argv[]) {
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     if (argc < 2) {
         std::cerr << "ERROR: Missing JSON config argument" << std::endl;
         return 1;
+    }
+
+    if (findBool(argv[1], "windowBounds", false)) {
+        HWND window = parseWindowHandle(parseWindowHandleFromSourceId(findString(argv[1], "sourceId")));
+        RECT bounds{};
+        if (!window || !IsWindow(window) || IsIconic(window) || !GetWindowRect(window, &bounds)
+            || bounds.right <= bounds.left || bounds.bottom <= bounds.top) {
+            std::cerr << "ERROR: Recording window bounds unavailable" << std::endl;
+            return 1;
+        }
+        RECT visibleBounds{};
+        if (SUCCEEDED(DwmGetWindowAttribute(window, DWMWA_EXTENDED_FRAME_BOUNDS,
+                &visibleBounds, sizeof(visibleBounds)))) {
+            bounds = visibleBounds;
+        }
+        std::cout << "{\"x\":" << bounds.left << ",\"y\":" << bounds.top
+            << ",\"width\":" << bounds.right - bounds.left
+            << ",\"height\":" << bounds.bottom - bounds.top << "}" << std::endl;
+        return 0;
     }
 
     winrt::init_apartment(winrt::apartment_type::multi_threaded);
@@ -397,6 +424,7 @@ int main(int argc, char* argv[]) {
     std::cout << "{\"event\":\"ready\",\"schemaVersion\":2}" << std::endl;
 
     WgcSession session;
+    HWND targetWindow = nullptr;
     if (config.sourceType == "display") {
         HMONITOR monitor = findMonitorForCapture(
             config.displayId,
@@ -410,18 +438,32 @@ int main(int argc, char* argv[]) {
             return 1;
         }
     } else if (config.sourceType == "window") {
-        HWND window = parseWindowHandle(config.windowHandle);
-        if (!window || !IsWindow(window)) {
+        targetWindow = parseWindowHandle(config.windowHandle);
+        if (!targetWindow || !IsWindow(targetWindow)) {
             std::cerr << "ERROR: Native window capture requires a valid HWND" << std::endl;
             return 1;
         }
-        if (!session.initialize(window, config.fps, config.captureCursor)) {
+        if (!session.initialize(targetWindow, config.fps, config.captureCursor)) {
             std::cerr << "ERROR: Failed to initialize WGC window session" << std::endl;
             return 1;
         }
     } else {
         std::cerr << "ERROR: Unsupported native capture source type: " << config.sourceType << std::endl;
         return 1;
+    }
+
+    if (config.preview) {
+        return runPreview(session, config.fps, targetWindow, config.captureCursor);
+    }
+
+    std::unique_ptr<PopupOverlayCapture> popupOverlayCapture;
+    if (targetWindow) {
+        popupOverlayCapture = std::make_unique<PopupOverlayCapture>();
+        if (!popupOverlayCapture->initialize(targetWindow, config.fps, config.captureCursor)) {
+            std::cerr << "WARNING: Popup overlay capture could not be initialized; dropdown menus may be omitted"
+                      << std::endl;
+            popupOverlayCapture.reset();
+        }
     }
 
     // WGC owns the captured texture size. Encoding must use that exact size
@@ -536,11 +578,15 @@ int main(int argc, char* argv[]) {
 
     std::mutex mutex;
     CaptureControl control;
+    const auto reportFinalizing = [](const char* stage) {
+        std::cout << "{\"event\":\"recording-finalizing\",\"stage\":\"" << stage << "\"}" << std::endl;
+    };
     std::atomic<bool> firstFrameWritten = false;
     std::atomic<bool> encodeFailed = false;
     Microsoft::WRL::ComPtr<ID3D11Texture2D> latestFrameTexture;
     int64_t latestFrameTimestampHns = 0;
-    int64_t firstFrameTimestampHns = -1;
+    uint64_t latestFrameSequence = 0;
+    int64_t captureEpochHns = 0;
     std::vector<BYTE> latestWebcamFrame;
     int latestWebcamWidth = 0;
     int latestWebcamHeight = 0;
@@ -569,6 +615,7 @@ int main(int argc, char* argv[]) {
 
         session.context()->CopyResource(latestFrameTexture.Get(), texture);
         latestFrameTimestampHns = timestampHns;
+        latestFrameSequence += 1;
         if (!firstFrameWritten.exchange(true)) {
             control.cv.notify_all();
         }
@@ -577,10 +624,10 @@ int main(int argc, char* argv[]) {
     auto writeVideoFrames = [&]() {
         const auto frameDuration = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
             std::chrono::duration<double>(1.0 / config.fps));
-        uint64_t frameIndex = 0;
         uint64_t lastWrittenWebcamSequence = 0;
-        uint64_t webcamOutputFrameIndex = 0;
+        uint64_t lastWrittenScreenSequence = 0;
         int64_t lastEncodedVideoTimestampHns = -1;
+        int64_t maximumFrameDeliveryHns = 0;
 
         while (!control.stopRequested && !encodeFailed) {
             {
@@ -610,39 +657,54 @@ int main(int argc, char* argv[]) {
                     latestWebcamWidth,
                     latestWebcamHeight,
                 };
-                const int64_t syntheticTimestampHns =
-                    static_cast<int64_t>((frameIndex * 10'000'000ULL) / config.fps);
-                const int64_t sourceTimestampHns =
-                    latestFrameTimestampHns > 0 ? latestFrameTimestampHns : syntheticTimestampHns;
-                if (firstFrameTimestampHns < 0) {
-                    firstFrameTimestampHns = sourceTimestampHns;
+                std::vector<PopupOverlayFrame> popupFrames;
+                std::vector<BgraOverlayView> popupViews;
+                if (popupOverlayCapture &&
+                    !popupOverlayCapture->copyOverlays(width, height, popupFrames)) {
+                    std::cerr << "WARNING: Popup overlay frame could not be read" << std::endl;
                 }
-                int64_t frameTimestampHns =
-                    std::max<int64_t>(
-                        0,
-                        sourceTimestampHns - firstFrameTimestampHns - control.pausedDurationHns());
+                popupViews.reserve(popupFrames.size());
+                for (const auto& popupFrame : popupFrames) {
+                    popupViews.push_back({
+                        popupFrame.data.data(),
+                        popupFrame.width,
+                        popupFrame.height,
+                        popupFrame.destinationX,
+                        popupFrame.destinationY,
+                    });
+                }
+                const int64_t writerClockHns = captureClockHns();
+                const bool hasNewScreenFrame = latestFrameSequence != lastWrittenScreenSequence;
+                const int64_t frameDeliveryHns = writerClockHns - latestFrameTimestampHns;
+                const bool hasReliableCaptureTimestamp =
+                    hasNewScreenFrame && latestFrameTimestampHns > 0 &&
+                    frameDeliveryHns >= 0 && frameDeliveryHns <= 2 * 10'000'000LL;
+                if (hasReliableCaptureTimestamp) {
+                    maximumFrameDeliveryHns = std::max(maximumFrameDeliveryHns, frameDeliveryHns);
+                }
+                int64_t frameTimestampHns = std::max<int64_t>(
+                    0,
+                    (hasReliableCaptureTimestamp ? latestFrameTimestampHns : writerClockHns) -
+                        captureEpochHns - control.pausedDurationHns());
                 if (lastEncodedVideoTimestampHns >= 0 &&
                     frameTimestampHns <= lastEncodedVideoTimestampHns) {
-                    frameTimestampHns =
-                        lastEncodedVideoTimestampHns + static_cast<int64_t>(10'000'000ULL / config.fps);
+                    frameTimestampHns = lastEncodedVideoTimestampHns + 1;
                 }
                 if (writeSeparateWebcam && webcamFrame.data &&
                     latestWebcamSequence != lastWrittenWebcamSequence) {
-                    const int64_t webcamTimestampHns = static_cast<int64_t>(
-                        (webcamOutputFrameIndex * 10'000'000ULL) / std::max(1, webcamCapture.fps()));
-                    if (!webcamEncoder.writeBgraFrame(webcamFrame, webcamTimestampHns)) {
+                    if (!webcamEncoder.writeBgraFrame(webcamFrame, frameTimestampHns)) {
                         encodeFailed = true;
                         control.stopRequested = true;
                         control.cv.notify_all();
                         return;
                     }
                     lastWrittenWebcamSequence = latestWebcamSequence;
-                    webcamOutputFrameIndex += 1;
                 }
                 if (latestFrameTexture && !encoder.writeFrame(
                         latestFrameTexture.Get(),
                         frameTimestampHns,
-                        !writeSeparateWebcam && webcamFrame.data ? &webcamFrame : nullptr)) {
+                        !writeSeparateWebcam && webcamFrame.data ? &webcamFrame : nullptr,
+                        popupViews.empty() ? nullptr : &popupViews)) {
                     encodeFailed = true;
                     control.stopRequested = true;
                     control.cv.notify_all();
@@ -650,12 +712,21 @@ int main(int argc, char* argv[]) {
                 }
                 if (latestFrameTexture) {
                     lastEncodedVideoTimestampHns = frameTimestampHns;
+                    lastWrittenScreenSequence = latestFrameSequence;
                 }
             }
 
-            frameIndex += 1;
+            // Keep editable recording effects on the encoder's timeline, even under load.
+            if (lastEncodedVideoTimestampHns >= 0) {
+                std::cout << ("{\"event\":\"recording-progress\",\"schemaVersion\":2,\"elapsedMs\":" +
+                    std::to_string((lastEncodedVideoTimestampHns + 10'000'000 / config.fps) / 10'000) + "}\n");
+                std::cout.flush();
+            }
             std::this_thread::sleep_for(frameDuration);
         }
+
+        std::cerr << "{\"event\":\"video-timing\",\"maxFrameDeliveryMs\":"
+                  << maximumFrameDeliveryHns / 10'000 << "}" << std::endl;
     };
 
     std::thread videoWriterThread;
@@ -700,13 +771,12 @@ int main(int argc, char* argv[]) {
 
         if (config.captureMic) {
             if (!microphoneCapture.start([&](const BYTE* data, DWORD byteCount, int64_t timestampHns, int64_t durationHns) {
-                    (void)timestampHns;
                     (void)durationHns;
                     if (control.stopRequested || !audioMixer) {
                         return;
                     }
 
-                    audioMixer->pushMicrophone(data, byteCount);
+                    audioMixer->pushMicrophone(data, byteCount, timestampHns);
                 })) {
                 std::cerr << "ERROR: Failed to start WASAPI microphone capture" << std::endl;
                 audioMixer->stop();
@@ -716,13 +786,12 @@ int main(int argc, char* argv[]) {
 
         if (config.captureSystemAudio) {
             if (!loopbackCapture.start([&](const BYTE* data, DWORD byteCount, int64_t timestampHns, int64_t durationHns) {
-                    (void)timestampHns;
                     (void)durationHns;
                     if (control.stopRequested || !audioMixer) {
                         return;
                     }
 
-                    audioMixer->pushSystem(data, byteCount);
+                    audioMixer->pushSystem(data, byteCount, timestampHns);
                 })) {
                 std::cerr << "ERROR: Failed to start WASAPI loopback capture" << std::endl;
                 microphoneCapture.stop();
@@ -768,7 +837,16 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    if (popupOverlayCapture && !popupOverlayCapture->start()) {
+        std::cerr << "WARNING: Popup overlay capture could not be started; dropdown menus may be omitted"
+                  << std::endl;
+        popupOverlayCapture.reset();
+    }
+
     if (!session.start()) {
+        if (popupOverlayCapture) {
+            popupOverlayCapture->stop();
+        }
         webcamCapture.stop();
         microphoneCapture.stop();
         loopbackCapture.stop();
@@ -803,13 +881,17 @@ int main(int argc, char* argv[]) {
                 audioMixer->stop();
             }
             session.stop();
+            if (popupOverlayCapture) {
+                popupOverlayCapture->stop();
+            }
             std::cerr << "ERROR: Timed out waiting for first WGC frame" << std::endl;
             return 1;
         }
     }
 
+    captureEpochHns = captureClockHns();
     if (audioMixer) {
-        audioMixer->beginTimeline();
+        audioMixer->beginTimeline(captureEpochHns);
     }
     startVideoWriter();
 
@@ -823,19 +905,70 @@ int main(int argc, char* argv[]) {
         });
     }
 
+    reportFinalizing("microphone-stop");
     microphoneCapture.stop();
+    reportFinalizing("loopback-stop");
     loopbackCapture.stop();
+    reportFinalizing("webcam-stop");
     webcamCapture.stop();
-    if (audioMixer) {
-        audioMixer->stop();
-    }
+    reportFinalizing("video-writer-stop");
     stopVideoWriter();
-    session.stop();
     {
         std::scoped_lock lock(mutex);
-        encoder.finalize();
+        const int64_t finalTimestampHns = std::max<int64_t>(
+            0,
+            captureClockHns() - captureEpochHns - control.pausedDurationHns());
+        if (latestFrameTexture) {
+            const BgraFrameView webcamFrame{
+                hasVisibleWebcamFrame && !latestWebcamFrame.empty() ? latestWebcamFrame.data() : nullptr,
+                latestWebcamWidth,
+                latestWebcamHeight,
+            };
+            std::vector<PopupOverlayFrame> popupFrames;
+            std::vector<BgraOverlayView> popupViews;
+            if (popupOverlayCapture) {
+                popupOverlayCapture->copyOverlays(width, height, popupFrames);
+            }
+            popupViews.reserve(popupFrames.size());
+            for (const auto& popupFrame : popupFrames) {
+                popupViews.push_back({
+                    popupFrame.data.data(),
+                    popupFrame.width,
+                    popupFrame.height,
+                    popupFrame.destinationX,
+                    popupFrame.destinationY,
+                });
+            }
+            if (!encoder.writeFrame(
+                    latestFrameTexture.Get(),
+                    finalTimestampHns,
+                    !writeSeparateWebcam && webcamFrame.data ? &webcamFrame : nullptr,
+                    popupViews.empty() ? nullptr : &popupViews)) {
+                encodeFailed = true;
+            }
+            if (writeSeparateWebcam && webcamFrame.data &&
+                !webcamEncoder.writeBgraFrame(webcamFrame, finalTimestampHns)) {
+                encodeFailed = true;
+            }
+        }
+    }
+    if (audioMixer) {
+        reportFinalizing("audio-mixer-stop");
+        audioMixer->stop();
+    }
+    reportFinalizing("capture-session-stop");
+    session.stop();
+    if (popupOverlayCapture) {
+        popupOverlayCapture->stop();
+    }
+    bool finalized = false;
+    {
+        std::scoped_lock lock(mutex);
+        reportFinalizing("encoder-finalize");
+        finalized = encoder.finalize();
         if (writeSeparateWebcam) {
-            webcamEncoder.finalize();
+            reportFinalizing("webcam-encoder-finalize");
+            finalized = webcamEncoder.finalize() && finalized;
         }
     }
 
@@ -843,6 +976,10 @@ int main(int argc, char* argv[]) {
         stdinThread.detach();
     }
 
+    if (!finalized) {
+        std::cerr << "ERROR: Failed to finalize recording MP4" << std::endl;
+        return 1;
+    }
     if (encodeFailed) {
         std::cerr << "ERROR: Failed to encode WGC frame" << std::endl;
         return 1;

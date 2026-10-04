@@ -1,6 +1,10 @@
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { BrowserWindow, ipcMain, screen } from "electron";
+import { BrowserWindow, ipcMain, Menu, screen } from "electron";
+import type { RecordingPreviewSettings, WebcamPreviewSignal } from "../src/lib/recordingPreview";
+import { normalizeCursorCaptureMode } from "../src/lib/recordingSession";
+import { protectRecordingPreview } from "./recording/preview-protection";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -17,6 +21,249 @@ const ASSET_BASE_DIR = process.defaultApp
 const ASSET_BASE_URL_ARG = `--asset-base-url=${pathToFileURL(`${ASSET_BASE_DIR}${path.sep}`).toString()}`;
 
 let hudOverlayWindow: BrowserWindow | null = null;
+let settingsWindow: BrowserWindow | null = null;
+export function isRecorderWindow(requesterId: number): boolean {
+	return Boolean(
+		hudOverlayWindow &&
+			!hudOverlayWindow.isDestroyed() &&
+			hudOverlayWindow.webContents.id === requesterId,
+	);
+}
+
+export function isSettingsWindow(requesterId: number): boolean {
+	return Boolean(
+		settingsWindow &&
+			!settingsWindow.isDestroyed() &&
+			settingsWindow.webContents.id === requesterId,
+	);
+}
+
+export function closeSettingsWindow() {
+	settingsWindow?.close();
+}
+
+export function createSettingsWindow(): BrowserWindow {
+	if (settingsWindow && !settingsWindow.isDestroyed()) {
+		settingsWindow.show();
+		settingsWindow.focus();
+		return settingsWindow;
+	}
+	const win = new BrowserWindow({
+		width: 420,
+		height: 440,
+		useContentSize: true,
+		title: "Settings",
+		parent: hudOverlayWindow ?? undefined,
+		modal: true,
+		backgroundColor: "#09090b",
+		resizable: false,
+		minimizable: false,
+		maximizable: false,
+		alwaysOnTop: true,
+		show: false,
+		webPreferences: {
+			preload: path.join(__dirname, "preload.mjs"),
+			additionalArguments: [ASSET_BASE_URL_ARG],
+			nodeIntegration: false,
+			contextIsolation: true,
+		},
+	});
+	win.setMenu(null);
+	settingsWindow = win;
+	win.center();
+	win.once("ready-to-show", () => {
+		if (!HEADLESS) win.show();
+	});
+	win.on("closed", () => {
+		if (settingsWindow === win) settingsWindow = null;
+	});
+	if (VITE_DEV_SERVER_URL) {
+		void win.loadURL(`${VITE_DEV_SERVER_URL}?windowType=settings`);
+	} else {
+		void win.loadFile(path.join(RENDERER_DIST, "index.html"), {
+			query: { windowType: "settings" },
+		});
+	}
+	return win;
+}
+
+let recordingPreviewWindow: BrowserWindow | null = null;
+let recordingPreviewSettings: RecordingPreviewSettings = {
+	cursorCaptureMode: "editable-overlay",
+	webcamEnabled: false,
+};
+
+export function getRecordingPreviewConfiguration(requesterId: number) {
+	return recordingPreviewWindow &&
+		!recordingPreviewWindow.isDestroyed() &&
+		recordingPreviewWindow.webContents.id === requesterId
+		? recordingPreviewSettings
+		: null;
+}
+
+ipcMain.handle("get-recording-preview-settings", () => recordingPreviewSettings);
+ipcMain.on("set-recording-preview-settings", (event, settings: RecordingPreviewSettings) => {
+	if (event.sender !== hudOverlayWindow?.webContents) return;
+	const mode = normalizeCursorCaptureMode(settings?.cursorCaptureMode);
+	if (!mode || typeof settings.webcamEnabled !== "boolean") return;
+	recordingPreviewSettings = {
+		cursorCaptureMode: mode,
+		webcamEnabled: settings.webcamEnabled,
+		webcamStreamId:
+			typeof settings.webcamStreamId === "string"
+				? settings.webcamStreamId.slice(0, 80)
+				: undefined,
+	};
+	recordingPreviewWindow?.webContents.send(
+		"recording-preview-settings-changed",
+		recordingPreviewSettings,
+	);
+});
+ipcMain.on("webcam-preview-signal", (event, signal: WebcamPreviewSignal) => {
+	const fromHud = event.sender === hudOverlayWindow?.webContents;
+	const fromViewer = event.sender === recordingPreviewWindow?.webContents;
+	if (!fromHud && !fromViewer) return;
+	if (!signal || typeof signal.id !== "string" || signal.id.length > 80) return;
+	if (signal.type !== "close" && (typeof signal.sdp !== "string" || signal.sdp.length > 65_536))
+		return;
+	if (
+		fromHud ? !["answer", "close"].includes(signal.type) : !["offer", "close"].includes(signal.type)
+	)
+		return;
+	const target = fromHud ? recordingPreviewWindow : hudOverlayWindow;
+	if (target && !target.isDestroyed()) target.webContents.send("webcam-preview-signal", signal);
+});
+ipcMain.handle("choose-recording-cursor-mode", (event, current: unknown, labels: string[]) => {
+	if (event.sender !== hudOverlayWindow?.webContents || !hudOverlayWindow) return null;
+	if (
+		!Array.isArray(labels) ||
+		labels.length !== 2 ||
+		labels.some((label) => typeof label !== "string" || label.length > 120)
+	)
+		return null;
+	return new Promise((resolve) => {
+		const menu = Menu.buildFromTemplate(
+			["editable-overlay", "system"].map((mode, index) => ({
+				label: labels[index],
+				type: "radio" as const,
+				checked: current === mode,
+				click: () => resolve(mode),
+			})),
+		);
+		menu.popup({ window: hudOverlayWindow!, callback: () => resolve(null) });
+	});
+});
+
+export function isRecordingPreviewSupported(): boolean {
+	const [major, , build] = os.release().split(".").map(Number);
+	return process.platform === "win32" && (major > 10 || (major === 10 && build >= 19041));
+}
+
+export function isRecordingPreviewOpen(): boolean {
+	return Boolean(recordingPreviewWindow && !recordingPreviewWindow.isDestroyed());
+}
+
+export function isRecordingPreviewVisible(): boolean {
+	return isRecordingPreviewOpen() && !recordingPreviewWindow!.isMinimized();
+}
+
+export function isRecordingPreviewSource(sourceId: string): boolean {
+	if (!recordingPreviewWindow || recordingPreviewWindow.isDestroyed()) return false;
+	const handle = recordingPreviewWindow.getNativeWindowHandle();
+	const id =
+		handle.length === 8 ? handle.readBigUInt64LE().toString() : String(handle.readUInt32LE());
+	return sourceId.startsWith(`window:${id}:`);
+}
+
+function notifyRecordingPreviewChanged(open: boolean) {
+	if (hudOverlayWindow && !hudOverlayWindow.isDestroyed()) {
+		hudOverlayWindow.webContents.send("recording-preview-changed", open);
+	}
+}
+
+export function updateRecordingPreviewSource(source: { id?: string; name: string } | null) {
+	if (recordingPreviewWindow && !recordingPreviewWindow.isDestroyed()) {
+		recordingPreviewWindow.webContents.send(
+			"recording-preview-source-changed",
+			source?.id ? { id: source.id, name: source.name } : null,
+		);
+	}
+}
+
+export function closeRecordingPreviewWindow() {
+	if (recordingPreviewWindow && !recordingPreviewWindow.isDestroyed()) {
+		recordingPreviewWindow.close();
+	}
+}
+
+export async function createRecordingPreviewWindow(): Promise<BrowserWindow> {
+	if (!isRecordingPreviewSupported()) throw new Error("Recording preview is not supported");
+	if (recordingPreviewWindow && !recordingPreviewWindow.isDestroyed()) {
+		return recordingPreviewWindow;
+	}
+
+	const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+	const width = Math.min(480, workArea.width);
+	const height = Math.min(340, workArea.height);
+	const win = new BrowserWindow({
+		width,
+		height,
+		minWidth: 280,
+		minHeight: 220,
+		x: Math.max(workArea.x, workArea.x + workArea.width - width - 16),
+		y: Math.min(workArea.y + 16, workArea.y + workArea.height - height),
+		title: "Recording preview",
+		backgroundColor: "#09090b",
+		resizable: true,
+		maximizable: false,
+		alwaysOnTop: true,
+		skipTaskbar: true,
+		show: false,
+		webPreferences: {
+			preload: path.join(__dirname, "preload.mjs"),
+			additionalArguments: [ASSET_BASE_URL_ARG],
+			nodeIntegration: false,
+			contextIsolation: true,
+		},
+	});
+	// Electron initializes display affinity only after first show; stay invisible until protected.
+	win.setOpacity(0);
+	win.setIgnoreMouseEvents(true);
+	win.showInactive();
+	win.setMenu(null);
+	recordingPreviewWindow = win;
+	win.on("minimize", () => win.webContents.send("recording-preview-visibility-changed", false));
+	win.on("restore", () => win.webContents.send("recording-preview-visibility-changed", true));
+	win.once("ready-to-show", () => {
+		if (!HEADLESS) {
+			win.setOpacity(1);
+			win.setIgnoreMouseEvents(false);
+			win.showInactive();
+		}
+	});
+	win.on("closed", () => {
+		if (recordingPreviewWindow === win) {
+			recordingPreviewWindow = null;
+			hudOverlayWindow?.webContents.send("webcam-preview-signal", { id: "", type: "close" });
+			notifyRecordingPreviewChanged(false);
+		}
+	});
+	try {
+		await protectRecordingPreview(win);
+	} catch (error) {
+		if (!win.isDestroyed()) win.destroy();
+		throw error;
+	}
+	if (VITE_DEV_SERVER_URL) {
+		void win.loadURL(`${VITE_DEV_SERVER_URL}?windowType=recording-preview`);
+	} else {
+		void win.loadFile(path.join(RENDERER_DIST, "index.html"), {
+			query: { windowType: "recording-preview" },
+		});
+	}
+	notifyRecordingPreviewChanged(true);
+	return win;
+}
 
 ipcMain.on("hud-overlay-hide", () => {
 	if (hudOverlayWindow && !hudOverlayWindow.isDestroyed()) {
@@ -84,7 +331,7 @@ ipcMain.on("hud-overlay-set-size", (_event, width: number, height: number) => {
  * Frameless transparent HUD overlay, always-on-top, centred at the bottom of the
  * primary display. Follows the user across macOS Spaces so it isn't lost on switch.
  */
-export function createHudOverlayWindow(): BrowserWindow {
+export function createHudOverlayWindow(showInitially = true): BrowserWindow {
 	const primaryDisplay = screen.getPrimaryDisplay();
 	const { workArea } = primaryDisplay;
 
@@ -125,6 +372,29 @@ export function createHudOverlayWindow(): BrowserWindow {
 		},
 	});
 	win.setIgnoreMouseEvents(true, { forward: true });
+	// Recover z-order without activation, while respecting explicit hiding and popups.
+	const keepOnTop = () => {
+		if (win.isDestroyed() || !win.isVisible() || win.isMinimized()) return;
+		const hasPopup = BrowserWindow.getAllWindows().some((candidate) => {
+			if (candidate === win || candidate.isDestroyed() || !candidate.isVisible()) return false;
+			try {
+				return ["settings", "source-selector", "countdown-overlay"].includes(
+					new URL(candidate.webContents.getURL()).searchParams.get("windowType") ?? "",
+				);
+			} catch {
+				return false;
+			}
+		});
+		if (hasPopup) return;
+		win.setAlwaysOnTop(true, "screen-saver");
+		win.moveTop();
+	};
+	win.setAlwaysOnTop(true, "screen-saver");
+	win.on("show", keepOnTop);
+	win.on("restore", keepOnTop);
+	const topmostTimer = setInterval(keepOnTop, 1000);
+	topmostTimer.unref();
+	win.once("closed", () => clearInterval(topmostTimer));
 
 	// Follow the user across macOS Spaces, else the HUD stays pinned to the Space
 	// it was first opened on.
@@ -135,11 +405,12 @@ export function createHudOverlayWindow(): BrowserWindow {
 	// Show only once painted to avoid the black rectangle flash when a transparent
 	// window is shown before its first paint.
 	win.once("ready-to-show", () => {
-		if (!HEADLESS) win.show();
+		if (!HEADLESS && showInitially) win.show();
 	});
 
 	win.webContents.on("did-finish-load", () => {
-		win?.webContents.send("main-process-message", new Date().toLocaleString());
+		if (win.isDestroyed() || win.webContents.isDestroyed()) return;
+		win.webContents.send("main-process-message", new Date().toLocaleString());
 	});
 
 	hudOverlayWindow = win;
@@ -165,7 +436,7 @@ export function createHudOverlayWindow(): BrowserWindow {
  * Main editor window. Starts maximised with a hidden title bar on macOS; not
  * always-on-top and appears in the taskbar/dock.
  */
-export function createEditorWindow(exportOnly = false): BrowserWindow {
+export function createEditorWindow(exportOnly = false, showInitially = true): BrowserWindow {
 	const isMac = process.platform === "darwin";
 
 	const win = new BrowserWindow({
@@ -194,24 +465,40 @@ export function createEditorWindow(exportOnly = false): BrowserWindow {
 		},
 	});
 
-	if (!exportOnly) win.maximize();
+	if (!exportOnly) win.once("show", () => win.maximize());
 	else win.setSize(900, 700);
 
-	// Show only once painted to avoid a white flash on cold Vite start.
+	// Show only once painted to avoid a white flash on cold Vite start. On Windows,
+	// briefly enter the topmost band so a recording target cannot leave Studio
+	// visible-but-buried when the user chose not to hide after recording.
 	win.once("ready-to-show", () => {
-		if (!HEADLESS) win.show();
+		if (HEADLESS || !showInitially) return;
+		if (process.platform === "win32") win.setAlwaysOnTop(true, "screen-saver");
+		win.show();
+		win.focus();
+		win.moveTop();
+		if (process.platform === "win32") {
+			setTimeout(() => {
+				if (win.isDestroyed() || !win.isVisible()) return;
+				win.setAlwaysOnTop(false);
+				win.focus();
+				win.moveTop();
+			}, 250).unref();
+		}
 	});
 
 	// Inject dark background before any React paint so the sub-titlebar area never
 	// flashes white on a cold Vite load.
 	win.webContents.on("dom-ready", () => {
+		if (win.isDestroyed() || win.webContents.isDestroyed()) return;
 		win.webContents.insertCSS("html, body, #root { background: #09090b !important; }").catch(() => {
 			// Best-effort cosmetic; ignore if the page is mid-teardown.
 		});
 	});
 
 	win.webContents.on("did-finish-load", () => {
-		win?.webContents.send("main-process-message", new Date().toLocaleString());
+		if (win.isDestroyed() || win.webContents.isDestroyed()) return;
+		win.webContents.send("main-process-message", new Date().toLocaleString());
 	});
 
 	if (VITE_DEV_SERVER_URL) {

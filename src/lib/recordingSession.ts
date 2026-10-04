@@ -1,13 +1,16 @@
+import { normalizeRecordedBlurs, type RecordedBlur } from "./liveBlur";
+
 export interface ProjectMedia {
 	screenVideoPath: string;
 	webcamVideoPath?: string;
 	cursorCaptureMode?: CursorCaptureMode;
 }
 
-export type CursorCaptureMode = "editable-overlay" | "system";
+export type CursorCaptureMode = "editable-overlay" | "system" | "hidden";
 
 export interface RecordingSession extends ProjectMedia {
 	createdAt: number;
+	recordedBlurs?: RecordedBlur[];
 }
 
 export interface RecordedVideoAssetInput {
@@ -30,7 +33,9 @@ export interface StoreRecordedSessionInput {
 }
 
 export function normalizeCursorCaptureMode(value: unknown): CursorCaptureMode | undefined {
-	return value === "editable-overlay" || value === "system" ? value : undefined;
+	return value === "editable-overlay" || value === "system" || value === "hidden"
+		? value
+		: undefined;
 }
 
 function normalizePath(value: unknown): string | undefined {
@@ -77,6 +82,9 @@ export function normalizeRecordingSession(candidate: unknown): RecordingSession 
 
 	return {
 		...media,
+		...(Array.isArray((candidate as RecordingSession).recordedBlurs)
+			? { recordedBlurs: normalizeRecordedBlurs((candidate as RecordingSession).recordedBlurs) }
+			: {}),
 		createdAt:
 			typeof raw.createdAt === "number" && Number.isFinite(raw.createdAt)
 				? raw.createdAt

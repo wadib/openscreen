@@ -57,7 +57,6 @@ import { type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtil
 import { getTestId } from "@/utils/getTestId";
 import ColorPicker from "../ui/color-picker";
 import { AnnotationSettingsPanel } from "./AnnotationSettingsPanel";
-import { BlurSettingsPanel } from "./BlurSettingsPanel";
 import { BACKGROUND_IMAGE_ACCEPT, isSupportedBackgroundImageType } from "./backgroundImageUpload";
 import { CropControl } from "./CropControl";
 import { parseCustomPlaybackSpeedInput } from "./customPlaybackSpeed";
@@ -69,7 +68,6 @@ import {
 	DEFAULT_SOURCE_DIMENSIONS,
 	DEFAULT_WEBCAM_SETTINGS,
 } from "./editorDefaults";
-import { BLUR_REGIONS_ENABLED } from "./featureFlags";
 import { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 import type {
 	AnnotationRegion,
@@ -314,6 +312,7 @@ interface SettingsPanelProps {
 	blurRegions?: AnnotationRegion[];
 	onBlurDataChange?: (id: string, blurData: BlurData) => void;
 	onBlurDataCommit?: () => void;
+	onBlurAdd?: () => void;
 	onBlurDelete?: (id: string) => void;
 	selectedSpeedId?: string | null;
 	selectedSpeedValue?: PlaybackSpeed | null;
@@ -446,11 +445,6 @@ export function SettingsPanel({
 	onAnnotationFigureDataChange,
 	onAnnotationDuplicate,
 	onAnnotationDelete,
-	selectedBlurId,
-	blurRegions = [],
-	onBlurDataChange,
-	onBlurDataCommit,
-	onBlurDelete,
 	selectedSpeedId,
 	selectedSpeedValue,
 	onSpeedChange,
@@ -737,9 +731,6 @@ export function SettingsPanel({
 	const selectedAnnotation = selectedAnnotationId
 		? annotationRegions.find((a) => a.id === selectedAnnotationId)
 		: null;
-	const selectedBlur = selectedBlurId
-		? blurRegions.find((region) => region.id === selectedBlurId)
-		: null;
 	const commonFooterLinks = (
 		<div className="flex gap-2 mt-3">
 			<button
@@ -802,24 +793,6 @@ export function SettingsPanel({
 							onAnnotationDuplicate ? () => onAnnotationDuplicate(selectedAnnotation.id) : undefined
 						}
 						onDelete={() => onAnnotationDelete(selectedAnnotation.id)}
-					/>
-				</div>
-				<div className="flex-shrink-0 p-3 border-t border-white/[0.07] bg-black/25">
-					{commonFooterLinks}
-				</div>
-			</div>
-		);
-	}
-
-	if (BLUR_REGIONS_ENABLED && selectedBlur && onBlurDataChange && onBlurDelete) {
-		return (
-			<div className="editor-inspector-shell flex min-w-0 flex-col h-full overflow-hidden">
-				<div className="min-h-0 flex-1 overflow-hidden">
-					<BlurSettingsPanel
-						blurRegion={selectedBlur}
-						onBlurDataChange={(blurData) => onBlurDataChange(selectedBlur.id, blurData)}
-						onBlurDataCommit={onBlurDataCommit}
-						onDelete={() => onBlurDelete(selectedBlur.id)}
 					/>
 				</div>
 				<div className="flex-shrink-0 p-3 border-t border-white/[0.07] bg-black/25">

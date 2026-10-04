@@ -1,4 +1,30 @@
 {
+	"settings": {
+		"general": "General",
+		"hideAfterRecording": "Hide after recording finishes",
+		"hideAfterVideo": "Hide after video is saved or dismissed",
+		"quietRecording": "Quiet recording",
+		"quietUnavailable": "Quiet recording is unavailable on this system.",
+		"title": "Settings",
+		"afterRecording": "When recording stops",
+		"openEditor": "Open in Openscreen",
+		"externalEditor": "Choose another editor",
+		"exportDirectly": "Export directly",
+		"videoEditor": "Video editor",
+		"chooseEditor": "Choose video editor",
+		"loadError": "Unable to load settings. Reopen Settings to retry.",
+		"chooseError": "Unable to select an editor. Try again.",
+		"saveError": "Unable to save settings. Check the selected editor and try again."
+	},
+	"preview": {
+		"open": "Show recording preview",
+		"close": "Hide recording preview",
+		"title": "Recording preview",
+		"connecting": "Connecting...",
+		"unavailable": "Preview unavailable",
+		"selectSource": "Select a screen or window",
+		"retry": "Retry preview"
+	},
 	"tooltips": {
 		"hideHUD": "Hide HUD",
 		"closeApp": "Close App",
@@ -28,6 +54,9 @@
 		"unavailable": "Camera unavailable"
 	},
 	"cursor": {
+		"show": "Show cursor",
+		"hide": "Hide cursor",
+		"mode": "Cursor mode",
 		"useEditableCursor": "Use editable cursor",
 		"useSystemCursor": "Use system cursor"
 	},

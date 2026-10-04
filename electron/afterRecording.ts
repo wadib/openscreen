@@ -1,50 +1,63 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import path from "node:path";
-import { app, dialog } from "electron";
+import { app } from "electron";
 
-export type AfterRecording = { mode: "editor" | "external" | "export"; editorPath?: string };
+export type AfterRecording = {
+	mode: "editor" | "external" | "export";
+	editorPath?: string;
+	quietRecording?: boolean;
+	hideAfterRecording?: boolean;
+	hideAfterVideo?: boolean;
+};
 const preferencePath = () => path.join(app.getPath("userData"), "after-recording.json");
 
 export async function readAfterRecording(): Promise<AfterRecording> {
 	try {
 		const value = JSON.parse(await fs.readFile(preferencePath(), "utf8"));
-		if (value.mode === "export" || value.mode === "editor") return { mode: value.mode };
+		const quiet = {
+			...(value.quietRecording === true ? { quietRecording: true } : {}),
+			...(value.hideAfterRecording === true ? { hideAfterRecording: true } : {}),
+			...(value.hideAfterVideo === true ? { hideAfterVideo: true } : {}),
+		};
+		if (value.mode === "export" || value.mode === "editor") return { mode: value.mode, ...quiet };
 		if (
 			value.mode === "external" &&
 			typeof value.editorPath === "string" &&
 			path.isAbsolute(value.editorPath)
 		)
-			return { mode: "external", editorPath: value.editorPath };
+			return { mode: "external", editorPath: value.editorPath, ...quiet };
 	} catch {
 		/* Missing or invalid preferences use the original behavior. */
 	}
 	return { mode: "editor" };
 }
 
-export async function configureAfterRecording(): Promise<AfterRecording> {
-	const previous = await readAfterRecording();
-	const choice = await dialog.showMessageBox({
-		title: "After recording",
-		message: "When recording stops",
-		buttons: ["Open in Openscreen", "Choose another editor", "Export directly", "Cancel"],
-		defaultId: previous.mode === "editor" ? 0 : previous.mode === "external" ? 1 : 2,
-		cancelId: 3,
-		noLink: true,
-	});
-	if (choice.response === 3) return previous;
-	let next: AfterRecording = { mode: choice.response === 2 ? "export" : "editor" };
-	if (choice.response === 1) {
-		const selected = await dialog.showOpenDialog({
-			title: "Choose video editor",
-			properties: ["openFile"],
-			...(process.platform === "win32"
-				? { filters: [{ name: "Applications", extensions: ["exe"] }] }
-				: {}),
-		});
-		if (selected.canceled || !selected.filePaths[0]) return previous;
-		next = { mode: "external", editorPath: selected.filePaths[0] };
+export async function writeAfterRecording(candidate: unknown): Promise<AfterRecording> {
+	if (!candidate || typeof candidate !== "object") throw new Error("Invalid recording settings");
+	const value = candidate as Partial<AfterRecording>;
+	if (value.quietRecording !== undefined && typeof value.quietRecording !== "boolean")
+		throw new Error("Invalid quiet recording setting");
+	for (const key of ["hideAfterRecording", "hideAfterVideo"] as const) {
+		if (value[key] !== undefined && typeof value[key] !== "boolean")
+			throw new Error(`Invalid ${key} setting`);
 	}
+	let next: AfterRecording;
+	if (value.mode === "editor" || value.mode === "export") {
+		next = { mode: value.mode };
+	} else if (
+		value.mode === "external" &&
+		typeof value.editorPath === "string" &&
+		path.isAbsolute(value.editorPath)
+	) {
+		await fs.access(value.editorPath);
+		next = { mode: "external", editorPath: value.editorPath };
+	} else {
+		throw new Error("Invalid recording settings");
+	}
+	if (value.quietRecording === true) next.quietRecording = true;
+	if (value.hideAfterRecording === true) next.hideAfterRecording = true;
+	if (value.hideAfterVideo === true) next.hideAfterVideo = true;
 	await fs.writeFile(preferencePath(), JSON.stringify(next));
 	return next;
 }

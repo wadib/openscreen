@@ -1,4 +1,5 @@
 #include "wasapi_loopback_capture.h"
+#include "capture_clock.h"
 
 #include <Functiondiscoverykeys_devpkey.h>
 #include <ksmedia.h>
@@ -292,9 +293,6 @@ bool WasapiLoopbackCapture::start(AudioCallback callback) {
 
     callback_ = std::move(callback);
     stopRequested_ = false;
-    writtenFrames_ = 0;
-    lastDevicePositionEnd_ = 0;
-    hasLastDevicePosition_ = false;
 
     HRESULT hr = audioClient_->Start();
     if (!succeeded(hr, "IAudioClient::Start")) {
@@ -326,22 +324,6 @@ const std::wstring& WasapiLoopbackCapture::selectedDeviceName() const {
 }
 
 void WasapiLoopbackCapture::captureLoop() {
-    auto emitSilenceFrames = [&](uint64_t frames, int64_t timestampHns) {
-        constexpr uint64_t MaxSilenceChunkFrames = 4800;
-        uint64_t remainingFrames = frames;
-        int64_t currentTimestampHns = timestampHns;
-        while (remainingFrames > 0 && !stopRequested_) {
-            const uint64_t chunkFrames = std::min<uint64_t>(remainingFrames, MaxSilenceChunkFrames);
-            const DWORD chunkBytes = static_cast<DWORD>(chunkFrames * inputFormat_.blockAlign);
-            const int64_t chunkDurationHns =
-                static_cast<int64_t>((chunkFrames * HnsPerSecond) / inputFormat_.sampleRate);
-            silenceBuffer_.assign(chunkBytes, 0);
-            callback_(silenceBuffer_.data(), chunkBytes, currentTimestampHns, chunkDurationHns);
-            remainingFrames -= chunkFrames;
-            currentTimestampHns += chunkDurationHns;
-        }
-    };
-
     while (!stopRequested_) {
         UINT32 packetFrames = 0;
         HRESULT hr = captureClient_->GetNextPacketSize(&packetFrames);
@@ -365,22 +347,14 @@ void WasapiLoopbackCapture::captureLoop() {
                 break;
             }
 
-            (void)qpcPosition;
-            if (hasLastDevicePosition_ && devicePosition > lastDevicePositionEnd_) {
-                const uint64_t gapFrames = devicePosition - lastDevicePositionEnd_;
-                if ((flags & AUDCLNT_BUFFERFLAGS_DATA_DISCONTINUITY) != 0 || gapFrames > framesAvailable) {
-                    const int64_t gapTimestampHns =
-                        static_cast<int64_t>((lastDevicePositionEnd_ * HnsPerSecond) / inputFormat_.sampleRate);
-                    emitSilenceFrames(gapFrames, gapTimestampHns);
-                }
-            }
-
             const DWORD byteCount = framesAvailable * inputFormat_.blockAlign;
-            const int64_t timestampHns =
-                static_cast<int64_t>((devicePosition * HnsPerSecond) / inputFormat_.sampleRate);
             const int64_t durationHns =
                 static_cast<int64_t>((static_cast<uint64_t>(framesAvailable) * HnsPerSecond) /
                                      inputFormat_.sampleRate);
+            const int64_t timestampHns =
+                qpcPosition > 0 && (flags & AUDCLNT_BUFFERFLAGS_TIMESTAMP_ERROR) == 0
+                    ? static_cast<int64_t>(qpcPosition)
+                    : captureClockHns() - durationHns;
 
             if (byteCount > 0) {
                 if ((flags & AUDCLNT_BUFFERFLAGS_SILENT) != 0 || !data) {
@@ -391,9 +365,6 @@ void WasapiLoopbackCapture::captureLoop() {
                 }
             }
 
-            writtenFrames_ += framesAvailable;
-            lastDevicePositionEnd_ = devicePosition + framesAvailable;
-            hasLastDevicePosition_ = true;
             captureClient_->ReleaseBuffer(framesAvailable);
 
             hr = captureClient_->GetNextPacketSize(&packetFrames);

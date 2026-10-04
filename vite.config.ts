@@ -11,16 +11,25 @@ export default defineConfig({
 			main: {
 				entry: "electron/main.ts",
 				onstart({ startup }) {
+					if (process.env.OPENSCREEN_E2E_DEV === "true") {
+						process.emit("openscreen-electron-ready");
+						return;
+					}
 					const env = { ...process.env };
 					delete env.ELECTRON_RUN_AS_NODE;
 					return startup(["."], { env });
 				},
 				vite: {
-					build: {},
+					build: process.env.OPENSCREEN_E2E_DEV === "true" ? { watch: null } : {},
 				},
 			},
 			preload: {
 				input: path.join(__dirname, "electron/preload.ts"),
+				vite: { build: process.env.OPENSCREEN_E2E_DEV === "true" ? { watch: null } : {} },
+				onstart({ reload }) {
+					if (process.env.OPENSCREEN_E2E_DEV === "true") process.emit("openscreen-electron-ready");
+					else reload();
+				},
 			},
 			renderer: process.env.NODE_ENV === "test" ? undefined : {},
 		}),

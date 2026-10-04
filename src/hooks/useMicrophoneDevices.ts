@@ -6,9 +6,9 @@ export interface MicrophoneDevice {
 	groupId: string;
 }
 
-export function useMicrophoneDevices(enabled: boolean = true) {
+export function useMicrophoneDevices(enabled: boolean = true, preferredDeviceId?: string) {
 	const [devices, setDevices] = useState<MicrophoneDevice[]>([]);
-	const [selectedDeviceId, setSelectedDeviceId] = useState<string>("default");
+	const [selectedDeviceId, setSelectedDeviceId] = useState<string>(preferredDeviceId ?? "default");
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 

@@ -1,4 +1,30 @@
 {
+	"settings": {
+		"general": "Chung",
+		"hideAfterRecording": "Ẩn khi ghi xong",
+		"hideAfterVideo": "Ẩn sau khi lưu hoặc đóng video",
+		"quietRecording": "Ghi hình không làm phiền",
+		"quietUnavailable": "Ghi hình không làm phiền không khả dụng trên hệ thống này.",
+		"title": "Cài đặt",
+		"afterRecording": "Khi dừng ghi hình",
+		"openEditor": "Mở trong Openscreen",
+		"externalEditor": "Chọn trình chỉnh sửa khác",
+		"exportDirectly": "Xuất trực tiếp",
+		"videoEditor": "Trình chỉnh sửa video",
+		"chooseEditor": "Chọn trình chỉnh sửa video",
+		"loadError": "Không thể tải cài đặt. Mở lại Cài đặt để thử lại.",
+		"chooseError": "Không thể chọn trình chỉnh sửa. Hãy thử lại.",
+		"saveError": "Không thể lưu cài đặt. Kiểm tra trình chỉnh sửa đã chọn rồi thử lại."
+	},
+	"preview": {
+		"open": "Hiện xem trước bản ghi",
+		"close": "Ẩn xem trước bản ghi",
+		"title": "Xem trước bản ghi",
+		"connecting": "Đang kết nối...",
+		"unavailable": "Không thể xem trước",
+		"selectSource": "Chọn màn hình hoặc cửa sổ",
+		"retry": "Thử xem trước lại"
+	},
 	"tooltips": {
 		"hideHUD": "Ẩn HUD",
 		"closeApp": "Đóng ứng dụng",
@@ -43,6 +69,9 @@
 		"keepDefault": "Giữ ngôn ngữ hiện tại"
 	},
 	"cursor": {
+		"show": "Hiện con trỏ",
+		"hide": "Ẩn con trỏ",
+		"mode": "Chế độ con trỏ",
 		"useEditableCursor": "Dùng con trỏ có thể chỉnh sửa",
 		"useSystemCursor": "Dùng con trỏ hệ thống"
 	}

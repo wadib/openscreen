@@ -6,9 +6,9 @@ export interface CameraDevice {
 	groupId: string;
 }
 
-export function useCameraDevices(enabled: boolean = false) {
+export function useCameraDevices(enabled: boolean = false, preferredDeviceId?: string) {
 	const [devices, setDevices] = useState<CameraDevice[]>([]);
-	const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
+	const [selectedDeviceId, setSelectedDeviceId] = useState<string>(preferredDeviceId ?? "");
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const selectedDeviceIdRef = useRef(selectedDeviceId);
@@ -38,7 +38,7 @@ export function useCameraDevices(enabled: boolean = false) {
 					setDevices(videoInputs);
 					const currentId = selectedDeviceIdRef.current;
 					const stillAvailable = videoInputs.some((d) => d.deviceId === currentId);
-					if (!currentId || !stillAvailable) {
+					if (!currentId || (!stillAvailable && !preferredDeviceId)) {
 						setSelectedDeviceId(videoInputs[0]?.deviceId ?? "");
 					}
 					setIsLoading(false);
@@ -58,7 +58,7 @@ export function useCameraDevices(enabled: boolean = false) {
 			mounted = false;
 			navigator.mediaDevices.removeEventListener("devicechange", loadDevices);
 		};
-	}, [enabled]);
+	}, [enabled, preferredDeviceId]);
 
 	return { devices, selectedDeviceId, setSelectedDeviceId, isLoading, error };
 }

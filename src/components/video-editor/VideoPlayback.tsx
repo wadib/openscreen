@@ -39,8 +39,10 @@ import {
 	resolveInterpolatedNativeCursorFrame,
 	resolveNativeCursorRenderAsset,
 } from "@/lib/cursor/nativeCursor";
+import { drawWebcamFrameImage } from "@/lib/exporter/webcamFrameDrawing";
+import { projectLiveBlur, unprojectBlurPosition, unprojectBlurSize } from "@/lib/liveBlur";
 import { classifyWallpaper, DEFAULT_WALLPAPER, resolveImageWallpaperUrl } from "@/lib/wallpaper";
-import { getCssClipPath } from "@/lib/webcamMaskShapes";
+import { drawCanvasClipPath, getCssClipPath } from "@/lib/webcamMaskShapes";
 import type { CursorRecordingData } from "@/native/contracts";
 import {
 	type AspectRatio,
@@ -2000,18 +2002,31 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									return timeMs >= annotation.startMs && timeMs < annotation.endMs;
 								});
 
-								const filteredBlurRegions = (blurRegions || []).filter((blurRegion) => {
-									if (
-										typeof blurRegion.startMs !== "number" ||
-										typeof blurRegion.endMs !== "number"
-									)
-										return false;
+								const blurProjection = {
+									...overlaySize,
+									mask: baseMaskRef.current,
+									crop: cropRegion ?? { x: 0, y: 0, width: 1, height: 1 },
+									scale: cameraContainerRef.current?.scale.x ?? 1,
+									x: cameraContainerRef.current?.position.x ?? 0,
+									y: cameraContainerRef.current?.position.y ?? 0,
+								};
+								const filteredBlurRegions = (blurRegions || [])
+									.filter((blurRegion) => {
+										if (
+											typeof blurRegion.startMs !== "number" ||
+											typeof blurRegion.endMs !== "number"
+										)
+											return false;
 
-									if (blurRegion.id === selectedBlurId) return true;
+										if (!isPlaying && blurRegion.id === selectedBlurId) return true;
 
-									const timeMs = Math.round(currentTime * 1000);
-									return timeMs >= blurRegion.startMs && timeMs < blurRegion.endMs;
-								});
+										const timeMs = Math.round(currentTime * 1000);
+										return timeMs >= blurRegion.startMs && timeMs < blurRegion.endMs;
+									})
+									.flatMap((region) => {
+										const projected = projectLiveBlur(region, blurProjection);
+										return projected ? [projected] : [];
+									});
 
 								const sorted = [
 									...filteredAnnotations.map((annotation) => ({
@@ -2029,7 +2044,64 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 												const app = appRef.current;
 												if (!app?.renderer?.extract) return null;
 												try {
-													return app.renderer.extract.canvas(app.stage);
+													const snapshot = app.renderer.extract.canvas(app.stage);
+													const ctx = snapshot.getContext("2d") as CanvasRenderingContext2D | null;
+													if (!ctx) return snapshot;
+													ctx.save();
+													ctx.scale(
+														snapshot.width / overlaySize.width,
+														snapshot.height / overlaySize.height,
+													);
+													const camera = webcamVideoRef.current;
+													if (webcamVideoPath && webcamLayout && camera && camera.readyState >= 2) {
+														const scale = Math.max(
+															webcamLayout.width / camera.videoWidth,
+															webcamLayout.height / camera.videoHeight,
+														);
+														const width = webcamLayout.width / scale,
+															height = webcamLayout.height / scale;
+														ctx.save();
+														drawCanvasClipPath(
+															ctx,
+															webcamLayout.x,
+															webcamLayout.y,
+															webcamLayout.width,
+															webcamLayout.height,
+															webcamLayout.maskShape ?? "rectangle",
+															webcamLayout.borderRadius,
+														);
+														ctx.clip();
+														drawWebcamFrameImage(
+															ctx,
+															camera,
+															{
+																x: (camera.videoWidth - width) / 2,
+																y: (camera.videoHeight - height) / 2,
+																width,
+																height,
+															},
+															webcamLayout,
+															webcamMirrored,
+														);
+														ctx.restore();
+													}
+													const cursor = nativeCursorImageRef.current;
+													if (
+														cursor?.complete &&
+														cursor.naturalWidth &&
+														cursor.style.display !== "none"
+													) {
+														const matrix = new DOMMatrixReadOnly(cursor.style.transform);
+														ctx.drawImage(
+															cursor,
+															matrix.m41,
+															matrix.m42,
+															Number.parseFloat(cursor.style.width),
+															Number.parseFloat(cursor.style.height),
+														);
+													}
+													ctx.restore();
+													return snapshot;
 												} catch {
 													return null;
 												}
@@ -2078,12 +2150,22 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 										containerHeight={overlaySize.height}
 										onPositionChange={(id, position) =>
 											item.kind === "blur"
-												? onBlurPositionChange?.(id, position)
+												? onBlurPositionChange?.(
+														id,
+														item.region.annotationSource === "live-blur"
+															? unprojectBlurPosition(position, blurProjection)
+															: position,
+													)
 												: onAnnotationPositionChange?.(id, position)
 										}
 										onSizeChange={(id, size) =>
 											item.kind === "blur"
-												? onBlurSizeChange?.(id, size)
+												? onBlurSizeChange?.(
+														id,
+														item.region.annotationSource === "live-blur"
+															? unprojectBlurSize(size, blurProjection)
+															: size,
+													)
 												: onAnnotationSizeChange?.(id, size)
 										}
 										onBlurDataChange={
@@ -2100,6 +2182,20 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 												: item.region.id === selectedAnnotationId
 										}
 										previewSourceCanvas={previewSnapshotCanvas}
+										previewBlurRegions={filteredBlurRegions}
+										sourceBlurScaleFactor={
+											(blurProjection.scale * blurProjection.mask.width) /
+											Math.max(1, (videoRef.current?.videoWidth ?? 1) * blurProjection.crop.width)
+										}
+										blurScaleFactor={
+											item.region.annotationSource === "live-blur"
+												? (blurProjection.scale * blurProjection.mask.width) /
+													Math.max(
+														1,
+														(videoRef.current?.videoWidth ?? 1) * blurProjection.crop.width,
+													)
+												: 1
+										}
 										previewFrameVersion={Math.round(currentTime * 1000)}
 										currentTimeMs={Math.round(currentTime * 1000)}
 									/>

@@ -191,7 +191,7 @@ function drawBlurPath(
 	ctx.rect(x, y, width, height);
 }
 
-function renderBlur(
+export function renderBlur(
 	ctx: CanvasRenderingContext2D,
 	annotation: AnnotationRegion,
 	x: number,
@@ -242,6 +242,12 @@ function renderBlur(
 	ctx.save();
 	drawBlurPath(ctx, annotation, x, y, width, height);
 	ctx.clip();
+	if (annotation.blurClip) {
+		const clip = annotation.blurClip;
+		ctx.beginPath();
+		ctx.rect(clip.x, clip.y, clip.width, clip.height);
+		ctx.clip();
+	}
 	ctx.filter = blurType === "mosaic" ? "none" : `blur(${blurRadius}px)`;
 	ctx.drawImage(blurScratchCanvas, sx, sy);
 	ctx.filter = "none";
@@ -444,6 +450,7 @@ export async function renderAnnotations(
 	canvasHeight: number,
 	currentTimeMs: number,
 	scaleFactor: number = 1.0,
+	liveBlurScaleFactor: number = scaleFactor,
 ): Promise<void> {
 	const activeAnnotations = annotations.filter(
 		(ann) => currentTimeMs >= ann.startMs && currentTimeMs < ann.endMs,
@@ -484,7 +491,15 @@ export async function renderAnnotations(
 				break;
 
 			case "blur":
-				renderBlur(ctx, annotation, x, y, width, height, scaleFactor);
+				renderBlur(
+					ctx,
+					annotation,
+					x,
+					y,
+					width,
+					height,
+					annotation.annotationSource === "live-blur" ? liveBlurScaleFactor : scaleFactor,
+				);
 				break;
 		}
 	}

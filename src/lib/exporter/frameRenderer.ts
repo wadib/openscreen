@@ -63,6 +63,7 @@ import {
 import { BackgroundLoadError, classifyWallpaper, resolveImageWallpaperUrl } from "@/lib/wallpaper";
 import { drawCanvasClipPath } from "@/lib/webcamMaskShapes";
 import type { CursorRecordingData } from "@/native/contracts";
+import { projectLiveBlur } from "../liveBlur";
 import { renderAnnotations } from "./annotationRenderer";
 import {
 	getLinearGradientPoints,
@@ -461,11 +462,27 @@ export class FrameRenderer {
 
 			await renderAnnotations(
 				this.foregroundCtx,
-				this.config.annotationRegions,
+				this.config.annotationRegions
+					.map((annotation) =>
+						projectLiveBlur(annotation, {
+							width: this.config.width,
+							height: this.config.height,
+							mask: layoutCache.maskRect,
+							crop: this.config.cropRegion,
+							scale: this.cameraContainer?.scale.x ?? 1,
+							x: this.cameraContainer?.position.x ?? 0,
+							y: this.cameraContainer?.position.y ?? 0,
+						}),
+					)
+					.filter(
+						(annotation): annotation is NonNullable<typeof annotation> => annotation !== null,
+					),
 				this.config.width,
 				this.config.height,
 				timeMs,
 				scaleFactor,
+				(layoutCache.maskRect.width * (this.cameraContainer?.scale.x ?? 1)) /
+					Math.max(1, this.config.videoWidth * this.config.cropRegion.width),
 			);
 		}
 

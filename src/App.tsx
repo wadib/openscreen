@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { CountdownOverlay } from "./components/launch/CountdownOverlay.tsx";
 import { LaunchWindow } from "./components/launch/LaunchWindow";
+import { RecordingPreview } from "./components/launch/RecordingPreview";
+import { SettingsWindow } from "./components/launch/SettingsWindow";
 import { SourceSelector } from "./components/launch/SourceSelector";
 import { Toaster } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -20,6 +22,7 @@ export default function App() {
 		() => new URLSearchParams(window.location.search).get("windowType") || "",
 	);
 	const tEditor = useScopedT("editor");
+	const isDirectExport = new URLSearchParams(window.location.search).get("exportOnly") === "1";
 
 	useEffect(() => {
 		const directExport = new URLSearchParams(window.location.search).get("exportOnly") === "1";
@@ -75,6 +78,14 @@ export default function App() {
 				return <LaunchWindow />;
 			case "source-selector":
 				return <SourceSelector />;
+			case "recording-preview":
+				return <RecordingPreview />;
+			case "settings":
+				return (
+					<ShortcutsProvider>
+						<SettingsWindow />
+					</ShortcutsProvider>
+				);
 			case "countdown-overlay":
 				return <CountdownOverlay />;
 			case "editor":
@@ -128,7 +139,11 @@ export default function App() {
 	return (
 		<TooltipProvider>
 			{content}
-			<Toaster theme="dark" />
+			<Toaster
+				theme="dark"
+				position={isDirectExport ? "top-right" : "bottom-right"}
+				offset={isDirectExport ? { top: 80, right: 16 } : undefined}
+			/>
 		</TooltipProvider>
 	);
 }

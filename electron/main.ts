@@ -12,14 +12,17 @@ import {
 	Tray,
 } from "electron";
 import { ShortcutBinding } from "../src/lib/shortcuts";
+import { readAfterRecording } from "./afterRecording";
 import {
 	loadAndRegisterGlobalShortcut,
 	registerOpenAppShortcut,
 	unregisterAllGlobalShortcuts,
 } from "./globalShortcut";
 import { mainT, setMainLocale } from "./i18n";
-import { getSelectedDesktopSource, registerIpcHandlers } from "./ipc/handlers";
+import { getSelectedDesktopSource, registerIpcHandlers, SHORTCUTS_FILE } from "./ipc/handlers";
+import { createShortcutsSaver } from "./shortcut-settings";
 import {
+	closeRecordingPreviewWindow,
 	createCountdownOverlayWindow,
 	createEditorWindow,
 	createHudOverlayWindow,
@@ -91,8 +94,8 @@ const trayIconSize = isMac ? 16 : 24;
 const defaultTrayIcon = getTrayIcon("openscreen.png", trayIconSize);
 const recordingTrayIcon = getTrayIcon("rec-button.png", trayIconSize);
 
-function createWindow() {
-	mainWindow = createHudOverlayWindow();
+function createWindow(showInitially = true) {
+	mainWindow = createHudOverlayWindow(showInitially);
 }
 
 function showMainWindow() {
@@ -321,6 +324,11 @@ function updateTrayMenu(recording: boolean = false) {
 						}
 					},
 				},
+				{ type: "separator" as const },
+				{
+					label: mainT("common", "actions.open") || "Open",
+					click: () => showMainWindow(),
+				},
 			]
 		: [
 				{
@@ -344,13 +352,24 @@ function updateTrayMenu(recording: boolean = false) {
 let editorHasUnsavedChanges = false;
 let isForceClosing = false;
 let isCloseConfirmInFlight = false;
+let isQuitting = false;
+
+app.on("before-quit", () => {
+	isQuitting = true;
+});
 
 ipcMain.on("set-has-unsaved-changes", (_, hasChanges: boolean) => {
 	editorHasUnsavedChanges = hasChanges;
 });
 
-function forceCloseEditorWindow(windowToClose: BrowserWindow | null) {
+async function forceCloseEditorWindow(windowToClose: BrowserWindow | null) {
 	if (!windowToClose || windowToClose.isDestroyed()) return;
+	const settings = await readAfterRecording();
+	if (windowToClose.isDestroyed() || windowToClose !== mainWindow) return;
+	if (!isQuitting) {
+		switchToHudWrapper(!settings.hideAfterVideo);
+		return;
+	}
 
 	isForceClosing = true;
 	setImmediate(() => {
@@ -364,24 +383,47 @@ function forceCloseEditorWindow(windowToClose: BrowserWindow | null) {
 	});
 }
 
-function createEditorWindowWrapper(exportOnly = false) {
-	if (mainWindow) {
-		isForceClosing = true;
-		mainWindow.close();
+function switchToHudWrapper(showInitially = true) {
+	closeRecordingPreviewWindow();
+	const previous = mainWindow;
+	createWindow(showInitially);
+	editorHasUnsavedChanges = false;
+	isForceClosing = true;
+	try {
+		if (previous && !previous.isDestroyed()) previous.close();
+	} finally {
 		isForceClosing = false;
-		mainWindow = null;
 	}
-	mainWindow = createEditorWindow(exportOnly);
+}
+
+function createEditorWindowWrapper(exportOnly = false, showInitially = true) {
+	closeRecordingPreviewWindow();
+	const previous = mainWindow;
+	mainWindow = createEditorWindow(exportOnly, showInitially);
+	isForceClosing = true;
+	try {
+		if (previous && !previous.isDestroyed()) previous.close();
+	} finally {
+		isForceClosing = false;
+	}
 	editorHasUnsavedChanges = false;
 
 	mainWindow.on("close", (event) => {
-		if (isForceClosing || !editorHasUnsavedChanges || isCloseConfirmInFlight) return;
+		if (isForceClosing) return;
+		if (!editorHasUnsavedChanges) {
+			if (isQuitting) return;
+			event.preventDefault();
+			void forceCloseEditorWindow(mainWindow);
+			return;
+		}
 
 		event.preventDefault();
+		if (isCloseConfirmInFlight) return;
 		isCloseConfirmInFlight = true;
 
 		const windowToClose = mainWindow;
 		if (!windowToClose || windowToClose.isDestroyed()) return;
+		if (isQuitting && !windowToClose.isVisible()) windowToClose.show();
 
 		// Ask renderer to show the in-app close dialog.
 		windowToClose.webContents.send("request-close-confirm");
@@ -396,11 +438,16 @@ function createEditorWindowWrapper(exportOnly = false) {
 				windowToClose.webContents.send("request-save-before-close");
 				ipcMain.once("save-before-close-done", (event, shouldClose: boolean) => {
 					if (event.sender.id !== windowToClose?.webContents.id) return;
-					if (!shouldClose) return;
-					forceCloseEditorWindow(windowToClose);
+					if (!shouldClose) {
+						isQuitting = false;
+						return;
+					}
+					void forceCloseEditorWindow(windowToClose);
 				});
 			} else if (choice === "discard") {
-				forceCloseEditorWindow(windowToClose);
+				void forceCloseEditorWindow(windowToClose);
+			} else {
+				isQuitting = false;
 			}
 			// "cancel": flag reset, window stays open
 		});
@@ -525,22 +572,19 @@ app.whenReady().then(async () => {
 		const success = registerOpenAppShortcut(binding, showMainWindow);
 		return { success };
 	});
+	const saveShortcuts = createShortcutsSaver(SHORTCUTS_FILE, showMainWindow, (config) => {
+		for (const win of BrowserWindow.getAllWindows()) {
+			if (!win.webContents.isDestroyed()) win.webContents.send("shortcuts-changed", config);
+		}
+	});
+	ipcMain.handle("save-shortcuts", (_, config: unknown) => saveShortcuts(config));
 
 	createTray();
 	updateTrayMenu();
 	setupApplicationMenu();
 	await ensureRecordingsDir();
 
-	function switchToHudWrapper() {
-		if (mainWindow) {
-			isForceClosing = true;
-			mainWindow.close();
-			isForceClosing = false;
-			mainWindow = null;
-		}
-		showMainWindow();
-	}
-
+	let recordingStateRevision = 0;
 	registerIpcHandlers(
 		createEditorWindowWrapper,
 		createSourceSelectorWindowWrapper,
@@ -549,11 +593,24 @@ app.whenReady().then(async () => {
 		() => sourceSelectorWindow,
 		() => countdownOverlayWindow,
 		(recording: boolean, sourceName: string) => {
+			const revision = ++recordingStateRevision;
 			selectedSourceName = sourceName;
 			if (!tray) createTray();
 			updateTrayMenu(recording);
 			if (!recording) {
-				showMainWindow();
+				const stoppedWindow = mainWindow;
+				void readAfterRecording().then((settings) => {
+					if (
+						revision !== recordingStateRevision ||
+						stoppedWindow !== mainWindow ||
+						stoppedWindow?.isDestroyed()
+					)
+						return;
+					if (settings.hideAfterRecording) {
+						closeRecordingPreviewWindow();
+						stoppedWindow?.hide();
+					} else showMainWindow();
+				});
 			}
 		},
 		switchToHudWrapper,
