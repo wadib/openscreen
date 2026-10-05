@@ -42,7 +42,8 @@
 		"disableSystemAudio": "تعطيل صوت النظام",
 		"enableMicrophone": "تفعيل الميكروفون",
 		"disableMicrophone": "تعطيل الميكروفون",
-		"defaultMicrophone": "الميكروفون الافتراضي"
+		"defaultMicrophone": "الميكروفون الافتراضي",
+		"microphoneLevel": "مستوى الميكروفون"
 	},
 	"webcam": {
 		"enableWebcam": "تفعيل كاميرا الويب",

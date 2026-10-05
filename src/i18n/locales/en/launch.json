@@ -43,7 +43,8 @@
 		"disableSystemAudio": "Disable system audio",
 		"enableMicrophone": "Enable microphone",
 		"disableMicrophone": "Disable microphone",
-		"defaultMicrophone": "Default Microphone"
+		"defaultMicrophone": "Default Microphone",
+		"microphoneLevel": "Microphone level"
 	},
 	"webcam": {
 		"enableWebcam": "Enable webcam",

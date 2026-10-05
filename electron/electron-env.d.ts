@@ -239,6 +239,8 @@ interface Window {
 			error?: string;
 		}>;
 		onStopRecordingFromTray: (callback: () => void) => () => void;
+		onToggleRecordingShortcut: (callback: () => void) => () => void;
+		onTogglePauseShortcut: (callback: () => void) => () => void;
 		openExternalUrl: (url: string) => Promise<{ success: boolean; error?: string }>;
 		pickExportSavePath: (
 			fileName: string,
@@ -340,12 +342,6 @@ interface Window {
 		getShortcuts: () => Promise<Record<string, unknown> | null>;
 		saveShortcuts: (shortcuts: unknown) => Promise<{ success: boolean; error?: string }>;
 		onShortcutsChanged: (callback: (config: unknown) => void) => () => void;
-		updateGlobalShortcut: (binding: {
-			key: string;
-			ctrl?: boolean;
-			shift?: boolean;
-			alt?: boolean;
-		}) => Promise<{ success: boolean }>;
 		hudOverlayHide: () => void;
 		hudOverlayClose: () => void;
 		setHudOverlayIgnoreMouseEvents: (ignore: boolean) => void;

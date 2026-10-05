@@ -6,7 +6,7 @@ import {
 	SHORTCUT_ACTIONS,
 	type ShortcutsConfig,
 } from "../src/lib/shortcuts";
-import { registerOpenAppShortcut } from "./globalShortcut";
+import { type GlobalShortcutCallbacks, registerGlobalShortcuts } from "./globalShortcut";
 
 function normalizeConfig(value: unknown): ShortcutsConfig | null {
 	if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -37,7 +37,7 @@ function normalizeConfig(value: unknown): ShortcutsConfig | null {
 
 export function createShortcutsSaver(
 	file: string,
-	onTrigger: () => void,
+	callbacks: GlobalShortcutCallbacks,
 	onSaved: (config: ShortcutsConfig) => void,
 ) {
 	let queue = Promise.resolve();
@@ -50,13 +50,13 @@ export function createShortcutsSaver(
 		} catch {
 			/* A first save has no previous file. */
 		}
-		if (!registerOpenAppShortcut(config.openApp, onTrigger))
+		if (!registerGlobalShortcuts(config, callbacks))
 			return { success: false, error: "registration" };
 		try {
 			await fs.writeFile(`${file}.tmp`, JSON.stringify(config, null, 2), "utf-8");
 			await fs.rename(`${file}.tmp`, file);
 		} catch {
-			registerOpenAppShortcut(previous.openApp, onTrigger);
+			registerGlobalShortcuts(previous, callbacks);
 			await fs.rm(`${file}.tmp`, { force: true }).catch(() => undefined);
 			return { success: false, error: "save" };
 		}

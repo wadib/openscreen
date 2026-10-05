@@ -42,7 +42,8 @@
 		"disableSystemAudio": "禁用系统音频",
 		"enableMicrophone": "启用麦克风",
 		"disableMicrophone": "禁用麦克风",
-		"defaultMicrophone": "默认麦克风"
+		"defaultMicrophone": "默认麦克风",
+		"microphoneLevel": "麦克风音量"
 	},
 	"webcam": {
 		"enableWebcam": "启用摄像头",

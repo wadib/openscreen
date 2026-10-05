@@ -42,7 +42,8 @@
 		"disableSystemAudio": "停用系統音訊",
 		"enableMicrophone": "啟用麥克風",
 		"disableMicrophone": "停用麥克風",
-		"defaultMicrophone": "預設麥克風"
+		"defaultMicrophone": "預設麥克風",
+		"microphoneLevel": "麥克風音量"
 	},
 	"webcam": {
 		"enableWebcam": "啟用攝影機",

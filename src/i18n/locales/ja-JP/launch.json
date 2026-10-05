@@ -42,7 +42,8 @@
 		"disableSystemAudio": "システム音声を無効にする",
 		"enableMicrophone": "マイクを有効にする",
 		"disableMicrophone": "マイクを無効にする",
-		"defaultMicrophone": "デフォルトのマイク"
+		"defaultMicrophone": "デフォルトのマイク",
+		"microphoneLevel": "マイクレベル"
 	},
 	"webcam": {
 		"enableWebcam": "ウェブカメラを有効にする",

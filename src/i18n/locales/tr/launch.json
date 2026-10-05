@@ -42,7 +42,8 @@
 		"disableSystemAudio": "Sistem sesini devre dışı bırak",
 		"enableMicrophone": "Mikrofonu etkinleştir",
 		"disableMicrophone": "Mikrofonu devre dışı bırak",
-		"defaultMicrophone": "Varsayılan Mikrofon"
+		"defaultMicrophone": "Varsayılan Mikrofon",
+		"microphoneLevel": "Mikrofon seviyesi"
 	},
 	"webcam": {
 		"enableWebcam": "Kamerayı etkinleştir",

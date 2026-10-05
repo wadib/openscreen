@@ -529,6 +529,8 @@ int main(int argc, char* argv[]) {
         std::cout << "{\"event\":\"audio-format\",\"schemaVersion\":2,\"sampleRate\":" << audioFormat->sampleRate
                   << ",\"channels\":" << audioFormat->channels
                   << ",\"bitsPerSample\":" << audioFormat->bitsPerSample
+                  << ",\"subtype\":\""
+                  << (audioFormat->subtype == MFAudioFormat_Float ? "float" : "pcm") << "\""
                   << ",\"system\":" << (config.captureSystemAudio ? "true" : "false")
                   << ",\"microphone\":" << (config.captureMic ? "true" : "false");
         if (config.captureMic) {
@@ -889,7 +891,10 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    captureEpochHns = captureClockHns();
+	{
+		std::scoped_lock lock(mutex);
+		captureEpochHns = latestFrameTimestampHns > 0 ? latestFrameTimestampHns : captureClockHns();
+	}
     if (audioMixer) {
         audioMixer->beginTimeline(captureEpochHns);
     }

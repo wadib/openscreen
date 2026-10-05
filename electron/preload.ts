@@ -3,7 +3,6 @@ import type { NativeMacRecordingRequest } from "../src/lib/nativeMacRecording";
 import type { NativeWindowsRecordingRequest } from "../src/lib/nativeWindowsRecording";
 import type { RecordingPreviewSettings, WebcamPreviewSignal } from "../src/lib/recordingPreview";
 import type { RecordingSession, StoreRecordedSessionInput } from "../src/lib/recordingSession";
-import type { ShortcutBinding } from "../src/lib/shortcuts";
 import { NATIVE_BRIDGE_CHANNEL, type NativeBridgeRequest } from "../src/native/contracts";
 
 // Asset base URL is passed from the main process via webPreferences.additionalArguments
@@ -245,6 +244,16 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.on("stop-recording-from-tray", listener);
 		return () => ipcRenderer.removeListener("stop-recording-from-tray", listener);
 	},
+	onToggleRecordingShortcut: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("toggle-recording-from-shortcut", listener);
+		return () => ipcRenderer.removeListener("toggle-recording-from-shortcut", listener);
+	},
+	onTogglePauseShortcut: (callback: () => void) => {
+		const listener = () => callback();
+		ipcRenderer.on("toggle-pause-from-shortcut", listener);
+		return () => ipcRenderer.removeListener("toggle-pause-from-shortcut", listener);
+	},
 	openExternalUrl: (url: string) => {
 		return ipcRenderer.invoke("open-external-url", url);
 	},
@@ -341,9 +350,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		const listener = (_event: Electron.IpcRendererEvent, config: unknown) => callback(config);
 		ipcRenderer.on("shortcuts-changed", listener);
 		return () => ipcRenderer.removeListener("shortcuts-changed", listener);
-	},
-	updateGlobalShortcut: (binding: ShortcutBinding) => {
-		return ipcRenderer.invoke("update-global-shortcut", binding);
 	},
 	setLocale: (locale: string) => {
 		return ipcRenderer.invoke("set-locale", locale);

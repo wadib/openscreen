@@ -17,6 +17,8 @@
 	"registrationFailed": "ショートカットの登録に失敗しました。他のアプリで使用中の可能性があります。別のキーをお試しください。",
 	"actions": {
 		"openApp": "アプリを開く",
+		"toggleRecording": "録画を開始 / 停止",
+		"togglePaused": "録画を一時停止 / 再開",
 		"addZoom": "ズームを追加",
 		"addTrim": "トリムを追加",
 		"addSpeed": "速度を追加",

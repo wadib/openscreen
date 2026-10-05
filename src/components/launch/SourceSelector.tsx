@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { MdCheck } from "react-icons/md";
 import { useScopedT } from "@/contexts/I18nContext";
+import { saveRecordingPreferences } from "@/lib/recordingPreferences";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import styles from "./SourceSelector.module.css";
@@ -65,7 +66,17 @@ export function SourceSelector() {
 
 	const handleSourceSelect = (source: DesktopSource) => setSelectedSource(source);
 	const handleShare = async () => {
-		if (selectedSource) await window.electronAPI.selectSource(selectedSource);
+		if (!selectedSource) return;
+		const selected = await window.electronAPI.selectSource(selectedSource);
+		if (selected) {
+			saveRecordingPreferences({
+				selectedSource: {
+					id: selected.id,
+					name: selected.name,
+					displayId: selected.display_id,
+				},
+			});
+		}
 	};
 
 	if (loading) {

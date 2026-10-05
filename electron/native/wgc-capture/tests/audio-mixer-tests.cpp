@@ -48,6 +48,21 @@ int main() {
         format.bitsPerSample = 16;
         format.blockAlign = 4;
         format.avgBytesPerSec = 192000;
+        AudioInputFormat lowRateMono = format;
+        lowRateMono.sampleRate = 2;
+        lowRateMono.channels = 1;
+        lowRateMono.blockAlign = 2;
+        lowRateMono.avgBytesPerSec = 4;
+        AudioInputFormat highRateMono = lowRateMono;
+        highRateMono.sampleRate = 4;
+        highRateMono.avgBytesPerSec = 8;
+        const int16_t ramp[] = {-32768, 32767};
+        std::vector<BYTE> interpolated;
+        convertAudioWithGain(
+            reinterpret_cast<const BYTE*>(ramp), sizeof(ramp), lowRateMono, highRateMono, 1.0, interpolated);
+        const auto* interpolatedSamples = reinterpret_cast<const int16_t*>(interpolated.data());
+        require(interpolated.size() == 8 && std::abs(interpolatedSamples[1]) <= 1,
+            "Sample-rate conversion introduced a nearest-neighbor step");
         std::mutex mutex;
         std::condition_variable cv;
         std::vector<int64_t> timestamps;
@@ -137,7 +152,34 @@ int main() {
         require(microphoneTimingCorrect &&
                 micMarkers == std::vector<int64_t>{2'000'000, 4'000'000, 6'000'000, 8'000'000},
             "44.1 kHz microphone resampling or batched delivery shifted content timestamps");
-        std::cout << "PASS: simulated half-hour gaps, stale/partial packets, silence, pause/resume, stop, 44.1 kHz microphone markers"
+
+        std::vector<std::vector<BYTE>> jitterChunks;
+        AudioMixer jitterMixer(format, format, format, false, true, 1.0,
+            [&](const BYTE* data, DWORD bytes, int64_t, int64_t) {
+                std::scoped_lock lock(mutex);
+                jitterChunks.emplace_back(data, data + bytes);
+                cv.notify_all();
+                return true;
+            });
+        require(jitterMixer.start(), "Jitter mixer failed to start");
+        const int64_t jitterEpoch = captureClockHns();
+        jitterMixer.beginTimeline(jitterEpoch);
+        const std::vector<BYTE> continuousPacket(1920, 17);
+        jitterMixer.pushMicrophone(continuousPacket.data(), 1920, jitterEpoch);
+        jitterMixer.pushMicrophone(continuousPacket.data(), 1920, jitterEpoch + 100'208);
+        jitterMixer.pushMicrophone(continuousPacket.data(), 1920, jitterEpoch + 199'792);
+        {
+            std::unique_lock lock(mutex);
+            require(cv.wait_for(lock, 2s, [&] { return jitterChunks.size() >= 3; }),
+                "Jitter packets did not reach the timeline");
+        }
+        jitterMixer.stop();
+        require(std::all_of(jitterChunks.begin(), jitterChunks.begin() + 3,
+                    [](const std::vector<BYTE>& data) {
+                        return std::all_of(data.begin(), data.end(), [](BYTE value) { return value == 17; });
+                    }),
+            "Normal WASAPI timestamp jitter introduced a gap or overlap");
+        std::cout << "PASS: interpolation, simulated half-hour gaps, stale/partial packets, silence, pause/resume, stop, 44.1 kHz microphone markers, packet jitter continuity"
                   << std::endl;
         return 0;
     } catch (const std::exception& error) {

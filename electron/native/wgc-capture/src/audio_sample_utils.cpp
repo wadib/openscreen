@@ -193,19 +193,26 @@ void convertAudioWithGain(
     const size_t targetFrames = std::max<size_t>(1, static_cast<size_t>(std::llround(sourceFrames * rateRatio)));
     destination.assign(targetFrames * targetFormat.blockAlign, 0);
 
-    for (size_t targetFrame = 0; targetFrame < targetFrames; ++targetFrame) {
-        const double sourcePosition = static_cast<double>(targetFrame) / rateRatio;
-        const size_t sourceFrame = std::min(
-            sourceFrames - 1,
-            static_cast<size_t>(std::llround(sourcePosition)));
-        for (UINT32 channel = 0; channel < targetFormat.channels; ++channel) {
-            const double sample = readMappedChannel(
-                source,
-                sourceFormat,
-                sourceFrame,
-                channel,
-                targetFormat.channels);
-            writeSampleFromDouble(destination.data(), targetFormat, targetFrame, channel, sample * gain);
+	for (size_t targetFrame = 0; targetFrame < targetFrames; ++targetFrame) {
+		const double sourcePosition = static_cast<double>(targetFrame) / rateRatio;
+		const size_t sourceFrame = std::min(sourceFrames - 1, static_cast<size_t>(sourcePosition));
+		const size_t nextSourceFrame = std::min(sourceFrames - 1, sourceFrame + 1);
+		const double fraction = sourcePosition - static_cast<double>(sourceFrame);
+		for (UINT32 channel = 0; channel < targetFormat.channels; ++channel) {
+			const double first = readMappedChannel(
+				source,
+				sourceFormat,
+				sourceFrame,
+				channel,
+				targetFormat.channels);
+			const double second = readMappedChannel(
+				source,
+				sourceFormat,
+				nextSourceFrame,
+				channel,
+				targetFormat.channels);
+			const double sample = first + (second - first) * fraction;
+			writeSampleFromDouble(destination.data(), targetFormat, targetFrame, channel, sample * gain);
         }
     }
 }
@@ -329,6 +336,8 @@ void AudioMixer::beginTimeline(int64_t epochHns) {
         std::scoped_lock lock(mutex_);
         systemQueue_.clear();
         microphoneQueue_.clear();
+        systemTimeline_ = {};
+        microphoneTimeline_ = {};
         emittedFrames_ = 0;
         epochHns_ = epochHns > 0 ? epochHns : captureClockHns();
         activeStartHns_ = epochHns_;
@@ -349,6 +358,8 @@ void AudioMixer::setPaused(bool paused) {
             pauseStartHns_ = captureClockHns();
             systemQueue_.clear();
             microphoneQueue_.clear();
+            systemTimeline_ = {};
+            microphoneTimeline_ = {};
         } else {
             activeStartHns_ = captureClockHns();
             pausedHns_ += activeStartHns_ - pauseStartHns_;
@@ -387,7 +398,7 @@ void AudioMixer::pushSystem(const BYTE* data, DWORD byteCount, int64_t timestamp
         if (paused_ || !timelineStarted_) {
             return;
         }
-        append(systemQueue_, data, byteCount, systemFormat_, 1.0, timestampHns);
+        append(systemQueue_, systemTimeline_, data, byteCount, systemFormat_, 1.0, timestampHns);
     }
     cv_.notify_all();
 }
@@ -402,13 +413,21 @@ void AudioMixer::pushMicrophone(const BYTE* data, DWORD byteCount, int64_t times
         if (paused_ || !timelineStarted_) {
             return;
         }
-        append(microphoneQueue_, data, byteCount, microphoneFormat_, microphoneGain_, timestampHns);
+        append(
+            microphoneQueue_,
+            microphoneTimeline_,
+            data,
+            byteCount,
+            microphoneFormat_,
+            microphoneGain_,
+            timestampHns);
     }
     cv_.notify_all();
 }
 
 void AudioMixer::append(
     TimestampedAudioQueue& queue,
+    StreamTimeline& timeline,
     const BYTE* data,
     DWORD byteCount,
     const AudioInputFormat& sourceFormat,
@@ -421,13 +440,23 @@ void AudioMixer::append(
     convertAudioWithGain(data, byteCount, sourceFormat, format_, gain, gainBuffer_);
     ++packetCount_;
     maxDeliveryHns_ = std::max(maxDeliveryHns_, captureClockHns() - timestampHns);
-    // Keep device gaps as timeline gaps, not queued silence after silence was already emitted.
-    const int64_t firstFrame = static_cast<int64_t>(std::llround(
+    const int64_t timestampFrame = static_cast<int64_t>(std::llround(
         static_cast<double>(timestampHns - epochHns_ - pausedHns_) * format_.sampleRate / HnsPerSecond));
+    int64_t firstFrame = timestampFrame;
+    const int64_t jitterToleranceFrames = std::max<int64_t>(1, format_.sampleRate / 200);
+    if (timeline.initialized && std::abs(timestampFrame - timeline.nextFrame) <= jitterToleranceFrames) {
+        // WASAPI QPC timestamps can jitter by a few frames. Normal packets are contiguous;
+        // treating that jitter as gaps or overlaps creates a click at every packet boundary.
+        firstFrame = timeline.nextFrame;
+    }
+    timeline.initialized = true;
+    const int64_t packetFrames = static_cast<int64_t>(gainBuffer_.size() / format_.blockAlign);
+    timeline.nextFrame = firstFrame + packetFrames;
+
+    // Keep genuine device gaps as timeline gaps, not queued silence after silence was already emitted.
     const int64_t activeFrame = static_cast<int64_t>(std::llround(
         static_cast<double>(activeStartHns_ - epochHns_ - pausedHns_) * format_.sampleRate / HnsPerSecond));
     const int64_t keepFrom = std::max<int64_t>(emittedFrames_, activeFrame);
-    const int64_t packetFrames = static_cast<int64_t>(gainBuffer_.size() / format_.blockAlign);
     if (firstFrame + packetFrames <= keepFrom || firstFrame > keepFrom + format_.sampleRate * 2LL) {
         ++discardedPacketCount_;
         return;

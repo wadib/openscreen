@@ -15,6 +15,9 @@
 	"savedToast": "Atalhos de teclado salvos",
 	"resetToast": "Atalhos redefinidos para o padrão — clique em Salvar para aplicar",
 	"actions": {
+		"openApp": "Abrir aplicativo",
+		"toggleRecording": "Iniciar / parar gravação",
+		"togglePaused": "Pausar / retomar gravação",
 		"addZoom": "Adicionar Zoom",
 		"addTrim": "Adicionar Recorte",
 		"addSpeed": "Adicionar Velocidade",

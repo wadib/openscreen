@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_SHORTCUTS } from "../src/lib/shortcuts";
-import { registerOpenAppShortcut } from "./globalShortcut";
+import { registerGlobalShortcuts } from "./globalShortcut";
 import { createShortcutsSaver } from "./shortcut-settings";
 
 vi.mock("node:fs/promises", () => ({
@@ -12,7 +12,13 @@ vi.mock("node:fs/promises", () => ({
 		rm: vi.fn(),
 	},
 }));
-vi.mock("./globalShortcut", () => ({ registerOpenAppShortcut: vi.fn() }));
+vi.mock("./globalShortcut", () => ({ registerGlobalShortcuts: vi.fn() }));
+
+const callbacks = {
+	openApp: vi.fn(),
+	toggleRecording: vi.fn(),
+	togglePaused: vi.fn(),
+};
 
 beforeEach(() => {
 	vi.resetAllMocks();
@@ -20,18 +26,17 @@ beforeEach(() => {
 	vi.mocked(fs.writeFile).mockResolvedValue();
 	vi.mocked(fs.rename).mockResolvedValue();
 	vi.mocked(fs.rm).mockResolvedValue();
-	vi.mocked(registerOpenAppShortcut).mockReturnValue(true);
+	vi.mocked(registerGlobalShortcuts).mockReturnValue(true);
 });
 
 describe("shortcut settings saves", () => {
 	it("registers, atomically saves and then announces confirmed changes", async () => {
 		const changed = vi.fn();
-		const trigger = vi.fn();
 		const config = { ...DEFAULT_SHORTCUTS, addZoom: { key: "q" } };
-		expect(await createShortcutsSaver("shortcuts.json", trigger, changed)(config)).toEqual({
+		expect(await createShortcutsSaver("shortcuts.json", callbacks, changed)(config)).toEqual({
 			success: true,
 		});
-		expect(registerOpenAppShortcut).toHaveBeenCalledWith(config.openApp, trigger);
+		expect(registerGlobalShortcuts).toHaveBeenCalledWith(config, callbacks);
 		expect(fs.writeFile).toHaveBeenCalledWith(
 			"shortcuts.json.tmp",
 			JSON.stringify(config, null, 2),
@@ -45,10 +50,10 @@ describe("shortcut settings saves", () => {
 	});
 
 	it("does not save an unavailable global shortcut", async () => {
-		vi.mocked(registerOpenAppShortcut).mockReturnValue(false);
+		vi.mocked(registerGlobalShortcuts).mockReturnValue(false);
 		const changed = vi.fn();
 		expect(
-			await createShortcutsSaver("shortcuts.json", vi.fn(), changed)(DEFAULT_SHORTCUTS),
+			await createShortcutsSaver("shortcuts.json", callbacks, changed)(DEFAULT_SHORTCUTS),
 		).toEqual({ success: false, error: "registration" });
 		expect(fs.writeFile).not.toHaveBeenCalled();
 		expect(changed).not.toHaveBeenCalled();
@@ -60,15 +65,12 @@ describe("shortcut settings saves", () => {
 	])("restores the previous global binding after a %s failure", async (step) => {
 		vi.mocked(step === "write" ? fs.writeFile : fs.rename).mockRejectedValueOnce(new Error("disk"));
 		const changed = vi.fn();
-		const next = { ...DEFAULT_SHORTCUTS, openApp: { key: "p", ctrl: true, shift: true } };
-		expect(await createShortcutsSaver("shortcuts.json", vi.fn(), changed)(next)).toEqual({
+		const next = { ...DEFAULT_SHORTCUTS, openApp: { key: "k", ctrl: true, shift: true } };
+		expect(await createShortcutsSaver("shortcuts.json", callbacks, changed)(next)).toEqual({
 			success: false,
 			error: "save",
 		});
-		expect(registerOpenAppShortcut).toHaveBeenLastCalledWith(
-			DEFAULT_SHORTCUTS.openApp,
-			expect.any(Function),
-		);
+		expect(registerGlobalShortcuts).toHaveBeenLastCalledWith(DEFAULT_SHORTCUTS, callbacks);
 		expect(fs.rm).toHaveBeenCalledWith("shortcuts.json.tmp", { force: true });
 		expect(changed).not.toHaveBeenCalled();
 	});
@@ -80,11 +82,11 @@ describe("shortcut settings saves", () => {
 		{ ...DEFAULT_SHORTCUTS, openApp: { key: "Control" } },
 		{ ...DEFAULT_SHORTCUTS, openApp: { key: "p", ctrl: "yes" } },
 	])("rejects malformed, duplicate and reserved bindings before registration", async (value) => {
-		expect(await createShortcutsSaver("shortcuts.json", vi.fn(), vi.fn())(value)).toEqual({
+		expect(await createShortcutsSaver("shortcuts.json", callbacks, vi.fn())(value)).toEqual({
 			success: false,
 			error: "invalid",
 		});
-		expect(registerOpenAppShortcut).not.toHaveBeenCalled();
+		expect(registerGlobalShortcuts).not.toHaveBeenCalled();
 	});
 
 	it("serializes concurrent saves so temporary files do not collide", async () => {
@@ -95,7 +97,7 @@ describe("shortcut settings saves", () => {
 					release = resolve;
 				}),
 		);
-		const save = createShortcutsSaver("shortcuts.json", vi.fn(), vi.fn());
+		const save = createShortcutsSaver("shortcuts.json", callbacks, vi.fn());
 		const first = save(DEFAULT_SHORTCUTS);
 		await vi.waitFor(() => expect(fs.writeFile).toHaveBeenCalledTimes(1));
 		const second = save({ ...DEFAULT_SHORTCUTS, addZoom: { key: "q" } });

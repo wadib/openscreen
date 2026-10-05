@@ -32,6 +32,11 @@ import { toast } from "sonner";
 import { useI18n, useScopedT } from "@/contexts/I18nContext";
 import { useBlurryToggle } from "@/hooks/useBlurryToggle";
 import { getLocaleName } from "@/i18n/loader";
+import {
+	findRestorableRecordingSource,
+	loadRecordingPreferences,
+	saveRecordingPreferences,
+} from "@/lib/recordingPreferences";
 import { loadUserPreferences, saveUserPreferences } from "@/lib/userPreferences";
 import { nativeBridgeClient } from "@/native";
 import { useAudioLevelMeter } from "../../hooks/useAudioLevelMeter";
@@ -119,6 +124,8 @@ export function LaunchWindow() {
 		cancelRecording,
 		microphoneEnabled,
 		setMicrophoneEnabled,
+		microphoneGain,
+		setMicrophoneGain,
 		microphoneDeviceId,
 		setMicrophoneDeviceId,
 		setMicrophoneDeviceName,
@@ -150,7 +157,13 @@ export function LaunchWindow() {
 	const [previewSupported, setPreviewSupported] = useState(false);
 	const blurry = useBlurryToggle(previewSupported);
 	const [previewOpen, setPreviewOpen] = useState(false);
+	const [previewSelected, setPreviewSelected] = useState(
+		() => loadRecordingPreferences().previewEnabled,
+	);
 	const [previewBusy, setPreviewBusy] = useState(false);
+	const previewBusyRef = useRef(false);
+	const previewRestoreAttempted = useRef(false);
+	const wasRecording = useRef(recording);
 	const visibleCursorMode = useRef<"editable-overlay" | "system">(
 		cursorCaptureMode === "system" ? "system" : "editable-overlay",
 	);
@@ -366,24 +379,75 @@ export function LaunchWindow() {
 		};
 	}, []);
 
-	const togglePreview = async () => {
-		if (previewBusy) return;
+	const openSelectedPreview = useCallback(async () => {
+		if (!previewSelected || previewOpen || previewBusyRef.current) return;
+		previewBusyRef.current = true;
 		setPreviewBusy(true);
 		try {
-			const result = await window.electronAPI.toggleRecordingPreview();
+			const state = await window.electronAPI.getRecordingPreviewState();
+			const result = state.open
+				? { success: true, open: true }
+				: await window.electronAPI.toggleRecordingPreview();
 			setPreviewOpen(result.open);
 			if (!result.success) toast.error(t("preview.unavailable"));
 		} catch {
 			toast.error(t("preview.unavailable"));
 		} finally {
+			previewBusyRef.current = false;
+			setPreviewBusy(false);
+		}
+	}, [previewOpen, previewSelected, t]);
+
+	const togglePreview = async () => {
+		if (previewBusyRef.current) return;
+		const nextSelected = !previewSelected;
+		if (nextSelected && previewOpen) {
+			setPreviewSelected(true);
+			saveRecordingPreferences({ previewEnabled: true });
+			return;
+		}
+		if (!nextSelected) {
+			setPreviewSelected(false);
+			saveRecordingPreferences({ previewEnabled: false });
+			if (!previewOpen) return;
+		}
+		previewBusyRef.current = true;
+		setPreviewBusy(true);
+		try {
+			const result = await window.electronAPI.toggleRecordingPreview();
+			setPreviewOpen(result.open);
+			if (nextSelected && result.success && result.open) {
+				setPreviewSelected(true);
+				saveRecordingPreferences({ previewEnabled: true });
+			} else if (!result.success) {
+				toast.error(t("preview.unavailable"));
+			}
+		} catch {
+			toast.error(t("preview.unavailable"));
+		} finally {
+			previewBusyRef.current = false;
 			setPreviewBusy(false);
 		}
 	};
 
 	useEffect(() => {
+		let restoreAttempted = false;
 		const checkSelectedSource = async () => {
 			if (window.electronAPI) {
-				const source = await window.electronAPI.getSelectedSource();
+				let source = await window.electronAPI.getSelectedSource();
+				if (!source && !restoreAttempted) {
+					restoreAttempted = true;
+					const preferred = loadRecordingPreferences().selectedSource;
+					if (preferred) {
+						const sources = await window.electronAPI.getSources({
+							types: ["screen", "window"],
+							thumbnailSize: { width: 0, height: 0 },
+							fetchWindowIcons: false,
+						});
+						const restored = findRestorableRecordingSource(sources, preferred);
+						if (restored) source = await window.electronAPI.selectSource(restored);
+					}
+				}
 				if (source) {
 					setSelectedSource(source.name);
 					setHasSelectedSource(true);
@@ -399,6 +463,25 @@ export function LaunchWindow() {
 		const interval = setInterval(checkSelectedSource, 500);
 		return () => clearInterval(interval);
 	}, []);
+
+	useEffect(() => {
+		if (
+			previewSupported &&
+			hasSelectedSource &&
+			previewSelected &&
+			!previewRestoreAttempted.current
+		) {
+			previewRestoreAttempted.current = true;
+			void openSelectedPreview();
+		}
+	}, [hasSelectedSource, openSelectedPreview, previewSelected, previewSupported]);
+
+	useEffect(() => {
+		if (recording && !wasRecording.current && previewSelected && !previewOpen) {
+			void openSelectedPreview();
+		}
+		wasRecording.current = recording;
+	}, [openSelectedPreview, previewOpen, previewSelected, recording]);
 
 	const openSourceSelector = async () => {
 		if (window.electronAPI) {
@@ -526,7 +609,7 @@ export function LaunchWindow() {
 							onMouseLeave={() => setIsMicHovered(false)}
 							onFocus={() => setIsMicFocused(true)}
 							onBlur={() => setIsMicFocused(false)}
-							style={{ width: micExpanded ? "240px" : "140px", transition: "width 300ms ease" }}
+							style={{ width: micExpanded ? "330px" : "140px", transition: "width 300ms ease" }}
 						>
 							<div className="relative flex-1 min-w-0">
 								{!micExpanded && (
@@ -557,6 +640,24 @@ export function LaunchWindow() {
 									/>
 								)}
 							</div>
+							{micExpanded && (
+								<div className="flex w-[92px] shrink-0 items-center gap-1.5">
+									<input
+										type="range"
+										min="0"
+										max="200"
+										step="5"
+										value={Math.round(microphoneGain * 100)}
+										onChange={(event) => setMicrophoneGain(Number(event.target.value) / 100)}
+										aria-label={t("audio.microphoneLevel")}
+										title={t("audio.microphoneLevel")}
+										className="h-1.5 min-w-0 flex-1 cursor-pointer accent-green-400"
+									/>
+									<span className="w-8 text-right text-[9px] tabular-nums text-white/55">
+										{Math.round(microphoneGain * 100)}%
+									</span>
+								</div>
+							)}
 							<AudioLevelMeter
 								level={level}
 								className={`${micExpanded ? "w-16" : "w-8"} h-2 transition-all duration-300`}
@@ -719,17 +820,17 @@ export function LaunchWindow() {
 
 				{/* Audio controls group */}
 				{previewSupported && (
-					<Tooltip content={t(previewOpen ? "preview.close" : "preview.open")}>
+					<Tooltip content={t(previewSelected ? "preview.close" : "preview.open")}>
 						<button
 							type="button"
 							data-testid="launch-recording-preview-button"
-							aria-label={t(previewOpen ? "preview.close" : "preview.open")}
-							aria-pressed={previewOpen}
-							className={`${hudIconBtnClasses} ${styles.electronNoDrag}`}
-							disabled={previewBusy || (!hasSelectedSource && !previewOpen)}
+							aria-label={t(previewSelected ? "preview.close" : "preview.open")}
+							aria-pressed={previewSelected}
+							className={`${hudIconBtnClasses} ${styles.electronNoDrag} ${previewSelected ? "bg-green-400/10 drop-shadow-[0_0_4px_rgba(74,222,128,0.4)]" : ""}`}
+							disabled={previewBusy || (!hasSelectedSource && !previewSelected)}
 							onClick={togglePreview}
 						>
-							{previewOpen ? (
+							{previewSelected ? (
 								<EyeOff size={ICON_SIZE} className="text-green-400" />
 							) : (
 								<Eye size={ICON_SIZE} className="text-white/70" />

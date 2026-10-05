@@ -42,7 +42,8 @@
 		"disableSystemAudio": "Desactivar audio del sistema",
 		"enableMicrophone": "Activar micrófono",
 		"disableMicrophone": "Desactivar micrófono",
-		"defaultMicrophone": "Micrófono predeterminado"
+		"defaultMicrophone": "Micrófono predeterminado",
+		"microphoneLevel": "Nivel del micrófono"
 	},
 	"webcam": {
 		"enableWebcam": "Activar cámara web",

@@ -42,7 +42,8 @@
 		"disableSystemAudio": "시스템 오디오 비활성화",
 		"enableMicrophone": "마이크 활성화",
 		"disableMicrophone": "마이크 비활성화",
-		"defaultMicrophone": "기본 마이크"
+		"defaultMicrophone": "기본 마이크",
+		"microphoneLevel": "마이크 레벨"
 	},
 	"webcam": {
 		"enableWebcam": "웹캠 활성화",

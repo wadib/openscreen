@@ -42,7 +42,8 @@
 		"disableSystemAudio": "Отключить системное аудио",
 		"enableMicrophone": "Включить микрофон",
 		"disableMicrophone": "Отключить микрофон",
-		"defaultMicrophone": "Микрофон по умолчанию"
+		"defaultMicrophone": "Микрофон по умолчанию",
+		"microphoneLevel": "Уровень микрофона"
 	},
 	"webcam": {
 		"enableWebcam": "Включить веб-камеру",

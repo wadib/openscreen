@@ -74,8 +74,14 @@ public:
     void pushMicrophone(const BYTE* data, DWORD byteCount, int64_t timestampHns);
 
 private:
+    struct StreamTimeline {
+        bool initialized = false;
+        int64_t nextFrame = 0;
+    };
+
     void append(
         TimestampedAudioQueue& queue,
+        StreamTimeline& timeline,
         const BYTE* data,
         DWORD byteCount,
         const AudioInputFormat& sourceFormat,
@@ -94,6 +100,8 @@ private:
     std::condition_variable cv_;
     TimestampedAudioQueue systemQueue_;
     TimestampedAudioQueue microphoneQueue_;
+    StreamTimeline systemTimeline_;
+    StreamTimeline microphoneTimeline_;
     std::vector<BYTE> gainBuffer_;
     std::thread thread_;
     std::atomic<bool> stopRequested_ = false;

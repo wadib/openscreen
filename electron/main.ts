@@ -11,11 +11,10 @@ import {
 	systemPreferences,
 	Tray,
 } from "electron";
-import { ShortcutBinding } from "../src/lib/shortcuts";
 import { readAfterRecording } from "./afterRecording";
 import {
-	loadAndRegisterGlobalShortcut,
-	registerOpenAppShortcut,
+	type GlobalShortcutCallbacks,
+	loadAndRegisterGlobalShortcuts,
 	unregisterAllGlobalShortcuts,
 } from "./globalShortcut";
 import { mainT, setMainLocale } from "./i18n";
@@ -87,6 +86,7 @@ let sourceSelectorWindow: BrowserWindow | null = null;
 let countdownOverlayWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let selectedSourceName = "";
+let recordingActive = false;
 const isMac = process.platform === "darwin";
 const trayIconSize = isMac ? 16 : 24;
 
@@ -113,6 +113,17 @@ function showMainWindow() {
 
 function isEditorWindow(window: BrowserWindow) {
 	return window.webContents.getURL().includes("windowType=editor");
+}
+
+function sendRecorderShortcut(
+	channel: "toggle-recording-from-shortcut" | "toggle-pause-from-shortcut",
+) {
+	const target = mainWindow;
+	if (!target || target.isDestroyed() || isEditorWindow(target)) {
+		showMainWindow();
+		return;
+	}
+	if (!target.webContents.isDestroyed()) target.webContents.send(channel);
 }
 
 function sendEditorMenuAction(
@@ -568,11 +579,14 @@ app.whenReady().then(async () => {
 		updateTrayMenu();
 	});
 
-	ipcMain.handle("update-global-shortcut", (_, binding: ShortcutBinding) => {
-		const success = registerOpenAppShortcut(binding, showMainWindow);
-		return { success };
-	});
-	const saveShortcuts = createShortcutsSaver(SHORTCUTS_FILE, showMainWindow, (config) => {
+	const shortcutCallbacks: GlobalShortcutCallbacks = {
+		openApp: showMainWindow,
+		toggleRecording: () => sendRecorderShortcut("toggle-recording-from-shortcut"),
+		togglePaused: () => {
+			if (recordingActive) sendRecorderShortcut("toggle-pause-from-shortcut");
+		},
+	};
+	const saveShortcuts = createShortcutsSaver(SHORTCUTS_FILE, shortcutCallbacks, (config) => {
 		for (const win of BrowserWindow.getAllWindows()) {
 			if (!win.webContents.isDestroyed()) win.webContents.send("shortcuts-changed", config);
 		}
@@ -593,6 +607,7 @@ app.whenReady().then(async () => {
 		() => sourceSelectorWindow,
 		() => countdownOverlayWindow,
 		(recording: boolean, sourceName: string) => {
+			recordingActive = recording;
 			const revision = ++recordingStateRevision;
 			selectedSourceName = sourceName;
 			if (!tray) createTray();
@@ -616,7 +631,7 @@ app.whenReady().then(async () => {
 		switchToHudWrapper,
 	);
 
-	await loadAndRegisterGlobalShortcut(showMainWindow);
+	await loadAndRegisterGlobalShortcuts(shortcutCallbacks);
 
 	createWindow();
 });

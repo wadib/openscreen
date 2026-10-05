@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({ get: vi.fn(), set: vi.fn(), error: vi.fn() }))
 vi.mock("sonner", () => ({ toast: { error: mocks.error } }));
 beforeEach(() => {
 	vi.useFakeTimers();
+	localStorage.clear();
 	mocks.get.mockReset().mockResolvedValue(false);
 	mocks.set.mockReset().mockImplementation(async (selected) => selected);
 	mocks.error.mockReset();
@@ -24,6 +25,22 @@ it("opens on select and sends reset on deselect", async () => {
 	await act(async () => result.current.toggle());
 	expect(result.current.selected).toBe(false);
 	expect(mocks.set.mock.calls).toEqual([[true], [false]]);
+	expect(
+		JSON.parse(localStorage.getItem("openscreen_recording_preferences_v1") ?? "{}"),
+	).toMatchObject({
+		blurryEnabled: false,
+	});
+});
+
+it("restores a saved Blurry selection after remount", async () => {
+	localStorage.setItem(
+		"openscreen_recording_preferences_v1",
+		JSON.stringify({ blurryEnabled: true }),
+	);
+	const { result } = renderHook(() => useBlurryToggle(true));
+	await act(async () => Promise.resolve());
+	expect(mocks.set).toHaveBeenCalledWith(true);
+	expect(result.current.selected).toBe(true);
 });
 it("stays selected until reset succeeds and blocks duplicate clicks", async () => {
 	mocks.get.mockResolvedValue(true);

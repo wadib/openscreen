@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { loadRecordingPreferences, saveRecordingPreferences } from "@/lib/recordingPreferences";
 
 export function useBlurryToggle(enabled: boolean) {
-	const [selected, setSelected] = useState(false);
+	const [initialSelection] = useState(() => loadRecordingPreferences().blurryEnabled);
+	const [selected, setSelected] = useState(initialSelection);
 	const [busy, setBusy] = useState(false);
-	const current = useRef(false);
+	const current = useRef(initialSelection);
 	const pending = useRef(false);
 	const sequence = useRef(0);
 	const mounted = useRef(false);
@@ -14,14 +16,24 @@ export function useBlurryToggle(enabled: boolean) {
 			return () => {
 				mounted.current = false;
 			};
+		let initialized = false;
 		const refresh = async () => {
 			if (pending.current) return;
 			const request = ++sequence.current;
 			try {
 				const next = await window.electronAPI.getBlurrySelected();
 				if (!mounted.current || request !== sequence.current) return;
-				current.current = next;
-				setSelected(next);
+				let restored = next;
+				if (!initialized && current.current && !next) {
+					initialized = true;
+					restored = await window.electronAPI.setBlurrySelected(true);
+				} else {
+					initialized = true;
+				}
+				if (!mounted.current || request !== sequence.current) return;
+				if (current.current && !restored) saveRecordingPreferences({ blurryEnabled: false });
+				current.current = restored;
+				setSelected(restored);
 			} catch (error) {
 				console.error("Cannot read Blurry toggle state:", error);
 			}
@@ -44,6 +56,7 @@ export function useBlurryToggle(enabled: boolean) {
 			if (!mounted.current) return;
 			current.current = next;
 			setSelected(next);
+			saveRecordingPreferences({ blurryEnabled: next });
 		} catch (error) {
 			toast.error(String(error));
 		} finally {

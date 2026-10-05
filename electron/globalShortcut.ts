@@ -1,11 +1,17 @@
 import fs from "node:fs/promises";
 import { globalShortcut } from "electron";
-import { type ShortcutBinding } from "../src/lib/shortcuts";
+import {
+	DEFAULT_SHORTCUTS,
+	mergeWithDefaults,
+	type ShortcutBinding,
+	type ShortcutsConfig,
+} from "../src/lib/shortcuts";
 import { SHORTCUTS_FILE } from "./ipc/handlers";
 
-const DEFAULT_OPEN_APP_BINDING: ShortcutBinding = { key: "o", ctrl: true, shift: true };
+export const GLOBAL_SHORTCUT_ACTIONS = ["openApp", "toggleRecording", "togglePaused"] as const;
+export type GlobalShortcutAction = (typeof GLOBAL_SHORTCUT_ACTIONS)[number];
+export type GlobalShortcutCallbacks = Record<GlobalShortcutAction, () => void>;
 
-// Maps KeyboardEvent.key values to Electron accelerator key names
 const KEY_TO_ACCELERATOR: Record<string, string> = {
 	" ": "Space",
 	"+": "Plus",
@@ -28,50 +34,68 @@ function bindingToAccelerator(binding: ShortcutBinding): string {
 	if (binding.ctrl) parts.push("CommandOrControl");
 	if (binding.shift) parts.push("Shift");
 	if (binding.alt) parts.push("Alt");
-
 	const keyLower = binding.key.toLowerCase();
-	const acceleratorKey = KEY_TO_ACCELERATOR[keyLower] ?? binding.key.toUpperCase();
-	parts.push(acceleratorKey);
-
+	parts.push(KEY_TO_ACCELERATOR[keyLower] ?? binding.key.toUpperCase());
 	return parts.join("+");
 }
 
-let currentAccelerator: string | null = null;
+type Registration = {
+	config: ShortcutsConfig;
+	callbacks: GlobalShortcutCallbacks;
+	accelerators: string[];
+};
 
-export function registerOpenAppShortcut(binding: ShortcutBinding, onTrigger: () => void): boolean {
-	const accelerator = bindingToAccelerator(binding);
+let currentRegistration: Registration | null = null;
 
-	if (accelerator === currentAccelerator) {
+function installGlobalShortcuts(
+	config: ShortcutsConfig,
+	callbacks: GlobalShortcutCallbacks,
+): Registration | null {
+	const accelerators: string[] = [];
+	for (const action of GLOBAL_SHORTCUT_ACTIONS) {
+		const accelerator = bindingToAccelerator(config[action]);
+		if (!globalShortcut.register(accelerator, callbacks[action])) {
+			for (const registered of accelerators) globalShortcut.unregister(registered);
+			console.warn(`Failed to register global shortcut: ${accelerator}`);
+			return null;
+		}
+		accelerators.push(accelerator);
+		console.log(`Global shortcut registered: ${accelerator}`);
+	}
+	return { config, callbacks, accelerators };
+}
+
+export function registerGlobalShortcuts(
+	config: ShortcutsConfig,
+	callbacks: GlobalShortcutCallbacks,
+): boolean {
+	const previous = currentRegistration;
+	for (const accelerator of previous?.accelerators ?? []) globalShortcut.unregister(accelerator);
+	currentRegistration = null;
+
+	const next = installGlobalShortcuts(config, callbacks);
+	if (next) {
+		currentRegistration = next;
 		return true;
 	}
 
-	// Register the new shortcut before unregistering the old, so a failure leaves the old binding intact
-	const success = globalShortcut.register(accelerator, onTrigger);
-
-	if (success) {
-		if (currentAccelerator) {
-			globalShortcut.unregister(currentAccelerator);
-		}
-		currentAccelerator = accelerator;
-		console.log(`Global shortcut registered: ${accelerator}`);
-	} else {
-		console.warn(`Failed to register global shortcut: ${accelerator}`);
-	}
-
-	return success;
+	if (previous) currentRegistration = installGlobalShortcuts(previous.config, previous.callbacks);
+	return false;
 }
 
-export async function loadAndRegisterGlobalShortcut(onTrigger: () => void): Promise<void> {
+export async function loadAndRegisterGlobalShortcuts(
+	callbacks: GlobalShortcutCallbacks,
+): Promise<void> {
+	let config = DEFAULT_SHORTCUTS;
 	try {
-		const data = await fs.readFile(SHORTCUTS_FILE, "utf-8");
-		const shortcuts = JSON.parse(data);
-		const binding = shortcuts.openApp || DEFAULT_OPEN_APP_BINDING;
-		registerOpenAppShortcut(binding, onTrigger);
+		config = mergeWithDefaults(JSON.parse(await fs.readFile(SHORTCUTS_FILE, "utf-8")));
 	} catch {
-		registerOpenAppShortcut(DEFAULT_OPEN_APP_BINDING, onTrigger);
+		// A first launch has no saved shortcuts.
 	}
+	registerGlobalShortcuts(config, callbacks);
 }
 
 export function unregisterAllGlobalShortcuts(): void {
 	globalShortcut.unregisterAll();
+	currentRegistration = null;
 }

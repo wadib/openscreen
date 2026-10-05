@@ -42,7 +42,8 @@
 		"disableSystemAudio": "Tắt âm thanh hệ thống",
 		"enableMicrophone": "Bật micro",
 		"disableMicrophone": "Tắt micro",
-		"defaultMicrophone": "Micro Mặc định"
+		"defaultMicrophone": "Micro Mặc định",
+		"microphoneLevel": "Mức micro"
 	},
 	"webcam": {
 		"enableWebcam": "Bật webcam",

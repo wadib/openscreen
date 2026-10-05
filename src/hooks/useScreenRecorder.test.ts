@@ -122,7 +122,7 @@ it("keeps the saved webcam selection after a temporary acquisition failure", asy
 	await act(async () => {
 		await Promise.resolve();
 	});
-	expect(second.result.current.webcamEnabled).toBe(false);
+	expect(second.result.current.webcamEnabled).toBe(true);
 	expect(loadRecordingPreferences().webcamEnabled).toBe(true);
 	second.unmount();
 	const third = renderHook(useScreenRecorder);

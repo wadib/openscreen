@@ -46,7 +46,6 @@ const WEBCAM_FILE_SUFFIX = "-webcam";
 const AUDIO_BITRATE_VOICE = 128_000;
 const AUDIO_BITRATE_SYSTEM = 192_000;
 
-const MIC_GAIN_BOOST = 1.4;
 const WEBCAM_TARGET_FRAME_RATE = 30;
 
 type UseScreenRecorderReturn = {
@@ -61,6 +60,8 @@ type UseScreenRecorderReturn = {
 	cancelRecording: () => void;
 	microphoneEnabled: boolean;
 	setMicrophoneEnabled: (enabled: boolean) => void;
+	microphoneGain: number;
+	setMicrophoneGain: (gain: number) => void;
 	microphoneDeviceId: string | undefined;
 	setMicrophoneDeviceId: (deviceId: string | undefined) => void;
 	microphoneDeviceName: string | undefined;
@@ -97,6 +98,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const [elapsedSeconds, setElapsedSeconds] = useState(0);
 	const [preferences] = useState(loadRecordingPreferences);
 	const [microphoneEnabled, setMicrophoneEnabled] = useState(preferences.microphoneEnabled);
+	const [microphoneGain, setMicrophoneGain] = useState(preferences.microphoneGain);
 	const [microphoneDeviceId, setMicrophoneDeviceId] = useState(preferences.microphoneDeviceId);
 	const [microphoneDeviceName, setMicrophoneDeviceName] = useState(
 		preferences.microphoneDeviceName,
@@ -128,6 +130,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const restarting = useRef(false);
 	const countdownRunId = useRef(0);
 	const recordingStartInFlight = useRef(false);
+	const toggleRecordingFromShortcut = useRef<() => void>(() => undefined);
+	const togglePauseFromShortcut = useRef<() => void>(() => undefined);
 	const [countdownActive, setCountdownActive] = useState(false);
 	const webcamReady = useRef(false);
 	const webcamAcquireId = useRef(0);
@@ -143,6 +147,11 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const selectMicrophoneEnabled = useCallback((value: boolean) => {
 		setMicrophoneEnabled(value);
 		saveRecordingPreferences({ microphoneEnabled: value });
+	}, []);
+	const selectMicrophoneGain = useCallback((value: number) => {
+		const gain = Math.min(2, Math.max(0, value));
+		setMicrophoneGain(gain);
+		saveRecordingPreferences({ microphoneGain: gain });
 	}, []);
 	const selectMicrophoneDeviceId = useCallback((value: string | undefined) => {
 		setMicrophoneDeviceId(value);
@@ -304,7 +313,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						webcamStream.current = null;
 						setPreviewWebcamStream(null);
 						if (!restarting.current) {
-							setWebcamEnabledState(false);
 							toast.error(t("recording.cameraDisconnected"));
 						}
 					};
@@ -315,7 +323,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			} catch (cameraError) {
 				if (!cancelled) {
 					console.warn("Failed to get webcam access:", cameraError);
-					setWebcamEnabledState(false);
 					const isDeviceError =
 						cameraError instanceof DOMException &&
 						[
@@ -740,12 +747,28 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	}, []);
 
 	useEffect(() => {
-		let cleanup: (() => void) | undefined;
+		const cleanups: Array<() => void> = [];
 
 		if (window.electronAPI?.onStopRecordingFromTray) {
-			cleanup = window.electronAPI.onStopRecordingFromTray(() => {
-				stopRecording.current();
-			});
+			cleanups.push(
+				window.electronAPI.onStopRecordingFromTray(() => {
+					stopRecording.current();
+				}),
+			);
+		}
+		if (window.electronAPI?.onToggleRecordingShortcut) {
+			cleanups.push(
+				window.electronAPI.onToggleRecordingShortcut(() => {
+					toggleRecordingFromShortcut.current();
+				}),
+			);
+		}
+		if (window.electronAPI?.onTogglePauseShortcut) {
+			cleanups.push(
+				window.electronAPI.onTogglePauseShortcut(() => {
+					togglePauseFromShortcut.current();
+				}),
+			);
 		}
 
 		return () => {
@@ -753,7 +776,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 			void window.electronAPI
 				.releaseQuietRecording?.()
 				.catch((error) => console.error("Quiet mode restoration failed:", error));
-			if (cleanup) cleanup();
+			for (const cleanup of cleanups) cleanup();
 			countdownRunId.current += 1;
 			void safeHideCountdownOverlay(activeRunId);
 			allowAutoFinalize.current = false;
@@ -912,7 +935,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						enabled: microphoneEnabled,
 						deviceId: microphoneDeviceId,
 						deviceName: microphoneDeviceName,
-						gain: MIC_GAIN_BOOST,
+						gain: microphoneGain,
 					},
 				},
 				webcam: {
@@ -1024,7 +1047,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 					});
 				} else {
 					webcamAcquireId.current++;
-					setWebcamEnabledState(false);
 				}
 			}
 			if (!isCountdownRunActive(countdownRunToken)) {
@@ -1057,7 +1079,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 						enabled: microphoneEnabled,
 						deviceId: microphoneDeviceId,
 						deviceName: microphoneDeviceName,
-						gain: MIC_GAIN_BOOST,
+						gain: microphoneGain,
 					},
 				},
 				webcam: {
@@ -1360,7 +1382,6 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				}
 				if (!webcamStream.current) {
 					webcamAcquireId.current++;
-					setWebcamEnabledState(false);
 				}
 			}
 
@@ -1385,7 +1406,7 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				const systemSource = ctx.createMediaStreamSource(new MediaStream([systemAudioTrack]));
 				const micSource = ctx.createMediaStreamSource(new MediaStream([micAudioTrack]));
 				const micGain = ctx.createGain();
-				micGain.gain.value = MIC_GAIN_BOOST;
+				micGain.gain.value = microphoneGain;
 				const destination = ctx.createMediaStreamDestination();
 				systemSource.connect(destination);
 				micSource.connect(micGain).connect(destination);
@@ -1655,6 +1676,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 		void startRecordCountdown();
 	};
+	toggleRecordingFromShortcut.current = toggleRecording;
+	togglePauseFromShortcut.current = togglePaused;
 
 	const restartRecording = async () => {
 		if (restarting.current) return;
@@ -1787,6 +1810,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 		cancelRecording,
 		microphoneEnabled,
 		setMicrophoneEnabled: selectMicrophoneEnabled,
+		microphoneGain,
+		setMicrophoneGain: selectMicrophoneGain,
 		microphoneDeviceId,
 		setMicrophoneDeviceId: selectMicrophoneDeviceId,
 		microphoneDeviceName,
