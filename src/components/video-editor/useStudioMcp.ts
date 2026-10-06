@@ -4,6 +4,7 @@ import type { EditorState } from "@/hooks/useEditorHistory";
 import type { ExportProgress, ExportQuality } from "@/lib/exporter";
 import type { StudioCommand } from "@/lib/studioMcpContract";
 import { studioEdit } from "./studioEdits";
+import { studioWindowTitle } from "./studioTitle";
 
 interface Options {
 	snapshot: string | null;
@@ -31,11 +32,21 @@ interface Options {
 	cancelExport: () => void;
 }
 
+function showStudioTitle(current: Options) {
+	document.title = studioWindowTitle(
+		current.projectPath,
+		current.isExporting,
+		current.exportProgress?.percentage,
+	);
+}
+
 export function useStudioMcp(options: Options) {
 	const latest = useRef(options);
 	latest.current = options;
 	const revision = useRef(0);
 	const previous = useRef<string | null>(null);
+	// Only an agent-driven Studio receives commands; the normal editor keeps its own title.
+	const studioMode = useRef(false);
 	if (previous.current !== options.snapshot) {
 		revision.current++;
 		previous.current = options.snapshot;
@@ -43,6 +54,8 @@ export function useStudioMcp(options: Options) {
 	useEffect(
 		() =>
 			window.electronAPI.onStudioMcpCommand(async ({ name, args }: StudioCommand) => {
+				studioMode.current = true;
+				showStudioTitle(latest.current);
 				const current = latest.current;
 				const video = current.video();
 				const ready =
@@ -113,4 +126,10 @@ export function useStudioMcp(options: Options) {
 			}),
 		[],
 	);
+	const { projectPath, isExporting } = options;
+	const exportPercentage = options.exportProgress?.percentage;
+	useEffect(() => {
+		if (studioMode.current)
+			document.title = studioWindowTitle(projectPath, isExporting, exportPercentage);
+	}, [projectPath, isExporting, exportPercentage]);
 }

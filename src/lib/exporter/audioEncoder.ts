@@ -377,9 +377,15 @@ export class AudioProcessor {
 				} finally {
 					audio.close();
 				}
-				if (encoder.encodeQueueSize > DECODE_BACKPRESSURE_LIMIT) {
-					await encoder.flush();
-					await writes;
+				// Wait for the queue to drain instead of flushing: a mid-stream flush pads the
+				// encoder's partial frame and resets it, so the next chunk starts before the
+				// padded one ends and the muxer rejects the non-monotonic timestamps.
+				while (
+					encoder.encodeQueueSize > DECODE_BACKPRESSURE_LIMIT &&
+					!this.cancelled &&
+					!encodingError
+				) {
+					await new Promise((resolve) => setTimeout(resolve, 1));
 				}
 			}
 			if (encoder.state === "configured") await encoder.flush();

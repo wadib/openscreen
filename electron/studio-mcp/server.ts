@@ -108,6 +108,17 @@ export async function startStudioMcp(getWindow: () => BrowserWindow | null) {
 			if (exportJob?.state !== "running") throw new Error("No agent export is running");
 			return dispatch(name, args);
 		}
+		if (name === "studio_close") {
+			// The instance deliberately outlives its bridge so a disconnect never loses work; this
+			// is the explicit way for an agent to end it once nothing is pending.
+			if (exportJob?.state === "running" || mutationBusy)
+				throw new Error("Studio is busy; wait for the export or cancel it before closing");
+			const status = (await dispatch("studio_status", {})) as { hasUnsavedChanges?: boolean };
+			if (status?.hasUnsavedChanges && args.discardUnsaved !== true)
+				throw new Error("Studio has unsaved edits; save a copy first or pass discardUnsaved");
+			setTimeout(() => app.quit(), 250);
+			return { closing: true };
+		}
 		if (mutationBusy || exportJob?.state === "running")
 			throw new Error("Studio is busy; inspect studio_status and retry after completion");
 		mutationBusy = true;

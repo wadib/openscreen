@@ -16,7 +16,13 @@ vi.mock("electron", async () => {
 			this.handlers.set(name, callback);
 		},
 	});
-	return { app: new EventEmitter(), ipcMain };
+	const app = Object.assign(new EventEmitter(), {
+		quitCalls: 0,
+		quit() {
+			this.quitCalls++;
+		},
+	});
+	return { app, ipcMain };
 });
 
 describe("Studio MCP local pipe", () => {
@@ -30,7 +36,7 @@ describe("Studio MCP local pipe", () => {
 		send: ReturnType<typeof vi.fn>;
 	};
 	let electron: {
-		app: EventEmitter;
+		app: EventEmitter & { quitCalls: number };
 		ipcMain: EventEmitter & { handlers: Map<string, (...args: unknown[]) => Promise<unknown>> };
 	};
 	let oldArgs: string[];
@@ -56,6 +62,7 @@ describe("Studio MCP local pipe", () => {
 			OPENSCREEN_STUDIO_MCP_ROOTS: JSON.stringify([temp]),
 		});
 		electron = (await import("electron")) as unknown as typeof electron;
+		electron.app.quitCalls = 0;
 		contents = Object.assign(new EventEmitter(), {
 			id: 42,
 			isDestroyed: () => false,
@@ -159,5 +166,37 @@ describe("Studio MCP local pipe", () => {
 		await expect(
 			write({ sender: { id: 999 } }, new ArrayBuffer(4), path.join(temp, "export.mp4")),
 		).rejects.toThrow("authorized");
+	});
+	const replyToStatus = (status: object) =>
+		contents.send.mockImplementation((_channel, command) =>
+			setTimeout(
+				() =>
+					electron.ipcMain.emit(
+						"studio-mcp-response",
+						{ sender: { id: 42 } },
+						{ id: command.id, result: status },
+					),
+				5,
+			),
+		);
+	it("closes the agent Studio when nothing is pending", async () => {
+		replyToStatus({ ready: true, hasUnsavedChanges: false });
+		const result = await request(await connect(), "studio_close");
+		expect(JSON.parse(result.result.content[0].text)).toEqual({ closing: true });
+		await new Promise((resolve) => setTimeout(resolve, 350));
+		expect(electron.app.quitCalls).toBe(1);
+	});
+	it("refuses to close over unsaved edits unless told to discard them", async () => {
+		replyToStatus({ ready: true, hasUnsavedChanges: true });
+		const client = await connect();
+		const refused = await request(client, "studio_close");
+		expect(refused.result.isError).toBe(true);
+		expect(refused.result.content[0].text).toContain("unsaved");
+		await new Promise((resolve) => setTimeout(resolve, 350));
+		expect(electron.app.quitCalls).toBe(0);
+		const forced = await request(client, "studio_close", { discardUnsaved: true });
+		expect(JSON.parse(forced.result.content[0].text)).toEqual({ closing: true });
+		await new Promise((resolve) => setTimeout(resolve, 350));
+		expect(electron.app.quitCalls).toBe(1);
 	});
 });

@@ -48,7 +48,7 @@ point this at the normal recorder's profile or share a profile between sessions.
 `studio_status`, `studio_open_project`, `studio_set_zoom`, `studio_add_trim`,
 `studio_add_speed`, `studio_remove_region`, `studio_set_microphone`,
 `studio_set_layout`, `studio_history`, `studio_preview`, `studio_snapshot`,
-`studio_save_copy`, `studio_export`, `studio_cancel_export`.
+`studio_save_copy`, `studio_export`, `studio_cancel_export`, `studio_close`.
 
 All times are source milliseconds. Zoom focus and custom area dimensions are
 normalized; `area.fit` is `fit` or `fill`. Trim intervals REMOVE time, not keep it.
@@ -63,7 +63,12 @@ settings follow the existing editor behavior and are not included in undo/redo.
 5. Use `studio_save_copy` to save a NEW `.openscreen` file. The saved copy becomes
    Studio's current project. Originals remain unchanged.
 6. Use `studio_export` with a NEW `.mp4` output path and quality `medium`, `good`,
-   or `source`. Poll status's `exportJob.state`: `running`, `completed`, or `failed`.
+   or `source`. Poll status's `exportJob.state`: `running`, `completed`, or `failed`;
+   on `failed`, status's `exportError` carries the renderer's diagnostic.
+7. Call `studio_close` when finished. Studio deliberately survives a disconnect, so
+   without it each session leaves its window open. It refuses while an export runs or
+   while edits are unsaved (pass `discardUnsaved: true` to drop them). The window title
+   shows the open project and export progress so concurrent instances are distinguishable.
 
 Export uses the editor's existing MP4 renderer and audio pipeline, not a separate
 encoder. It does not promise automatic audio synchronization or fix recording

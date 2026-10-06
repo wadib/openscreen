@@ -161,7 +161,8 @@ try {
 	);
 	child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" })}\n`);
 	const tools = (await rpc("tools/list")).result.tools;
-	assert.equal(tools.length, 14);
+	assert.equal(tools.length, 15);
+	assert(tools.some((tool) => tool.name === "studio_close"));
 	const initial = await call("studio_status");
 	studioPid = initial.studioProcessId;
 	assert(Number.isInteger(studioPid) && studioPid !== process.pid && studioPid !== child.pid);
@@ -279,6 +280,10 @@ try {
 		revision: state.revision,
 		quality: "source",
 	});
+	assert(
+		(await call("studio_close", {}, true)).isError,
+		"studio_close must refuse while exporting",
+	);
 	await call("studio_cancel_export");
 	state = await waitFor(async () => {
 		const state = await call("studio_status");

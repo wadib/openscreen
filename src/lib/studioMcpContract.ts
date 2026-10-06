@@ -157,6 +157,11 @@ export const STUDIO_TOOLS = [
 		"Cancel the current agent export. Does not stop recordings or close Openscreen.",
 		object({}),
 	),
+	tool(
+		"studio_close",
+		"Close this agent-only Studio instance when no export is running. Refuses while there are unsaved edits unless discardUnsaved is true. Never affects the normal Openscreen recorder.",
+		object({ discardUnsaved: { type: "boolean" } }),
+	),
 ] as const;
 
 // Validate the small JSON Schema subset used above; no coercion or unknown keys.
