@@ -1,0 +1,3 @@
+# Keep text files LF in the repo and in checkouts (Biome enforces lineEnding "lf"), even on
+# machines with a system-wide core.autocrlf=true. Binary files are detected automatically.
+* text=auto eol=lf
