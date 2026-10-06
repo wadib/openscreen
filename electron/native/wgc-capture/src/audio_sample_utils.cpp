@@ -89,6 +89,21 @@ double readMappedChannel(const BYTE* source, const AudioInputFormat& format, siz
     return readSampleAsDouble(source, format, frameIndex, std::min(targetChannel, format.channels - 1));
 }
 
+double peakAudioLevel(const BYTE* source, DWORD byteCount, const AudioInputFormat& format) {
+    if (!source || byteCount == 0 || format.blockAlign == 0 || format.channels == 0) {
+        return 0.0;
+    }
+
+    const size_t frameCount = byteCount / format.blockAlign;
+    double peak = 0.0;
+    for (size_t frame = 0; frame < frameCount; ++frame) {
+        for (UINT32 channel = 0; channel < format.channels; ++channel) {
+            peak = std::max(peak, std::abs(readSampleAsDouble(source, format, frame, channel)));
+        }
+    }
+    return peak;
+}
+
 } // namespace
 
 constexpr int64_t HnsPerSecond = 10'000'000;
@@ -260,6 +275,43 @@ void mixAudioInPlace(
     }
 }
 
+void MicrophoneAutomaticGain::reset() {
+    gain_ = 1.0;
+}
+
+double MicrophoneAutomaticGain::update(
+    const BYTE* source,
+    DWORD byteCount,
+    const AudioInputFormat& format,
+    double manualGain) {
+    constexpr double NoiseGatePeak = 0.0005; // Roughly -66 dBFS.
+    constexpr double TargetPeak = 0.35;      // Roughly -9 dBFS.
+    constexpr double MaximumGain = 64.0;     // +36 dB, with sample limiting downstream.
+
+    if (manualGain <= 0.0) {
+        return 1.0;
+    }
+
+    const double peak = peakAudioLevel(source, byteCount, format);
+    if (!std::isfinite(peak) || peak < NoiseGatePeak) {
+        return gain_;
+    }
+
+    const double desiredGain = std::clamp(TargetPeak / (peak * manualGain), 1.0, MaximumGain);
+    if (desiredGain < gain_) {
+        // Reduce immediately when the input gets louder so the limiter is rarely needed.
+        gain_ = desiredGain;
+    } else {
+        // Raise smoothly to avoid audible pumping on quiet speech.
+        gain_ = std::min(desiredGain, gain_ * 1.08 + 0.02);
+    }
+    return gain_;
+}
+
+double MicrophoneAutomaticGain::gain() const {
+    return gain_;
+}
+
 void TimestampedAudioQueue::clear() {
     packets_.clear();
 }
@@ -299,13 +351,15 @@ AudioMixer::AudioMixer(
     bool includeSystem,
     bool includeMicrophone,
     double microphoneGain,
-    OutputCallback output)
+    OutputCallback output,
+    bool automaticMicrophoneGain)
     : format_(format),
       systemFormat_(systemFormat),
       microphoneFormat_(microphoneFormat),
       includeSystem_(includeSystem),
       includeMicrophone_(includeMicrophone),
       microphoneGain_(microphoneGain),
+      automaticMicrophoneGain_(automaticMicrophoneGain),
       output_(std::move(output)) {}
 
 AudioMixer::~AudioMixer() {
@@ -338,6 +392,7 @@ void AudioMixer::beginTimeline(int64_t epochHns) {
         microphoneQueue_.clear();
         systemTimeline_ = {};
         microphoneTimeline_ = {};
+        microphoneAutomaticGain_.reset();
         emittedFrames_ = 0;
         epochHns_ = epochHns > 0 ? epochHns : captureClockHns();
         activeStartHns_ = epochHns_;
@@ -349,20 +404,21 @@ void AudioMixer::beginTimeline(int64_t epochHns) {
     cv_.notify_all();
 }
 
-void AudioMixer::setPaused(bool paused) {
+void AudioMixer::setPaused(bool paused, int64_t transitionHns) {
     {
         std::scoped_lock lock(mutex_);
         if (paused_ == paused) return;
+        const int64_t boundaryHns = transitionHns > 0 ? transitionHns : captureClockHns();
         paused_ = paused;
         if (paused_) {
-            pauseStartHns_ = captureClockHns();
-            systemQueue_.clear();
-            microphoneQueue_.clear();
+            pauseStartHns_ = boundaryHns;
+        } else {
+            activeStartHns_ = boundaryHns;
+            pausedHns_ += activeStartHns_ - pauseStartHns_;
+            // Keep audio already captured before pause. Only reset packet continuity
+            // so the first post-resume packet starts from its device timestamp.
             systemTimeline_ = {};
             microphoneTimeline_ = {};
-        } else {
-            activeStartHns_ = captureClockHns();
-            pausedHns_ += activeStartHns_ - pauseStartHns_;
         }
     }
     cv_.notify_all();
@@ -384,6 +440,7 @@ void AudioMixer::stop() {
         std::cerr << "{\"event\":\"audio-timing\",\"packets\":" << packetCount_
                   << ",\"discardedPackets\":" << discardedPacketCount_
                   << ",\"maxDeliveryMs\":" << maxDeliveryHns_ / 10000
+                  << ",\"microphoneAutoGain\":" << microphoneAutomaticGain_.gain()
                   << ",\"lookaheadMs\":250}" << std::endl;
     }
 }
@@ -413,13 +470,16 @@ void AudioMixer::pushMicrophone(const BYTE* data, DWORD byteCount, int64_t times
         if (paused_ || !timelineStarted_) {
             return;
         }
+        const double automaticGain = automaticMicrophoneGain_
+            ? microphoneAutomaticGain_.update(data, byteCount, microphoneFormat_, microphoneGain_)
+            : 1.0;
         append(
             microphoneQueue_,
             microphoneTimeline_,
             data,
             byteCount,
             microphoneFormat_,
-            microphoneGain_,
+            microphoneGain_ * automaticGain,
             timestampHns);
     }
     cv_.notify_all();

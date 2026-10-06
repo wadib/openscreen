@@ -48,6 +48,44 @@ int main() {
         format.bitsPerSample = 16;
         format.blockAlign = 4;
         format.avgBytesPerSec = 192000;
+        AudioInputFormat floatStereo = format;
+        floatStereo.subtype = MFAudioFormat_Float;
+        floatStereo.bitsPerSample = 32;
+        floatStereo.blockAlign = 8;
+        floatStereo.avgBytesPerSec = 384000;
+        std::vector<float> quietSpeech(480 * 2, 0.0f);
+        for (size_t frame = 0; frame < quietSpeech.size() / 2; ++frame) {
+            quietSpeech[frame * 2 + 1] = frame % 2 == 0 ? 0.003f : -0.003f;
+        }
+        MicrophoneAutomaticGain automaticGain;
+        for (int packet = 0; packet < 100; ++packet) {
+            automaticGain.update(
+                reinterpret_cast<const BYTE*>(quietSpeech.data()),
+                static_cast<DWORD>(quietSpeech.size() * sizeof(float)),
+                floatStereo,
+                1.0);
+        }
+        require(automaticGain.gain() > 20.0 && automaticGain.gain() <= 64.0,
+            "Quiet speech was not raised into an audible range");
+        std::fill(quietSpeech.begin(), quietSpeech.end(), 0.0001f);
+        automaticGain.reset();
+        for (int packet = 0; packet < 100; ++packet) {
+            automaticGain.update(
+                reinterpret_cast<const BYTE*>(quietSpeech.data()),
+                static_cast<DWORD>(quietSpeech.size() * sizeof(float)),
+                floatStereo,
+                1.0);
+        }
+        require(automaticGain.gain() == 1.0,
+            "The microphone noise gate amplified a near-silent endpoint");
+        std::fill(quietSpeech.begin(), quietSpeech.end(), 0.8f);
+        automaticGain.update(
+            reinterpret_cast<const BYTE*>(quietSpeech.data()),
+            static_cast<DWORD>(quietSpeech.size() * sizeof(float)),
+            floatStereo,
+            1.0);
+        require(automaticGain.gain() == 1.0,
+            "Automatic microphone gain did not release immediately for loud input");
         AudioInputFormat lowRateMono = format;
         lowRateMono.sampleRate = 2;
         lowRateMono.channels = 1;
@@ -114,6 +152,37 @@ int main() {
             require(timestamps[i] == static_cast<int64_t>(i) * 100000,
                 "Audio timestamps contain a pause gap or discontinuity");
         }
+
+        std::vector<bool> preservedChunks;
+        AudioMixer pauseBoundaryMixer(format, format, format, false, true, 1.0,
+            [&](const BYTE* data, DWORD bytes, int64_t, int64_t) {
+                std::scoped_lock lock(mutex);
+                preservedChunks.push_back(std::any_of(
+                    data, data + bytes, [](BYTE value) { return value != 0; }));
+                cv.notify_all();
+                return true;
+            });
+        require(pauseBoundaryMixer.start(), "Pause-boundary mixer failed to start");
+        const int64_t pauseBoundaryEpoch = captureClockHns();
+        pauseBoundaryMixer.beginTimeline(pauseBoundaryEpoch);
+        std::vector<BYTE> bufferedPrePauseAudio(10 * 1920, 23);
+        pauseBoundaryMixer.pushMicrophone(
+            bufferedPrePauseAudio.data(),
+            static_cast<DWORD>(bufferedPrePauseAudio.size()),
+            pauseBoundaryEpoch);
+        pauseBoundaryMixer.setPaused(true);
+        std::this_thread::sleep_for(50ms);
+        pauseBoundaryMixer.setPaused(false);
+        {
+            std::unique_lock lock(mutex);
+            require(cv.wait_for(lock, 2s, [&] { return preservedChunks.size() >= 10; }),
+                "Buffered pre-pause audio did not drain after resume");
+        }
+        pauseBoundaryMixer.stop();
+        require(std::all_of(preservedChunks.begin(), preservedChunks.begin() + 10,
+                    [](bool hasAudio) { return hasAudio; }),
+            "Pause discarded buffered audio and shifted the resumed timeline");
+
         AudioInputFormat microphone = format;
         microphone.sampleRate = 44100;
         microphone.channels = 1;
@@ -179,7 +248,7 @@ int main() {
                         return std::all_of(data.begin(), data.end(), [](BYTE value) { return value == 17; });
                     }),
             "Normal WASAPI timestamp jitter introduced a gap or overlap");
-        std::cout << "PASS: interpolation, simulated half-hour gaps, stale/partial packets, silence, pause/resume, stop, 44.1 kHz microphone markers, packet jitter continuity"
+        std::cout << "PASS: microphone auto level/noise gate, interpolation, simulated half-hour gaps, stale/partial packets, silence, pause/resume, pause-boundary buffering, stop, 44.1 kHz microphone markers, packet jitter continuity"
                   << std::endl;
         return 0;
     } catch (const std::exception& error) {

@@ -26,6 +26,7 @@ let changeVisibility: (visible: boolean) => void;
 let changeSettings: (settings: {
 	cursorCaptureMode: "hidden" | "system" | "editable-overlay";
 	webcamEnabled: boolean;
+	paused: boolean;
 }) => void;
 const capture = vi.fn();
 const selected = vi.fn();
@@ -43,9 +44,11 @@ beforeEach(() => {
 	selected.mockResolvedValue(source);
 	vi.stubGlobal("electronAPI", {
 		getSelectedSource: selected,
-		getRecordingPreviewSettings: vi
-			.fn()
-			.mockResolvedValue({ cursorCaptureMode: "editable-overlay", webcamEnabled: false }),
+		getRecordingPreviewSettings: vi.fn().mockResolvedValue({
+			cursorCaptureMode: "editable-overlay",
+			webcamEnabled: false,
+			paused: false,
+		}),
 		onRecordingPreviewSettingsChanged: (callback: typeof changeSettings) => {
 			changeSettings = callback;
 			return vi.fn();
@@ -80,13 +83,28 @@ describe("recording preview", () => {
 			.mockResolvedValueOnce(third.stream);
 		const { result } = renderHook(useRecordingPreview);
 		await waitFor(() => expect(result.current.stream).toBe(first.stream));
-		act(() => changeSettings({ cursorCaptureMode: "hidden", webcamEnabled: false }));
+		act(() => changeSettings({ cursorCaptureMode: "hidden", webcamEnabled: false, paused: false }));
 		await waitFor(() => expect(result.current.stream).toBe(second.stream));
 		expect(first.track.stop).toHaveBeenCalledOnce();
 		expect(capture.mock.calls[1][0].cursor).toBe("never");
-		act(() => changeSettings({ cursorCaptureMode: "system", webcamEnabled: false }));
+		act(() => changeSettings({ cursorCaptureMode: "system", webcamEnabled: false, paused: false }));
 		await waitFor(() => expect(result.current.stream).toBe(third.stream));
 		expect(capture.mock.calls[2][0].cursor).toBe("always");
+	});
+	it("reports pause state without restarting preview capture", async () => {
+		const input = media();
+		capture.mockResolvedValue(input.stream);
+		const { result } = renderHook(useRecordingPreview);
+		await waitFor(() => expect(result.current.stream).toBe(input.stream));
+		act(() =>
+			changeSettings({
+				cursorCaptureMode: "editable-overlay",
+				webcamEnabled: false,
+				paused: true,
+			}),
+		);
+		expect(result.current.paused).toBe(true);
+		expect(capture).toHaveBeenCalledOnce();
 	});
 	it("honors native minimize events even when document visibility stays visible", async () => {
 		const first = media();

@@ -1,5 +1,13 @@
 {
 	"zoom": {
+		"area": {
+			"title": "Özel alan",
+			"width": "Genişlik",
+			"height": "Yükseklik",
+			"framing": "Çerçeveleme",
+			"fit": "Sığdır",
+			"fill": "Doldur"
+		},
 		"previewHold": "Yakınlaştırma efektini önizlemek için basılı tutun",
 		"level": "Yakınlaştırma Seviyesi",
 		"selectRegion": "Ayarlamak için bir yakınlaştırma bölgesi seçin",

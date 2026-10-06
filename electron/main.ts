@@ -20,6 +20,7 @@ import {
 import { mainT, setMainLocale } from "./i18n";
 import { getSelectedDesktopSource, registerIpcHandlers, SHORTCUTS_FILE } from "./ipc/handlers";
 import { createShortcutsSaver } from "./shortcut-settings";
+import { startStudioMcp, studioMcpEnabled } from "./studio-mcp/server";
 import {
 	closeRecordingPreviewWindow,
 	createCountdownOverlayWindow,
@@ -631,7 +632,21 @@ app.whenReady().then(async () => {
 		switchToHudWrapper,
 	);
 
-	await loadAndRegisterGlobalShortcuts(shortcutCallbacks);
-
-	createWindow();
+	if (studioMcpEnabled) {
+		// The dedicated agent instance is offline, including imported project assets.
+		session.defaultSession.webRequest.onBeforeRequest(
+			{ urls: ["http://*/*", "https://*/*", "ws://*/*", "wss://*/*"] },
+			(_details, callback) => callback({ cancel: true }),
+		);
+		createEditorWindowWrapper();
+		try {
+			await startStudioMcp(() => mainWindow);
+		} catch {
+			console.error("Studio MCP startup failed; check the launcher and granted folders");
+			app.quit();
+		}
+	} else {
+		await loadAndRegisterGlobalShortcuts(shortcutCallbacks);
+		createWindow();
+	}
 });

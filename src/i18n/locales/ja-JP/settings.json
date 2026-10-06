@@ -1,5 +1,13 @@
 {
 	"zoom": {
+		"area": {
+			"title": "カスタム範囲",
+			"width": "幅",
+			"height": "高さ",
+			"framing": "フレーミング",
+			"fit": "全体表示",
+			"fill": "画面いっぱい"
+		},
 		"previewHold": "押している間ズーム効果をプレビュー",
 		"level": "ズーム倍率",
 		"selectRegion": "ズーム範囲を選択して調整",

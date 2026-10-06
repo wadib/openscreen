@@ -26,6 +26,10 @@ const WITH_WEBCAM =
 const CAPTURE_CURSOR =
 	process.env.OPENSCREEN_WGC_TEST_CAPTURE_CURSOR === "true" ||
 	process.argv.includes("--capture-cursor");
+const WITH_PAUSE =
+	process.env.OPENSCREEN_WGC_TEST_PAUSE === "true" || process.argv.includes("--pause");
+const PAUSE_AFTER_MS = Math.min(1500, Math.max(500, Math.floor(DURATION_MS / 3)));
+const PAUSE_DURATION_MS = Number(process.env.OPENSCREEN_WGC_TEST_PAUSE_DURATION_MS ?? 2000);
 
 function runHelper(config) {
 	return new Promise((resolve, reject) => {
@@ -37,13 +41,25 @@ function runHelper(config) {
 		let stdout = "";
 		let stderr = "";
 		let stopTimer = null;
+		let pauseTimer = null;
+		let resumeTimer = null;
 		const scheduleStop = () => {
 			if (stopTimer) {
 				return;
 			}
-			stopTimer = setTimeout(() => {
-				child.stdin.write("stop\n");
-			}, DURATION_MS);
+			if (WITH_PAUSE) {
+				pauseTimer = setTimeout(() => child.stdin.write("pause\n"), PAUSE_AFTER_MS);
+				resumeTimer = setTimeout(
+					() => child.stdin.write("resume\n"),
+					PAUSE_AFTER_MS + PAUSE_DURATION_MS,
+				);
+			}
+			stopTimer = setTimeout(
+				() => {
+					child.stdin.write("stop\n");
+				},
+				DURATION_MS + (WITH_PAUSE ? PAUSE_DURATION_MS : 0),
+			);
 		};
 		const fallbackTimer = setTimeout(scheduleStop, 15_000);
 
@@ -62,6 +78,8 @@ function runHelper(config) {
 			if (stopTimer) {
 				clearTimeout(stopTimer);
 			}
+			if (pauseTimer) clearTimeout(pauseTimer);
+			if (resumeTimer) clearTimeout(resumeTimer);
 			resolve({ code, stdout, stderr });
 		});
 	});
@@ -231,6 +249,9 @@ const outputPath = path.join(
 	`openscreen-wgc-helper-${WITH_WEBCAM ? "webcam" : WITH_WINDOW ? "window" : WITH_SYSTEM_AUDIO || WITH_MICROPHONE ? "audio" : "video"}-${process.pid}-${Date.now()}-${randomUUID()}.mp4`,
 );
 const webcamOutputPath = WITH_WEBCAM ? outputPath.replace(/\.mp4$/i, "-webcam.mp4") : null;
+const microphoneOutputPath = WITH_MICROPHONE
+	? outputPath.replace(/\.mp4$/i, "-microphone.wav")
+	: null;
 
 const fixtureWindow = WITH_WINDOW ? await startFixtureWindow() : null;
 
@@ -267,6 +288,7 @@ const config = {
 	outputs: {
 		screenPath: outputPath,
 		...(webcamOutputPath ? { webcamPath: webcamOutputPath } : {}),
+		...(microphoneOutputPath ? { microphonePath: microphoneOutputPath } : {}),
 	},
 };
 
@@ -296,12 +318,25 @@ if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
 if (WITH_WEBCAM && (!fs.existsSync(webcamOutputPath) || fs.statSync(webcamOutputPath).size === 0)) {
 	throw new Error(`WGC helper did not produce a webcam video at ${webcamOutputPath}`);
 }
+if (
+	WITH_MICROPHONE &&
+	(!microphoneOutputPath ||
+		!fs.existsSync(microphoneOutputPath) ||
+		fs.statSync(microphoneOutputPath).size <= 44)
+) {
+	throw new Error(`WGC helper did not produce microphone audio at ${microphoneOutputPath}`);
+}
 
 const streams = probeStreams(outputPath);
 const webcamStreams =
 	webcamOutputPath && fs.existsSync(webcamOutputPath) ? probeStreams(webcamOutputPath) : [];
+const microphoneStreams =
+	microphoneOutputPath && fs.existsSync(microphoneOutputPath)
+		? probeStreams(microphoneOutputPath)
+		: [];
 const hasVideo = streams.some((stream) => stream.codec_type === "video");
 const hasAudio = streams.some((stream) => stream.codec_type === "audio");
+const videoStream = streams.find((stream) => stream.codec_type === "video");
 const webcamFormatLine = result.stdout
 	.split(/\r?\n/)
 	.find((line) => line.includes('"event":"webcam-format"'));
@@ -327,6 +362,28 @@ const nativeMicrophoneDiagnostics = result.stderr
 if (!hasVideo) {
 	throw new Error(`WGC helper output has no video stream: ${outputPath}`);
 }
+if (WITH_PAUSE) {
+	const outputLines = result.stdout.split(/\r?\n/);
+	const pausedLine = outputLines.findIndex((line) => line.includes('"event":"recording-paused"'));
+	const resumedLine = outputLines.findIndex((line) => line.includes('"event":"recording-resumed"'));
+	if (pausedLine < 0 || resumedLine <= pausedLine) {
+		throw new Error(`WGC helper did not acknowledge Pause and Resume: ${result.stdout}`);
+	}
+	if (
+		outputLines
+			.slice(pausedLine + 1, resumedLine)
+			.some((line) => line.includes('"event":"recording-progress"'))
+	) {
+		throw new Error(`WGC helper wrote video progress while paused: ${result.stdout}`);
+	}
+	const durationSeconds = Number(videoStream?.duration);
+	const expectedSeconds = DURATION_MS / 1000;
+	if (!Number.isFinite(durationSeconds) || Math.abs(durationSeconds - expectedSeconds) > 1.25) {
+		throw new Error(
+			`Paused video duration was ${durationSeconds}s; expected approximately ${expectedSeconds}s`,
+		);
+	}
+}
 if (WITH_WEBCAM && !webcamStreams.some((stream) => stream.codec_type === "video")) {
 	throw new Error(`WGC helper webcam output has no video stream: ${webcamOutputPath}`);
 }
@@ -339,8 +396,11 @@ if (
 		`WGC helper did not apply requested cursor capture mode (${CAPTURE_CURSOR}): ${result.stdout}`,
 	);
 }
-if ((WITH_SYSTEM_AUDIO || WITH_MICROPHONE) && !hasAudio) {
+if (WITH_SYSTEM_AUDIO && !hasAudio) {
 	throw new Error(`WGC helper output has no audio stream: ${outputPath}`);
+}
+if (WITH_MICROPHONE && !microphoneStreams.some((stream) => stream.codec_type === "audio")) {
+	throw new Error(`WGC helper microphone output has no audio stream: ${microphoneOutputPath}`);
 }
 const frameLuma = measureFirstFrameLuma(outputPath);
 if (frameLuma.average < 1 && frameLuma.max < 5) {
@@ -355,10 +415,15 @@ console.log(
 			success: true,
 			outputPath,
 			webcamOutputPath,
+			microphoneOutputPath,
 			bytes: fs.statSync(outputPath).size,
 			webcamBytes:
 				webcamOutputPath && fs.existsSync(webcamOutputPath)
 					? fs.statSync(webcamOutputPath).size
+					: undefined,
+			microphoneBytes:
+				microphoneOutputPath && fs.existsSync(microphoneOutputPath)
+					? fs.statSync(microphoneOutputPath).size
 					: undefined,
 			streams: streams.map((stream) => ({
 				index: stream.index,
@@ -372,6 +437,14 @@ console.log(
 				codecName: stream.codec_name,
 				width: stream.width,
 				height: stream.height,
+				duration: stream.duration,
+			})),
+			microphoneStreams: microphoneStreams.map((stream) => ({
+				index: stream.index,
+				codecType: stream.codec_type,
+				codecName: stream.codec_name,
+				sampleRate: stream.sample_rate,
+				channels: stream.channels,
 				duration: stream.duration,
 			})),
 			cursorCapture,

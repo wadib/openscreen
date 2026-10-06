@@ -1,5 +1,13 @@
 {
 	"zoom": {
+		"area": {
+			"title": "Área personalizada",
+			"width": "Ancho",
+			"height": "Alto",
+			"framing": "Encuadre",
+			"fit": "Ajustar",
+			"fill": "Rellenar"
+		},
 		"previewHold": "Mantener para previsualizar el efecto de zoom",
 		"level": "Nivel de zoom",
 		"selectRegion": "Selecciona una región de zoom para ajustar",

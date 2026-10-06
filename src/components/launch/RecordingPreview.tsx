@@ -1,4 +1,4 @@
-import { LoaderCircle, RefreshCw } from "lucide-react";
+import { LoaderCircle, Pause, RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useScopedT } from "@/contexts/I18nContext";
 import { useRecordingPreview } from "@/hooks/useRecordingPreview";
@@ -7,7 +7,8 @@ import { Tooltip } from "../ui/tooltip";
 
 export function RecordingPreview() {
 	const t = useScopedT("launch");
-	const { source, stream, unavailable, retry, webcam, webcamEnabled } = useRecordingPreview();
+	const { source, stream, unavailable, retry, webcam, webcamEnabled, paused } =
+		useRecordingPreview();
 	const videoRef = useRef<HTMLVideoElement>(null);
 	const webcamRef = useRef<HTMLVideoElement>(null);
 	const stageRef = useRef<HTMLDivElement>(null);
@@ -44,12 +45,30 @@ export function RecordingPreview() {
 			video.srcObject = null;
 		};
 	}, [webcam.stream]);
+	useEffect(() => {
+		const video = videoRef.current;
+		if (!video || !stream) return;
+		if (paused) {
+			video.pause();
+		} else {
+			void video.play().catch(() => undefined);
+		}
+	}, [paused, stream]);
+	useEffect(() => {
+		const video = webcamRef.current;
+		if (!video || !webcam.stream) return;
+		if (paused) {
+			video.pause();
+		} else {
+			void video.play().catch(() => undefined);
+		}
+	}, [paused, webcam.stream]);
 
 	return (
 		<main className="h-screen min-h-0 flex flex-col overflow-hidden bg-[#09090b] text-zinc-100">
 			<header className="flex h-10 shrink-0 items-center gap-2 border-b border-white/10 px-3 text-xs">
 				<span
-					className={`h-1.5 w-1.5 shrink-0 rounded-full ${stream ? "bg-green-400" : "bg-zinc-500"}`}
+					className={`h-1.5 w-1.5 shrink-0 rounded-full ${paused ? "bg-amber-400" : stream ? "bg-green-400" : "bg-zinc-500"}`}
 				/>
 				<span className="min-w-0 flex-1 truncate" title={source?.name}>
 					{source?.name || t("preview.title")}
@@ -77,6 +96,14 @@ export function RecordingPreview() {
 						height: layout?.screenRect.height ?? 0,
 					}}
 				/>
+				{stream && paused && (
+					<div
+						className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/25"
+						aria-label={t("tooltips.resumeRecording")}
+					>
+						<Pause size={30} className="text-amber-400 drop-shadow-md" aria-hidden="true" />
+					</div>
+				)}
 				<video
 					ref={webcamRef}
 					data-testid="recording-preview-webcam"

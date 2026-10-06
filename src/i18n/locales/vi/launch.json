@@ -51,7 +51,14 @@
 		"defaultCamera": "Máy ảnh Mặc định",
 		"searching": "Đang tìm kiếm...",
 		"noneFound": "Không tìm thấy máy ảnh",
-		"unavailable": "Máy ảnh không khả dụng"
+		"unavailable": "Máy ảnh không khả dụng",
+		"cameraControls": "Điều khiển camera",
+		"controlsUnavailable": "Không thể điều khiển camera",
+		"noControls": "Không có điều khiển để điều chỉnh",
+		"auto": "Tự động",
+		"refreshControls": "Làm mới điều khiển",
+		"closeControls": "Đóng điều khiển",
+		"resetControl": "Đặt lại mặc định"
 	},
 	"sourceSelector": {
 		"loading": "Đang tải nguồn...",

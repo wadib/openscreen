@@ -1,9 +1,11 @@
 #include "audio_sample_utils.h"
+#include "camera_controls.h"
 #include "capture_clock.h"
 #include "mf_encoder.h"
 #include "monitor_utils.h"
 #include "popup_overlay_capture.h"
 #include "wasapi_loopback_capture.h"
+#include "wav_writer.h"
 #include "webcam_capture.h"
 #include "wgc_session.h"
 #include "preview.h"
@@ -36,6 +38,7 @@ struct CaptureConfig {
     std::string windowHandle;
     std::string outputPath;
     std::string webcamOutputPath;
+    std::string microphoneOutputPath;
     int fps = 60;
     int width = 0;
     int height = 0;
@@ -62,27 +65,27 @@ struct CaptureControl {
     std::atomic<bool> paused = false;
     std::mutex mutex;
     std::condition_variable cv;
-    std::chrono::steady_clock::time_point pauseStartedAt;
-    std::chrono::steady_clock::duration totalPausedDuration{};
+    int64_t pauseStartedHns = 0;
+    int64_t totalPausedHns = 0;
 
     int64_t pausedDurationHns() {
         std::scoped_lock lock(mutex);
-        auto total = totalPausedDuration;
+        int64_t total = totalPausedHns;
         if (paused.load()) {
-            total += std::chrono::steady_clock::now() - pauseStartedAt;
+            total += captureClockHns() - pauseStartedHns;
         }
-        return std::chrono::duration_cast<std::chrono::nanoseconds>(total).count() / 100;
+        return total;
     }
 
-    void setPaused(bool nextPaused) {
+    void setPaused(bool nextPaused, int64_t transitionHns) {
         std::scoped_lock lock(mutex);
         if (nextPaused == paused.load()) {
             return;
         }
         if (nextPaused) {
-            pauseStartedAt = std::chrono::steady_clock::now();
+            pauseStartedHns = transitionHns;
         } else {
-            totalPausedDuration += std::chrono::steady_clock::now() - pauseStartedAt;
+            totalPausedHns += transitionHns - pauseStartedHns;
         }
         paused = nextPaused;
     }
@@ -352,13 +355,16 @@ bool parseConfig(const std::string& json, CaptureConfig& config) {
     config.webcamDeviceName = findString(json, "webcamDeviceName");
     config.webcamDirectShowClsid = findString(json, "webcamDirectShowClsid");
     config.webcamOutputPath = findString(json, "webcamPath");
+    config.microphoneOutputPath = findString(json, "microphonePath");
     config.webcamWidth = findInt(json, "webcamWidth", 0);
     config.webcamHeight = findInt(json, "webcamHeight", 0);
     config.webcamFps = findInt(json, "webcamFps", 0);
     return true;
 }
 
-void readCaptureCommands(CaptureControl& control, const std::function<void(bool)>& onPauseChanged) {
+void readCaptureCommands(
+    CaptureControl& control,
+    const std::function<void(bool, int64_t)>& onPauseChanged) {
     std::string line;
     while (std::getline(std::cin, line)) {
         if (line == "stop" || line == "q" || line == "quit") {
@@ -367,15 +373,17 @@ void readCaptureCommands(CaptureControl& control, const std::function<void(bool)
             return;
         }
         if (line == "pause") {
-            control.setPaused(true);
-            onPauseChanged(true);
+            const int64_t transitionHns = captureClockHns();
+            control.setPaused(true, transitionHns);
+            onPauseChanged(true, transitionHns);
             std::cout << "{\"event\":\"recording-paused\",\"schemaVersion\":2}" << std::endl;
             control.cv.notify_all();
             continue;
         }
         if (line == "resume") {
-            control.setPaused(false);
-            onPauseChanged(false);
+            const int64_t transitionHns = captureClockHns();
+            control.setPaused(false, transitionHns);
+            onPauseChanged(false, transitionHns);
             std::cout << "{\"event\":\"recording-resumed\",\"schemaVersion\":2}" << std::endl;
             control.cv.notify_all();
             continue;
@@ -392,6 +400,15 @@ int main(int argc, char* argv[]) {
     if (argc < 2) {
         std::cerr << "ERROR: Missing JSON config argument" << std::endl;
         return 1;
+    }
+
+    if (findBool(argv[1], "cameraControls", false)) {
+        return runCameraControlCommand(
+            utf8ToWide(findString(argv[1], "deviceName")),
+            findString(argv[1], "action"),
+            findString(argv[1], "property"),
+            findInt(argv[1], "value", 0),
+            findBool(argv[1], "automatic", false));
     }
 
     if (findBool(argv[1], "windowBounds", false)) {
@@ -501,8 +518,10 @@ int main(int argc, char* argv[]) {
 
     WasapiLoopbackCapture loopbackCapture;
     WasapiLoopbackCapture microphoneCapture;
-    const AudioInputFormat* audioFormat = nullptr;
+    const bool writeSeparateMicrophone = config.captureMic && !config.microphoneOutputPath.empty();
+    const AudioInputFormat* screenAudioFormat = nullptr;
     AudioInputFormat encoderAudioFormat{};
+    AudioInputFormat microphoneOutputFormat{};
     AudioInputFormat systemAudioFormat{};
     AudioInputFormat microphoneAudioFormat{};
     if (config.captureSystemAudio) {
@@ -511,7 +530,7 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         systemAudioFormat = loopbackCapture.inputFormat();
-        audioFormat = &loopbackCapture.inputFormat();
+        screenAudioFormat = &loopbackCapture.inputFormat();
     }
     if (config.captureMic) {
         if (!microphoneCapture.initializeMicrophone(
@@ -521,29 +540,43 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         microphoneAudioFormat = microphoneCapture.inputFormat();
-        if (!audioFormat) {
-            audioFormat = &microphoneCapture.inputFormat();
+        microphoneOutputFormat = makeAacCompatibleAudioFormat(microphoneAudioFormat);
+        if (!screenAudioFormat && !writeSeparateMicrophone) {
+            screenAudioFormat = &microphoneCapture.inputFormat();
         }
     }
-    if (audioFormat) {
-        std::cout << "{\"event\":\"audio-format\",\"schemaVersion\":2,\"sampleRate\":" << audioFormat->sampleRate
-                  << ",\"channels\":" << audioFormat->channels
-                  << ",\"bitsPerSample\":" << audioFormat->bitsPerSample
+    const AudioInputFormat* reportedAudioFormat = screenAudioFormat
+        ? screenAudioFormat
+        : (config.captureMic ? &microphoneAudioFormat : nullptr);
+    if (reportedAudioFormat) {
+        std::cout << "{\"event\":\"audio-format\",\"schemaVersion\":2,\"sampleRate\":" << reportedAudioFormat->sampleRate
+                  << ",\"channels\":" << reportedAudioFormat->channels
+                  << ",\"bitsPerSample\":" << reportedAudioFormat->bitsPerSample
                   << ",\"subtype\":\""
-                  << (audioFormat->subtype == MFAudioFormat_Float ? "float" : "pcm") << "\""
+                  << (reportedAudioFormat->subtype == MFAudioFormat_Float ? "float" : "pcm") << "\""
                   << ",\"system\":" << (config.captureSystemAudio ? "true" : "false")
-                  << ",\"microphone\":" << (config.captureMic ? "true" : "false");
+                  << ",\"microphone\":" << (config.captureMic ? "true" : "false")
+                  << ",\"separateMicrophone\":" << (writeSeparateMicrophone ? "true" : "false");
         if (config.captureMic) {
             std::cout << ",\"microphoneDeviceName\":\""
                       << jsonEscape(wideToUtf8(microphoneCapture.selectedDeviceName())) << "\"";
         }
         std::cout << "}" << std::endl;
-        encoderAudioFormat = makeAacCompatibleAudioFormat(*audioFormat);
-        std::cout << "{\"event\":\"encoder-audio-format\",\"schemaVersion\":2,\"sampleRate\":"
-                  << encoderAudioFormat.sampleRate
-                  << ",\"channels\":" << encoderAudioFormat.channels
-                  << ",\"bitsPerSample\":" << encoderAudioFormat.bitsPerSample
-                  << "}" << std::endl;
+        if (screenAudioFormat) {
+            encoderAudioFormat = makeAacCompatibleAudioFormat(*screenAudioFormat);
+            std::cout << "{\"event\":\"encoder-audio-format\",\"schemaVersion\":2,\"sampleRate\":"
+                      << encoderAudioFormat.sampleRate
+                      << ",\"channels\":" << encoderAudioFormat.channels
+                      << ",\"bitsPerSample\":" << encoderAudioFormat.bitsPerSample
+                      << "}" << std::endl;
+        }
+    }
+
+    WavWriter microphoneWriter;
+    if (writeSeparateMicrophone && !microphoneWriter.open(
+            utf8ToWide(config.microphoneOutputPath), microphoneOutputFormat)) {
+        std::cerr << "ERROR: Failed to create separate microphone WAV" << std::endl;
+        return 1;
     }
 
     MFEncoder encoder;
@@ -555,7 +588,7 @@ int main(int argc, char* argv[]) {
             bitrate,
             session.device(),
             session.context(),
-            audioFormat ? &encoderAudioFormat : nullptr)) {
+            screenAudioFormat ? &encoderAudioFormat : nullptr)) {
         std::cerr << "ERROR: Failed to initialize Media Foundation encoder" << std::endl;
         return 1;
     }
@@ -743,45 +776,77 @@ int main(int argc, char* argv[]) {
         videoWriterThread = std::thread(writeVideoFrames);
     };
 
-    std::unique_ptr<AudioMixer> audioMixer;
+    std::unique_ptr<AudioMixer> screenAudioMixer;
+    std::unique_ptr<AudioMixer> microphoneMixer;
     auto startAudioCaptures = [&]() -> bool {
-        if (!audioFormat) {
+        if (!screenAudioFormat && !writeSeparateMicrophone) {
             return true;
         }
 
-        audioMixer = std::make_unique<AudioMixer>(
-            encoderAudioFormat,
-            config.captureSystemAudio ? systemAudioFormat : encoderAudioFormat,
-            config.captureMic ? microphoneAudioFormat : encoderAudioFormat,
-            config.captureSystemAudio,
-            config.captureMic,
-            config.microphoneGain,
-            [&](const BYTE* data, DWORD byteCount, int64_t timestampHns, int64_t durationHns) {
-                if (!encoder.writeAudio(data, byteCount, timestampHns, durationHns)) {
-                    encodeFailed = true;
-                    control.stopRequested = true;
-                    control.cv.notify_all();
-                    return false;
-                }
-                return true;
-            });
+        if (screenAudioFormat) {
+            screenAudioMixer = std::make_unique<AudioMixer>(
+                encoderAudioFormat,
+                config.captureSystemAudio ? systemAudioFormat : encoderAudioFormat,
+                config.captureMic && !writeSeparateMicrophone ? microphoneAudioFormat : encoderAudioFormat,
+                config.captureSystemAudio,
+                config.captureMic && !writeSeparateMicrophone,
+                config.microphoneGain,
+                [&](const BYTE* data, DWORD byteCount, int64_t timestampHns, int64_t durationHns) {
+                    if (!encoder.writeAudio(data, byteCount, timestampHns, durationHns)) {
+                        encodeFailed = true;
+                        control.stopRequested = true;
+                        control.cv.notify_all();
+                        return false;
+                    }
+                    return true;
+                });
 
-        if (!audioMixer->start()) {
-            std::cerr << "ERROR: Failed to start native audio mixer" << std::endl;
-            return false;
+            if (!screenAudioMixer->start()) {
+                std::cerr << "ERROR: Failed to start native screen audio mixer" << std::endl;
+                return false;
+            }
+        }
+
+        if (writeSeparateMicrophone) {
+            microphoneMixer = std::make_unique<AudioMixer>(
+                microphoneOutputFormat,
+                microphoneOutputFormat,
+                microphoneAudioFormat,
+                false,
+                true,
+                config.microphoneGain,
+                [&](const BYTE* data, DWORD byteCount, int64_t, int64_t) {
+                    if (!microphoneWriter.write(data, byteCount)) {
+                        encodeFailed = true;
+                        control.stopRequested = true;
+                        control.cv.notify_all();
+                        return false;
+                    }
+                    return true;
+                },
+                true);
+            if (!microphoneMixer->start()) {
+                std::cerr << "ERROR: Failed to start separate microphone mixer" << std::endl;
+                if (screenAudioMixer) screenAudioMixer->stop();
+                return false;
+            }
         }
 
         if (config.captureMic) {
             if (!microphoneCapture.start([&](const BYTE* data, DWORD byteCount, int64_t timestampHns, int64_t durationHns) {
                     (void)durationHns;
-                    if (control.stopRequested || !audioMixer) {
+                    if (control.stopRequested) {
                         return;
                     }
-
-                    audioMixer->pushMicrophone(data, byteCount, timestampHns);
+                    if (microphoneMixer) {
+                        microphoneMixer->pushMicrophone(data, byteCount, timestampHns);
+                    } else if (screenAudioMixer) {
+                        screenAudioMixer->pushMicrophone(data, byteCount, timestampHns);
+                    }
                 })) {
-                std::cerr << "ERROR: Failed to start WASAPI microphone capture" << std::endl;
-                audioMixer->stop();
+                    std::cerr << "ERROR: Failed to start WASAPI microphone capture" << std::endl;
+                if (microphoneMixer) microphoneMixer->stop();
+                if (screenAudioMixer) screenAudioMixer->stop();
                 return false;
             }
         }
@@ -789,15 +854,15 @@ int main(int argc, char* argv[]) {
         if (config.captureSystemAudio) {
             if (!loopbackCapture.start([&](const BYTE* data, DWORD byteCount, int64_t timestampHns, int64_t durationHns) {
                     (void)durationHns;
-                    if (control.stopRequested || !audioMixer) {
+                    if (control.stopRequested || !screenAudioMixer) {
                         return;
                     }
-
-                    audioMixer->pushSystem(data, byteCount, timestampHns);
+                    screenAudioMixer->pushSystem(data, byteCount, timestampHns);
                 })) {
                 std::cerr << "ERROR: Failed to start WASAPI loopback capture" << std::endl;
                 microphoneCapture.stop();
-                audioMixer->stop();
+                if (microphoneMixer) microphoneMixer->stop();
+                if (screenAudioMixer) screenAudioMixer->stop();
                 return false;
             }
         }
@@ -812,9 +877,8 @@ int main(int argc, char* argv[]) {
         if (!webcamCapture.start()) {
             microphoneCapture.stop();
             loopbackCapture.stop();
-            if (audioMixer) {
-                audioMixer->stop();
-            }
+            if (microphoneMixer) microphoneMixer->stop();
+            if (screenAudioMixer) screenAudioMixer->stop();
             std::cerr << "ERROR: Failed to start native webcam capture" << std::endl;
             return 1;
         }
@@ -852,17 +916,15 @@ int main(int argc, char* argv[]) {
         webcamCapture.stop();
         microphoneCapture.stop();
         loopbackCapture.stop();
-        if (audioMixer) {
-            audioMixer->stop();
-        }
+        if (microphoneMixer) microphoneMixer->stop();
+        if (screenAudioMixer) screenAudioMixer->stop();
         std::cerr << "ERROR: Failed to start WGC session" << std::endl;
         return 1;
     }
 
-    std::thread stdinThread(readCaptureCommands, std::ref(control), [&](bool isPaused) {
-        if (audioMixer) {
-            audioMixer->setPaused(isPaused);
-        }
+    std::thread stdinThread(readCaptureCommands, std::ref(control), [&](bool isPaused, int64_t transitionHns) {
+        if (screenAudioMixer) screenAudioMixer->setPaused(isPaused, transitionHns);
+        if (microphoneMixer) microphoneMixer->setPaused(isPaused, transitionHns);
     });
 
     {
@@ -879,9 +941,8 @@ int main(int argc, char* argv[]) {
             microphoneCapture.stop();
             loopbackCapture.stop();
             webcamCapture.stop();
-            if (audioMixer) {
-                audioMixer->stop();
-            }
+            if (microphoneMixer) microphoneMixer->stop();
+            if (screenAudioMixer) screenAudioMixer->stop();
             session.stop();
             if (popupOverlayCapture) {
                 popupOverlayCapture->stop();
@@ -895,12 +956,15 @@ int main(int argc, char* argv[]) {
 		std::scoped_lock lock(mutex);
 		captureEpochHns = latestFrameTimestampHns > 0 ? latestFrameTimestampHns : captureClockHns();
 	}
-    if (audioMixer) {
-        audioMixer->beginTimeline(captureEpochHns);
-    }
+    if (screenAudioMixer) screenAudioMixer->beginTimeline(captureEpochHns);
+    if (microphoneMixer) microphoneMixer->beginTimeline(captureEpochHns);
     startVideoWriter();
 
-    std::cout << "{\"event\":\"recording-started\",\"schemaVersion\":2}" << std::endl;
+    const int64_t wallClockMs = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
+    const int64_t captureStartedAtMs = wallClockMs - (captureClockHns() - captureEpochHns) / 10'000;
+    std::cout << "{\"event\":\"recording-started\",\"schemaVersion\":2,\"captureStartedAtMs\":"
+              << captureStartedAtMs << "}" << std::endl;
     std::cout << "Recording started" << std::endl;
 
     {
@@ -957,9 +1021,13 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-    if (audioMixer) {
-        reportFinalizing("audio-mixer-stop");
-        audioMixer->stop();
+    if (screenAudioMixer) {
+        reportFinalizing("screen-audio-mixer-stop");
+        screenAudioMixer->stop();
+    }
+    if (microphoneMixer) {
+        reportFinalizing("microphone-mixer-stop");
+        microphoneMixer->stop();
     }
     reportFinalizing("capture-session-stop");
     session.stop();
@@ -974,6 +1042,10 @@ int main(int argc, char* argv[]) {
         if (writeSeparateWebcam) {
             reportFinalizing("webcam-encoder-finalize");
             finalized = webcamEncoder.finalize() && finalized;
+        }
+        if (writeSeparateMicrophone) {
+            reportFinalizing("microphone-wav-finalize");
+            finalized = microphoneWriter.finalize() && finalized;
         }
     }
 
@@ -994,6 +1066,9 @@ int main(int argc, char* argv[]) {
               << jsonEscape(config.outputPath) << "\"";
     if (writeSeparateWebcam) {
         std::cout << ",\"webcamPath\":\"" << jsonEscape(config.webcamOutputPath) << "\"";
+    }
+    if (writeSeparateMicrophone) {
+        std::cout << ",\"microphonePath\":\"" << jsonEscape(config.microphoneOutputPath) << "\"";
     }
     std::cout << "}" << std::endl;
     std::cout << "Recording stopped. Output path: " << config.outputPath << std::endl;

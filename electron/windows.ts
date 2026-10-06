@@ -91,6 +91,7 @@ let recordingPreviewWindow: BrowserWindow | null = null;
 let recordingPreviewSettings: RecordingPreviewSettings = {
 	cursorCaptureMode: "editable-overlay",
 	webcamEnabled: false,
+	paused: false,
 };
 
 export function getRecordingPreviewConfiguration(requesterId: number) {
@@ -109,6 +110,7 @@ ipcMain.on("set-recording-preview-settings", (event, settings: RecordingPreviewS
 	recordingPreviewSettings = {
 		cursorCaptureMode: mode,
 		webcamEnabled: settings.webcamEnabled,
+		paused: settings.paused === true,
 		webcamStreamId:
 			typeof settings.webcamStreamId === "string"
 				? settings.webcamStreamId.slice(0, 80)
@@ -320,8 +322,18 @@ ipcMain.on("hud-overlay-set-size", (_event, width: number, height: number) => {
 	const bottomY = bounds.y + bounds.height;
 
 	hudOverlayWindow.setBounds({
-		x: Math.round(centerX - nextWidth / 2),
-		y: Math.round(bottomY - nextHeight),
+		x: Math.round(
+			Math.max(
+				workArea.x,
+				Math.min(centerX - nextWidth / 2, workArea.x + workArea.width - nextWidth),
+			),
+		),
+		y: Math.round(
+			Math.max(
+				workArea.y,
+				Math.min(bottomY - nextHeight, workArea.y + workArea.height - nextHeight),
+			),
+		),
 		width: nextWidth,
 		height: nextHeight,
 	});

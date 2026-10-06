@@ -1,5 +1,13 @@
 {
 	"zoom": {
+		"area": {
+			"title": "自訂區域",
+			"width": "寬度",
+			"height": "高度",
+			"framing": "構圖",
+			"fit": "適應",
+			"fill": "填滿"
+		},
 		"previewHold": "按住預覽放大效果",
 		"level": "縮放級別",
 		"selectRegion": "選擇要調整的縮放區域",

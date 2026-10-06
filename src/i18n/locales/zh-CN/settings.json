@@ -1,5 +1,13 @@
 {
 	"zoom": {
+		"area": {
+			"title": "自定义区域",
+			"width": "宽度",
+			"height": "高度",
+			"framing": "构图",
+			"fit": "适应",
+			"fill": "填充"
+		},
 		"previewHold": "按住预览放大效果",
 		"level": "缩放级别",
 		"selectRegion": "选择要调整的缩放区域",

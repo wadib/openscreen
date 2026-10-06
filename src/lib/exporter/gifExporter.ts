@@ -12,6 +12,7 @@ import { BackgroundLoadError } from "@/lib/wallpaper";
 import type { CursorRecordingData } from "@/native/contracts";
 import { getPlatform } from "@/utils/platformUtils";
 import { FrameRenderer } from "./frameRenderer";
+import { shiftRegionsToSidecar } from "./sidecarTiming";
 import { StreamingVideoDecoder } from "./streamingDecoder";
 import { TimestampedVideoFrameQueue } from "./timestampedVideoFrameQueue";
 import type {
@@ -27,6 +28,7 @@ const GIF_WORKER_URL = new URL("gif.js/dist/gif.worker.js", import.meta.url).toS
 interface GifExporterConfig {
 	videoUrl: string;
 	webcamVideoUrl?: string;
+	webcamOffsetMs?: number;
 	width: number;
 	height: number;
 	frameRate: GifFrameRate;
@@ -229,8 +231,8 @@ export class GifExporter {
 							return this.webcamDecoder
 								.decodeAll(
 									this.config.frameRate,
-									this.config.trimRegions,
-									this.config.speedRegions,
+									shiftRegionsToSidecar(this.config.trimRegions, this.config.webcamOffsetMs),
+									shiftRegionsToSidecar(this.config.speedRegions, this.config.webcamOffsetMs),
 									async (webcamFrame, _exportTimestampUs, webcamSourceTimestampMs) => {
 										while (queue.length >= 12 && !this.cancelled && !stopWebcamDecode) {
 											await new Promise((resolve) => setTimeout(resolve, 2));
@@ -239,7 +241,10 @@ export class GifExporter {
 											webcamFrame.close();
 											return;
 										}
-										queue.enqueue(webcamFrame, webcamSourceTimestampMs);
+										queue.enqueue(
+											webcamFrame,
+											webcamSourceTimestampMs + (this.config.webcamOffsetMs ?? 0),
+										);
 									},
 									onWarning,
 								)

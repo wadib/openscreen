@@ -51,7 +51,14 @@
 		"defaultCamera": "기본 카메라",
 		"searching": "검색 중...",
 		"noneFound": "카메라를 찾을 수 없음",
-		"unavailable": "카메라를 사용할 수 없음"
+		"unavailable": "카메라를 사용할 수 없음",
+		"cameraControls": "카메라 제어",
+		"controlsUnavailable": "카메라 제어를 사용할 수 없음",
+		"noControls": "조정 가능한 제어가 없음",
+		"auto": "자동",
+		"refreshControls": "카메라 제어 새로 고침",
+		"closeControls": "카메라 제어 닫기",
+		"resetControl": "기본값으로 재설정"
 	},
 	"cursor": {
 		"show": "커서 표시",

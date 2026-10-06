@@ -4,6 +4,7 @@ import { TRANSITION_WINDOW_MS, ZOOM_IN_TRANSITION_WINDOW_MS } from "./constants"
 import { interpolateCursorAt } from "./cursorFollowUtils";
 import { clampFocusToScale } from "./focusUtils";
 import { clamp01, cubicBezier, easeOutScreenStudio } from "./mathUtils";
+import { clampZoomAreaFocus, getZoomAreaSize } from "./zoomArea";
 
 const CHAINED_ZOOM_PAN_GAP_MS = 1500;
 const CONNECTED_ZOOM_PAN_DURATION_MS = 1000;
@@ -93,7 +94,9 @@ function getResolvedFocus(
 		}
 	}
 
-	return clampFocusToScale(focus, zoomScale, viewportRatio);
+	return region.area
+		? clampZoomAreaFocus(region, focus)
+		: clampFocusToScale(focus, zoomScale, viewportRatio);
 }
 
 function getConnectedRegionPairs(regions: ZoomRegion[]) {
@@ -217,24 +220,31 @@ function getConnectedRegionTransition(
 		const currentScale = getZoomScale(currentRegion);
 		const nextScale = getZoomScale(nextRegion);
 		const transitionScale = lerp(currentScale, nextScale, transitionProgress);
-		// Both regions share the same timeMs, so interpolate cursor once and reuse.
-		const sharedCursorFocus =
-			cursorTelemetry && cursorTelemetry.length > 0
-				? interpolateCursorAt(cursorTelemetry, timeMs)
-				: null;
-		const currentFocus = clampFocusToScale(
-			currentRegion.focusMode === "auto" && sharedCursorFocus
-				? sharedCursorFocus
-				: currentRegion.focus,
+		const currentFocus = getResolvedFocus(
+			currentRegion,
 			currentScale,
+			timeMs,
+			cursorTelemetry,
 			viewportRatio,
 		);
-		const nextFocus = clampFocusToScale(
-			nextRegion.focusMode === "auto" && sharedCursorFocus ? sharedCursorFocus : nextRegion.focus,
+		const nextFocus = getResolvedFocus(
+			nextRegion,
 			nextScale,
+			timeMs,
+			cursorTelemetry,
 			viewportRatio,
 		);
 		const transitionFocus = getLinearFocus(currentFocus, nextFocus, transitionProgress);
+		const startArea = getZoomAreaSize(currentRegion);
+		const endArea = getZoomAreaSize(nextRegion);
+		const area =
+			currentRegion.area || nextRegion.area
+				? {
+						width: lerp(startArea.width, endArea.width, transitionProgress),
+						height: lerp(startArea.height, endArea.height, transitionProgress),
+						fit: endArea.fit,
+					}
+				: undefined;
 		const transitionRotation = lerpRotation3D(
 			getRotation3D(currentRegion),
 			getRotation3D(nextRegion),
@@ -245,6 +255,7 @@ function getConnectedRegionTransition(
 			region: {
 				...nextRegion,
 				focus: transitionFocus,
+				area,
 			},
 			strength: 1,
 			blendedScale: transitionScale,

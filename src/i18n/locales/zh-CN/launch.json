@@ -51,7 +51,14 @@
 		"defaultCamera": "默认摄像头",
 		"searching": "正在搜索...",
 		"noneFound": "未找到摄像头",
-		"unavailable": "摄像头不可用"
+		"unavailable": "摄像头不可用",
+		"cameraControls": "摄像头控制",
+		"controlsUnavailable": "摄像头控制不可用",
+		"noControls": "没有可调节的控制项",
+		"auto": "自动",
+		"refreshControls": "刷新摄像头控制",
+		"closeControls": "关闭摄像头控制",
+		"resetControl": "恢复默认值"
 	},
 	"cursor": {
 		"show": "显示光标",

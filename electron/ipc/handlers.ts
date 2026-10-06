@@ -17,10 +17,17 @@ import {
 	shell,
 	systemPreferences,
 } from "electron";
+import {
+	CAMERA_CONTROL_IDS,
+	type CameraControlId,
+	type CameraControlsResult,
+	type SetCameraControlRequest,
+} from "../../src/lib/cameraControls";
 import type { NativeMacRecordingRequest } from "../../src/lib/nativeMacRecording";
 import type { NativeWindowsRecordingRequest } from "../../src/lib/nativeWindowsRecording";
 import {
 	type CursorCaptureMode,
+	mergeRecordingSession,
 	normalizeCursorCaptureMode,
 	normalizeProjectMedia,
 	normalizeRecordingSession,
@@ -469,6 +476,7 @@ let nativeWindowsCaptureStopping = false;
 let nativeWindowsCaptureOutput = "";
 let nativeWindowsCaptureTargetPath: string | null = null;
 let nativeWindowsCaptureWebcamTargetPath: string | null = null;
+let nativeWindowsCaptureMicrophoneTargetPath: string | null = null;
 let nativeWindowsCaptureRecordingId: number | null = null;
 let nativeWindowsCursorOffsetMs = 0;
 let nativeWindowsCursorCaptureMode: CursorCaptureMode = "editable-overlay";
@@ -888,6 +896,87 @@ async function resolveDirectShowWebcamClsid(deviceName?: string) {
 		score: best.score,
 	});
 	return best.clsid;
+}
+
+const cameraControlIds = new Set<string>(CAMERA_CONTROL_IDS);
+
+function runNativeCameraControl(
+	helperPath: string,
+	request: {
+		deviceName: string;
+		action: "list" | "set";
+		property?: CameraControlId;
+		value?: number;
+		automatic?: boolean;
+	},
+) {
+	return new Promise<CameraControlsResult>((resolve) => {
+		const proc = spawn(helperPath, [JSON.stringify({ cameraControls: true, ...request })], {
+			windowsHide: true,
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+		let stdout = "";
+		let stderr = "";
+		let settled = false;
+		const finish = (result: CameraControlsResult) => {
+			if (settled) return;
+			settled = true;
+			clearTimeout(timeout);
+			resolve(result);
+		};
+		const timeout = setTimeout(() => {
+			proc.kill();
+			finish({ success: false, error: "Camera controls did not respond." });
+		}, 5000);
+
+		proc.stdout.on("data", (chunk: Buffer) => {
+			stdout += chunk.toString();
+			if (stdout.length > 256_000) proc.kill();
+		});
+		proc.stderr.on("data", (chunk: Buffer) => {
+			stderr += chunk.toString();
+		});
+		proc.on("error", (error) => finish({ success: false, error: error.message }));
+		proc.on("close", () => {
+			try {
+				const line = stdout
+					.trim()
+					.split(/\r?\n/)
+					.reverse()
+					.find((candidate) => candidate.trim().startsWith("{"));
+				if (!line) {
+					finish({
+						success: false,
+						error: stderr.trim() || "Camera controls returned no result.",
+					});
+					return;
+				}
+				const result = JSON.parse(line) as CameraControlsResult;
+				finish(
+					typeof result.success === "boolean"
+						? result
+						: { success: false, error: "Camera controls returned an invalid result." },
+				);
+			} catch (error) {
+				finish({
+					success: false,
+					error: error instanceof Error ? error.message : "Could not read camera controls.",
+				});
+			}
+		});
+	});
+}
+
+async function getCameraControlsForDevice(deviceName: unknown): Promise<CameraControlsResult> {
+	if (process.platform !== "win32") {
+		return { success: false, error: "Camera controls are available on Windows." };
+	}
+	if (typeof deviceName !== "string" || !deviceName.trim() || deviceName.length > 300) {
+		return { success: false, error: "Select a camera first." };
+	}
+	const helperPath = await findNativeWindowsCaptureHelperPath();
+	if (!helperPath) return { success: false, error: "Camera control helper is unavailable." };
+	return runNativeCameraControl(helperPath, { deviceName, action: "list" });
 }
 
 async function startCursorRecording(recordingId?: number) {
@@ -1513,6 +1602,36 @@ export function registerIpcHandlers(
 		}
 	});
 
+	ipcMain.handle("get-camera-controls", async (event, deviceName: unknown) => {
+		if (!isRecorderWindow(event.sender.id)) throw new Error("Recorder window required");
+		return getCameraControlsForDevice(deviceName);
+	});
+
+	ipcMain.handle("set-camera-control", async (event, request: SetCameraControlRequest) => {
+		if (!isRecorderWindow(event.sender.id)) throw new Error("Recorder window required");
+		if (
+			!request ||
+			typeof request.deviceName !== "string" ||
+			!request.deviceName.trim() ||
+			request.deviceName.length > 300 ||
+			!cameraControlIds.has(request.property) ||
+			typeof request.value !== "number" ||
+			!Number.isFinite(request.value) ||
+			typeof request.automatic !== "boolean"
+		) {
+			return { success: false, error: "Invalid camera control request." };
+		}
+		const helperPath = await findNativeWindowsCaptureHelperPath();
+		if (!helperPath) return { success: false, error: "Camera control helper is unavailable." };
+		return runNativeCameraControl(helperPath, {
+			deviceName: request.deviceName,
+			action: "set",
+			property: request.property,
+			value: Math.round(request.value),
+			automatic: request.automatic,
+		});
+	});
+
 	ipcMain.handle("request-screen-access", async () => {
 		return requestScreenAccess();
 	});
@@ -1830,6 +1949,10 @@ export function registerIpcHandlers(
 					RECORDINGS_DIR,
 					`${RECORDING_FILE_PREFIX}${recordingId}-webcam.mp4`,
 				);
+				const microphoneOutputPath = path.join(
+					RECORDINGS_DIR,
+					`${RECORDING_FILE_PREFIX}${recordingId}-microphone.wav`,
+				);
 				const sourceDisplay =
 					request.source.type === "display" && typeof request.source.displayId === "number"
 						? (screen.getAllDisplays().find((display) => display.id === request.source.displayId) ??
@@ -1878,6 +2001,7 @@ export function registerIpcHandlers(
 					outputs: {
 						screenPath: outputPath,
 						webcamPath: webcamOutputPath,
+						microphonePath: microphoneOutputPath,
 					},
 					source: {
 						type: request.source.type,
@@ -1922,6 +2046,9 @@ export function registerIpcHandlers(
 				nativeWindowsCaptureOutput = "";
 				nativeWindowsCaptureTargetPath = outputPath;
 				nativeWindowsCaptureWebcamTargetPath = request.webcam.enabled ? webcamOutputPath : null;
+				nativeWindowsCaptureMicrophoneTargetPath = request.audio.microphone.enabled
+					? microphoneOutputPath
+					: null;
 				nativeWindowsCaptureRecordingId = recordingId;
 				nativeWindowsCursorOffsetMs = 0;
 				nativeWindowsCursorCaptureMode = cursorCaptureMode;
@@ -1996,7 +2123,14 @@ export function registerIpcHandlers(
 				});
 
 				await waitForNativeWindowsCaptureStart(proc);
-				const captureStartedAtMs = Date.now();
+				const startedEvent = nativeWindowsCaptureOutput
+					.split(/\r?\n/)
+					.map(tryParseNativeHelperEvent)
+					.find((status) => status?.event === "recording-started");
+				const captureStartedAtMs =
+					typeof startedEvent?.captureStartedAtMs === "number"
+						? startedEvent.captureStartedAtMs
+						: Date.now();
 				liveBlurRecorder.selectSource(selectedSource?.id);
 				liveBlurRecorder.start(recordingId, captureStartedAtMs);
 				liveBlurRecorder.setMediaTime(mediaTimeMs);
@@ -2022,6 +2156,7 @@ export function registerIpcHandlers(
 					recordingId,
 					path: outputPath,
 					helperPath,
+					captureStartedAtMs,
 				};
 			} catch (error) {
 				console.error("Failed to start native Windows recording:", error);
@@ -2032,6 +2167,7 @@ export function registerIpcHandlers(
 				nativeWindowsCaptureProcess = null;
 				nativeWindowsCaptureTargetPath = null;
 				nativeWindowsCaptureWebcamTargetPath = null;
+				nativeWindowsCaptureMicrophoneTargetPath = null;
 				nativeWindowsCaptureRecordingId = null;
 				nativeWindowsCursorOffsetMs = 0;
 				nativeWindowsCursorCaptureMode = "editable-overlay";
@@ -2300,6 +2436,7 @@ export function registerIpcHandlers(
 		const proc = nativeWindowsCaptureProcess;
 		const preferredPath = nativeWindowsCaptureTargetPath;
 		const preferredWebcamPath = nativeWindowsCaptureWebcamTargetPath;
+		const preferredMicrophonePath = nativeWindowsCaptureMicrophoneTargetPath;
 		const recordingId = nativeWindowsCaptureRecordingId ?? Date.now();
 		const cursorCaptureMode = nativeWindowsCursorCaptureMode;
 		const diagnostics = nativeWindowsDiagnostics;
@@ -2339,6 +2476,9 @@ export function registerIpcHandlers(
 				await Promise.all([
 					fs.rm(screenVideoPath, { force: true }),
 					preferredWebcamPath ? fs.rm(preferredWebcamPath, { force: true }) : Promise.resolve(),
+					preferredMicrophonePath
+						? fs.rm(preferredMicrophonePath, { force: true })
+						: Promise.resolve(),
 					fs.rm(`${screenVideoPath}.cursor.json`, { force: true }),
 				]);
 				return { success: true, discarded: true };
@@ -2350,6 +2490,7 @@ export function registerIpcHandlers(
 				await writePendingCursorTelemetry(screenVideoPath);
 			}
 			let webcamVideoPath: string | undefined;
+			let microphoneAudioPath: string | undefined;
 			await validateFinalizedMp4(screenVideoPath);
 			diagnostics?.write("mp4-validated", { outputPath: screenVideoPath });
 			if (preferredWebcamPath) {
@@ -2360,9 +2501,23 @@ export function registerIpcHandlers(
 					webcamVideoPath = undefined;
 				}
 			}
-			const session: RecordingSession = webcamVideoPath
-				? { screenVideoPath, webcamVideoPath, createdAt: recordingId, cursorCaptureMode }
-				: { screenVideoPath, createdAt: recordingId, cursorCaptureMode };
+			if (preferredMicrophonePath) {
+				try {
+					const microphoneStats = await fs.stat(preferredMicrophonePath);
+					if (microphoneStats.size > 44) microphoneAudioPath = preferredMicrophonePath;
+				} catch {
+					microphoneAudioPath = undefined;
+				}
+			}
+			const session: RecordingSession = {
+				screenVideoPath,
+				...(webcamVideoPath ? { webcamVideoPath } : {}),
+				...(microphoneAudioPath
+					? { microphoneAudioPath, microphoneOffsetMs: 0, microphoneGain: 1 }
+					: {}),
+				createdAt: recordingId,
+				cursorCaptureMode,
+			};
 			session.recordedBlurs = liveBlurRecorder.finish(recordingId);
 			setCurrentRecordingSessionState(session);
 			currentProjectPath = null;
@@ -2427,6 +2582,7 @@ export function registerIpcHandlers(
 				nativeWindowsCaptureStopping = false;
 				nativeWindowsCaptureTargetPath = null;
 				nativeWindowsCaptureWebcamTargetPath = null;
+				nativeWindowsCaptureMicrophoneTargetPath = null;
 				nativeWindowsCaptureRecordingId = null;
 				nativeWindowsCursorOffsetMs = 0;
 				nativeWindowsCursorCaptureMode = "editable-overlay";
@@ -2641,6 +2797,22 @@ export function registerIpcHandlers(
 			);
 		}
 
+		let microphoneAudioPath: string | undefined;
+		let microphoneStreamed = false;
+		if (payload.microphone) {
+			microphoneAudioPath = resolveRecordingOutputPath(payload.microphone.fileName);
+			microphoneStreamed = await finalizeRecordingFile(
+				recordingStreams,
+				payload.microphone.fileName,
+				microphoneAudioPath,
+				payload.microphone.videoData,
+			);
+			const microphoneStats = await fs.stat(microphoneAudioPath);
+			if (microphoneStats.size === 0) {
+				throw new Error("Microphone recording produced an empty audio file");
+			}
+		}
+
 		// Streamed files lack the WebM Duration header (renderer no longer holds the
 		// blob), so patch on disk for the editor's seek bar and timeline. Best-effort,
 		// independent per file, so they run together.
@@ -2652,18 +2824,35 @@ export function registerIpcHandlers(
 			if (webcamStreamed && webcamVideoPath) {
 				patches.push(patchWebmDurationOnDisk(webcamVideoPath, payload.durationMs));
 			}
+			if (microphoneStreamed && microphoneAudioPath) {
+				patches.push(patchWebmDurationOnDisk(microphoneAudioPath, payload.durationMs));
+			}
 			await Promise.all(patches);
 		}
 
-		const session: RecordingSession = webcamVideoPath
-			? {
-					screenVideoPath,
-					webcamVideoPath,
-					createdAt,
-					...(cursorCaptureMode ? { cursorCaptureMode } : {}),
-				}
-			: { screenVideoPath, createdAt, ...(cursorCaptureMode ? { cursorCaptureMode } : {}) };
-		session.recordedBlurs = liveBlurRecorder.finish(createdAt);
+		const matchingSession =
+			currentRecordingSession &&
+			currentRecordingSession.createdAt === createdAt &&
+			normalizePath(currentRecordingSession.screenVideoPath) === normalizePath(screenVideoPath)
+				? currentRecordingSession
+				: null;
+		const session = mergeRecordingSession(matchingSession, {
+			screenVideoPath,
+			...(webcamVideoPath ? { webcamVideoPath, webcamOffsetMs: payload.webcamOffsetMs ?? 0 } : {}),
+			...(microphoneAudioPath
+				? {
+						microphoneAudioPath,
+						microphoneOffsetMs: Math.max(
+							-30_000,
+							Math.min(30_000, Math.round(payload.microphoneOffsetMs ?? 0)),
+						),
+						microphoneGain: Math.max(0, Math.min(2, payload.microphoneGain ?? 1)),
+					}
+				: {}),
+			createdAt,
+			...(cursorCaptureMode ? { cursorCaptureMode } : {}),
+			recordedBlurs: matchingSession?.recordedBlurs ?? liveBlurRecorder.finish(createdAt),
+		});
 		setCurrentRecordingSessionState(session);
 		currentProjectPath = null;
 

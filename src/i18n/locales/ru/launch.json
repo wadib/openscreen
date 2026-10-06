@@ -51,7 +51,14 @@
 		"defaultCamera": "Камера по умолчанию",
 		"searching": "Поиск...",
 		"noneFound": "Камера не найдена",
-		"unavailable": "Камера недоступна"
+		"unavailable": "Камера недоступна",
+		"cameraControls": "Настройки камеры",
+		"controlsUnavailable": "Настройки камеры недоступны",
+		"noControls": "Нет доступных настроек",
+		"auto": "Авто",
+		"refreshControls": "Обновить настройки",
+		"closeControls": "Закрыть настройки",
+		"resetControl": "Сбросить по умолчанию"
 	},
 	"sourceSelector": {
 		"loading": "Загрузка источников...",

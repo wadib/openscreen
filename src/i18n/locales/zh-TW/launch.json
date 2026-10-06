@@ -51,7 +51,14 @@
 		"defaultCamera": "預設攝影機",
 		"searching": "正在搜尋...",
 		"noneFound": "未找到攝影機",
-		"unavailable": "攝影機不可用"
+		"unavailable": "攝影機不可用",
+		"cameraControls": "相機控制",
+		"controlsUnavailable": "相機控制無法使用",
+		"noControls": "沒有可調整的控制項",
+		"auto": "自動",
+		"refreshControls": "重新整理相機控制",
+		"closeControls": "關閉相機控制",
+		"resetControl": "重設為預設值"
 	},
 	"cursor": {
 		"show": "顯示游標",

@@ -51,7 +51,14 @@
 		"defaultCamera": "Varsayılan Kamera",
 		"searching": "Aranıyor...",
 		"noneFound": "Kamera bulunamadı",
-		"unavailable": "Kamera kullanılamıyor"
+		"unavailable": "Kamera kullanılamıyor",
+		"cameraControls": "Kamera kontrolleri",
+		"controlsUnavailable": "Kamera kontrolleri kullanılamıyor",
+		"noControls": "Ayarlanabilir kontrol yok",
+		"auto": "Otomatik",
+		"refreshControls": "Kamera kontrollerini yenile",
+		"closeControls": "Kamera kontrollerini kapat",
+		"resetControl": "Varsayılana sıfırla"
 	},
 	"cursor": {
 		"show": "İmleci göster",

@@ -49,7 +49,14 @@
 		"defaultCamera": "Câmera Padrão",
 		"searching": "Procurando...",
 		"noneFound": "Nenhuma câmera encontrada",
-		"unavailable": "Câmera indisponível"
+		"unavailable": "Câmera indisponível",
+		"cameraControls": "Controles da câmera",
+		"controlsUnavailable": "Controles da câmera indisponíveis",
+		"noControls": "Nenhum controle ajustável",
+		"auto": "Auto",
+		"refreshControls": "Atualizar controles",
+		"closeControls": "Fechar controles",
+		"resetControl": "Restaurar padrão"
 	},
 	"cursor": {
 		"show": "Mostrar cursor",

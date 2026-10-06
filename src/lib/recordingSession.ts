@@ -3,6 +3,11 @@ import { normalizeRecordedBlurs, type RecordedBlur } from "./liveBlur";
 export interface ProjectMedia {
 	screenVideoPath: string;
 	webcamVideoPath?: string;
+	webcamOffsetMs?: number;
+	microphoneAudioPath?: string;
+	microphoneOffsetMs?: number;
+	microphoneGain?: number;
+	microphoneMuted?: boolean;
 	cursorCaptureMode?: CursorCaptureMode;
 }
 
@@ -21,6 +26,10 @@ export interface RecordedVideoAssetInput {
 export interface StoreRecordedSessionInput {
 	screen: RecordedVideoAssetInput;
 	webcam?: RecordedVideoAssetInput;
+	webcamOffsetMs?: number;
+	microphone?: RecordedVideoAssetInput;
+	microphoneOffsetMs?: number;
+	microphoneGain?: number;
 	createdAt?: number;
 	cursorCaptureMode?: CursorCaptureMode;
 	/**
@@ -30,6 +39,19 @@ export interface StoreRecordedSessionInput {
 	 * timeline for anything that took the streaming path.
 	 */
 	durationMs?: number;
+}
+
+export function mergeRecordingSession(
+	base: RecordingSession | null,
+	update: RecordingSession,
+): RecordingSession {
+	return {
+		...(base ?? {}),
+		...update,
+		...(update.recordedBlurs === undefined && base?.recordedBlurs
+			? { recordedBlurs: base.recordedBlurs }
+			: {}),
+	};
 }
 
 export function normalizeCursorCaptureMode(value: unknown): CursorCaptureMode | undefined {
@@ -60,11 +82,29 @@ export function normalizeProjectMedia(candidate: unknown): ProjectMedia | null {
 	}
 
 	const webcamVideoPath = normalizePath(raw.webcamVideoPath);
+	const microphoneAudioPath = normalizePath(raw.microphoneAudioPath);
+	const webcamOffsetMs =
+		typeof raw.webcamOffsetMs === "number" && Number.isFinite(raw.webcamOffsetMs)
+			? Math.max(-30_000, Math.min(30_000, Math.round(raw.webcamOffsetMs)))
+			: undefined;
 	const cursorCaptureMode = normalizeCursorCaptureMode(raw.cursorCaptureMode);
+	const microphoneOffsetMs =
+		typeof raw.microphoneOffsetMs === "number" && Number.isFinite(raw.microphoneOffsetMs)
+			? Math.max(-30_000, Math.min(30_000, Math.round(raw.microphoneOffsetMs)))
+			: undefined;
+	const microphoneGain =
+		typeof raw.microphoneGain === "number" && Number.isFinite(raw.microphoneGain)
+			? Math.max(0, Math.min(2, raw.microphoneGain))
+			: undefined;
 
 	return {
 		screenVideoPath,
 		...(webcamVideoPath ? { webcamVideoPath } : {}),
+		...(webcamOffsetMs !== undefined ? { webcamOffsetMs } : {}),
+		...(microphoneAudioPath ? { microphoneAudioPath } : {}),
+		...(microphoneOffsetMs !== undefined ? { microphoneOffsetMs } : {}),
+		...(microphoneGain !== undefined ? { microphoneGain } : {}),
+		...(typeof raw.microphoneMuted === "boolean" ? { microphoneMuted: raw.microphoneMuted } : {}),
 		...(cursorCaptureMode ? { cursorCaptureMode } : {}),
 	};
 }

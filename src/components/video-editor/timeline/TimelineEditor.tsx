@@ -6,9 +6,12 @@ import {
 	ChevronDown,
 	Gauge,
 	MessageSquare,
+	Mic,
 	Plus,
 	ScanEye,
 	Scissors,
+	Volume2,
+	VolumeX,
 	WandSparkles,
 	ZoomIn,
 } from "lucide-react";
@@ -31,6 +34,7 @@ import { ASPECT_RATIOS, type AspectRatio, getAspectRatioLabel } from "@/utils/as
 import { formatShortcut } from "@/utils/platformUtils";
 import { BLUR_REGIONS_ENABLED } from "../featureFlags";
 import type { AnnotationRegion, SpeedRegion, TrimRegion, ZoomRegion } from "../types";
+import { getZoomScale } from "../types";
 import BackgroundWaveform from "./BackgroundWaveform";
 import Item from "./Item";
 import KeyframeMarkers from "./KeyframeMarkers";
@@ -39,6 +43,7 @@ import TimelineWrapper from "./TimelineWrapper";
 
 const ZOOM_ROW_ID = "row-zoom";
 const TRIM_ROW_ID = "row-trim";
+const MICROPHONE_ROW_ID = "row-microphone";
 const ANNOTATION_ROW_ID = "row-annotation";
 const BLUR_ROW_ID = "row-blur";
 const SPEED_ROW_ID = "row-speed";
@@ -89,6 +94,13 @@ interface TimelineEditorProps {
 	aspectRatio: AspectRatio;
 	onAspectRatioChange: (aspectRatio: AspectRatio) => void;
 	videoUrl?: string;
+	microphoneAudioUrl?: string;
+	microphoneOffsetMs?: number;
+	onMicrophoneOffsetChange?: (offsetMs: number) => void;
+	microphoneGain?: number;
+	onMicrophoneGainChange?: (gain: number) => void;
+	microphoneMuted?: boolean;
+	onMicrophoneMutedChange?: (muted: boolean) => void;
 	showTrimWaveform?: boolean;
 	/** Opens the auto-captions flow. When omitted, the captions button is hidden. */
 	onGenerateCaptions?: () => void;
@@ -571,6 +583,13 @@ function Timeline({
 	keyframes = [],
 	videoUrl,
 	showTrimWaveform = false,
+	microphoneAudioUrl,
+	microphoneOffsetMs = 0,
+	onMicrophoneOffsetChange,
+	microphoneGain = 1,
+	onMicrophoneGainChange,
+	microphoneMuted = false,
+	onMicrophoneMutedChange,
 }: {
 	items: TimelineRenderItem[];
 	videoDurationMs: number;
@@ -590,6 +609,13 @@ function Timeline({
 	keyframes?: { id: string; time: number }[];
 	videoUrl?: string;
 	showTrimWaveform?: boolean;
+	microphoneAudioUrl?: string;
+	microphoneOffsetMs?: number;
+	onMicrophoneOffsetChange?: (offsetMs: number) => void;
+	microphoneGain?: number;
+	onMicrophoneGainChange?: (gain: number) => void;
+	microphoneMuted?: boolean;
+	onMicrophoneMutedChange?: (muted: boolean) => void;
 }) {
 	const t = useScopedT("timeline");
 	const { setTimelineRef, style, sidebarWidth, range, pixelsToValue } = useTimelineContext();
@@ -597,6 +623,7 @@ function Timeline({
 	const isScrubbingTimelineRef = useRef(false);
 	const scrubPointerIdRef = useRef<number | null>(null);
 	const peaks = useAudioPeaks(showTrimWaveform ? videoUrl : undefined);
+	const microphonePeaks = useAudioPeaks(microphoneAudioUrl);
 
 	const setRefs = useCallback(
 		(node: HTMLDivElement | null) => {
@@ -794,6 +821,73 @@ function Timeline({
 				))}
 			</Row>
 
+			{microphoneAudioUrl && (
+				<Row
+					id={MICROPHONE_ROW_ID}
+					background={
+						<BackgroundWaveform
+							peaks={microphonePeaks}
+							videoDurationMs={videoDurationMs}
+							topInset={3}
+							bottomInset={3}
+						/>
+					}
+				>
+					<div
+						className="absolute inset-y-0 left-2 z-20 flex items-center gap-2 text-[11px] text-white/80"
+						onPointerDown={(event) => event.stopPropagation()}
+						onClick={(event) => event.stopPropagation()}
+					>
+						<Mic className="h-3.5 w-3.5 text-[#34B27B]" aria-hidden="true" />
+						<span className="font-medium">Microphone</span>
+						<button
+							type="button"
+							className="h-7 w-7 inline-flex items-center justify-center rounded border border-white/10 bg-black/50 hover:bg-white/10"
+							onClick={() => onMicrophoneMutedChange?.(!microphoneMuted)}
+							aria-label={microphoneMuted ? "Unmute microphone track" : "Mute microphone track"}
+							title={microphoneMuted ? "Unmute microphone track" : "Mute microphone track"}
+						>
+							{microphoneMuted ? (
+								<VolumeX className="h-3.5 w-3.5" />
+							) : (
+								<Volume2 className="h-3.5 w-3.5" />
+							)}
+						</button>
+						<label className="flex items-center gap-1 bg-black/50 px-2 h-7 rounded border border-white/10">
+							<span>Sync</span>
+							<input
+								type="number"
+								min={-30000}
+								max={30000}
+								step={10}
+								value={microphoneOffsetMs}
+								onChange={(event) =>
+									onMicrophoneOffsetChange?.(
+										Math.max(-30000, Math.min(30000, Number(event.target.value) || 0)),
+									)
+								}
+								className="w-16 bg-transparent text-right tabular-nums outline-none"
+								aria-label="Microphone synchronization offset in milliseconds"
+							/>
+							<span className="text-white/45">ms</span>
+						</label>
+						<label className="flex items-center gap-1 bg-black/50 px-2 h-7 rounded border border-white/10">
+							<span>Level</span>
+							<input
+								type="range"
+								min={0}
+								max={2}
+								step={0.05}
+								value={microphoneGain}
+								onChange={(event) => onMicrophoneGainChange?.(Number(event.target.value))}
+								className="w-20 accent-[#34B27B]"
+								aria-label="Microphone track level"
+							/>
+						</label>
+					</div>
+				</Row>
+			)}
+
 			<Row
 				id={TRIM_ROW_ID}
 				isEmpty={trimItems.length === 0}
@@ -925,6 +1019,13 @@ export default function TimelineEditor({
 	onAspectRatioChange,
 	videoUrl,
 	showTrimWaveform = false,
+	microphoneAudioUrl,
+	microphoneOffsetMs = 0,
+	onMicrophoneOffsetChange,
+	microphoneGain = 1,
+	onMicrophoneGainChange,
+	microphoneMuted = false,
+	onMicrophoneMutedChange,
 	onGenerateCaptions,
 	isGeneratingCaptions = false,
 	captionsLabel,
@@ -1349,7 +1450,9 @@ export default function TimelineEditor({
 			span: { start: region.startMs, end: region.endMs },
 			label: t("labels.zoomItem", { index: String(index + 1) }),
 			zoomDepth: region.depth,
-			zoomCustomScale: region.customScale,
+			zoomCustomScale: region.area
+				? Math.round(getZoomScale(region) * 100) / 100
+				: region.customScale,
 			isAutoFocus: region.focusMode === "auto",
 			variant: "zoom",
 		}));
@@ -1660,6 +1763,13 @@ export default function TimelineEditor({
 						keyframes={keyframes}
 						videoUrl={videoUrl}
 						showTrimWaveform={showTrimWaveform}
+						microphoneAudioUrl={microphoneAudioUrl}
+						microphoneOffsetMs={microphoneOffsetMs}
+						onMicrophoneOffsetChange={onMicrophoneOffsetChange}
+						microphoneGain={microphoneGain}
+						onMicrophoneGainChange={onMicrophoneGainChange}
+						microphoneMuted={microphoneMuted}
+						onMicrophoneMutedChange={onMicrophoneMutedChange}
 					/>
 				</TimelineWrapper>
 			</div>

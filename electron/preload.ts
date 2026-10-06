@@ -21,6 +21,31 @@ ipcRenderer.on("countdown-overlay-value", (_event, value: number | null) => {
 });
 
 contextBridge.exposeInMainWorld("electronAPI", {
+	onStudioMcpCommand: (
+		callback: (command: import("../src/lib/studioMcpContract").StudioCommand) => Promise<unknown>,
+	) => {
+		const listener = async (
+			_event: Electron.IpcRendererEvent,
+			command: import("../src/lib/studioMcpContract").StudioCommand,
+		) => {
+			try {
+				ipcRenderer.send("studio-mcp-response", {
+					id: command.id,
+					result: await callback(command),
+				});
+			} catch (error) {
+				ipcRenderer.send("studio-mcp-response", {
+					id: command.id,
+					error: error instanceof Error ? error.message : "Studio command failed",
+				});
+			}
+		};
+		ipcRenderer.on("studio-mcp-command", listener);
+		ipcRenderer.send("studio-mcp-ready");
+		return () => ipcRenderer.removeListener("studio-mcp-command", listener);
+	},
+	writeStudioMcpExport: (data: ArrayBuffer, target: string) =>
+		ipcRenderer.invoke("studio-mcp-write-export", data, target),
 	assetBaseUrl,
 	invokeNativeBridge: <TData>(request: NativeBridgeRequest) => {
 		return ipcRenderer.invoke(NATIVE_BRIDGE_CHANNEL, request) as Promise<TData>;
@@ -162,6 +187,12 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 	requestCameraAccess: () => {
 		return ipcRenderer.invoke("request-camera-access");
+	},
+	getCameraControls: (deviceName: string) => {
+		return ipcRenderer.invoke("get-camera-controls", deviceName);
+	},
+	setCameraControl: (request: import("../src/lib/cameraControls").SetCameraControlRequest) => {
+		return ipcRenderer.invoke("set-camera-control", request);
 	},
 	requestScreenAccess: () => {
 		return ipcRenderer.invoke("request-screen-access");

@@ -35,6 +35,20 @@ void mixAudioInPlace(
     DWORD byteCount,
     const AudioInputFormat& format);
 
+class MicrophoneAutomaticGain {
+public:
+    void reset();
+    double update(
+        const BYTE* source,
+        DWORD byteCount,
+        const AudioInputFormat& format,
+        double manualGain);
+    double gain() const;
+
+private:
+    double gain_ = 1.0;
+};
+
 class TimestampedAudioQueue {
 public:
     void clear();
@@ -60,7 +74,8 @@ public:
         bool includeSystem,
         bool includeMicrophone,
         double microphoneGain,
-        OutputCallback output);
+        OutputCallback output,
+        bool automaticMicrophoneGain = false);
     ~AudioMixer();
 
     AudioMixer(const AudioMixer&) = delete;
@@ -68,7 +83,7 @@ public:
 
     bool start();
     void beginTimeline(int64_t epochHns = 0);
-    void setPaused(bool paused);
+    void setPaused(bool paused, int64_t transitionHns = 0);
     void stop();
     void pushSystem(const BYTE* data, DWORD byteCount, int64_t timestampHns);
     void pushMicrophone(const BYTE* data, DWORD byteCount, int64_t timestampHns);
@@ -95,6 +110,8 @@ private:
     bool includeSystem_ = false;
     bool includeMicrophone_ = false;
     double microphoneGain_ = 1.0;
+    bool automaticMicrophoneGain_ = false;
+    MicrophoneAutomaticGain microphoneAutomaticGain_;
     OutputCallback output_;
     std::mutex mutex_;
     std::condition_variable cv_;

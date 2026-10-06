@@ -1,5 +1,13 @@
 {
 	"zoom": {
+		"area": {
+			"title": "Vùng tùy chỉnh",
+			"width": "Chiều rộng",
+			"height": "Chiều cao",
+			"framing": "Khung hình",
+			"fit": "Vừa khung",
+			"fill": "Lấp đầy"
+		},
 		"previewHold": "Giữ để xem trước hiệu ứng phóng to",
 		"level": "Mức độ thu phóng",
 		"selectRegion": "Chọn vùng thu phóng để điều chỉnh",

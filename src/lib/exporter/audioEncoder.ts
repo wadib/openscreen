@@ -1,6 +1,9 @@
+import { ALL_FORMATS, AudioBufferSink, BlobSource, Input } from "mediabunny";
 import { WebDemuxer } from "web-demuxer";
 import type { SpeedRegion, TrimRegion } from "@/components/video-editor/types";
+import { renderAudioTimeline } from "./audioTimeline";
 import type { ExportAudioMuxerCodec, VideoMuxer } from "./muxer";
+import { StreamingVideoDecoder } from "./streamingDecoder";
 
 const AUDIO_BITRATE = 128_000;
 const DECODE_BACKPRESSURE_LIMIT = 20;
@@ -221,6 +224,10 @@ export class AudioProcessor {
 		speedRegions: SpeedRegion[] | undefined,
 		validatedDurationSec: number,
 		exportCodec: ExportAudioCodec,
+		microphoneAudioUrl?: string,
+		microphoneOffsetMs = 0,
+		microphoneGain = 1,
+		microphoneMuted = false,
 	): Promise<void> {
 		const sortedTrims = trimRegions ? [...trimRegions].sort((a, b) => a.startMs - b.startMs) : [];
 		const sortedSpeedRegions = speedRegions
@@ -229,13 +236,87 @@ export class AudioProcessor {
 					.sort((a, b) => a.startMs - b.startMs)
 			: [];
 
+		if (microphoneAudioUrl && sortedSpeedRegions.length === 0) {
+			const decode = async (url: string) => {
+				const source =
+					/^(https?:|blob:|data:)/i.test(url) || !window.electronAPI
+						? await StreamingVideoDecoder.loadRemoteSourceFile(url)
+						: await StreamingVideoDecoder.loadLocalSourceFile(url);
+				const input = new Input({ source: new BlobSource(source.blob), formats: ALL_FORMATS });
+				try {
+					const track = await input.getPrimaryAudioTrack();
+					if (!track) throw new Error("Microphone source has no audio track");
+					let buffer = new AudioBuffer({
+						numberOfChannels: track.numberOfChannels,
+						sampleRate: track.sampleRate,
+						length: Math.max(1, Math.ceil((await track.computeDuration()) * track.sampleRate)),
+					});
+					// Keep each packet's timestamp, including leading silence and pause gaps.
+					for await (const decoded of new AudioBufferSink(track).buffers()) {
+						if (this.cancelled) break;
+						const position = Math.round(decoded.timestamp * buffer.sampleRate);
+						// WebM duration can omit the final packet's duration. Keep its samples too.
+						const requiredLength = position + decoded.buffer.length;
+						if (requiredLength > buffer.length) {
+							const extended = new AudioBuffer({
+								numberOfChannels: buffer.numberOfChannels,
+								sampleRate: buffer.sampleRate,
+								length: requiredLength,
+							});
+							for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+								extended.copyToChannel(buffer.getChannelData(channel), channel);
+							}
+							buffer = extended;
+						}
+						const skip = Math.max(0, -position);
+						const count = Math.min(
+							decoded.buffer.length - skip,
+							buffer.length - Math.max(0, position),
+						);
+						if (count <= 0) continue;
+						for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+							buffer
+								.getChannelData(channel)
+								.set(
+									decoded.buffer.getChannelData(channel).subarray(skip, skip + count),
+									Math.max(0, position),
+								);
+						}
+					}
+					return buffer;
+				} finally {
+					input.dispose();
+				}
+			};
+			const info = await demuxer.getMediaInfo();
+			const system = info.streams.some((stream) => stream.codec_type_string === "audio")
+				? await decode(videoUrl)
+				: null;
+			const microphone = microphoneMuted ? null : await decode(microphoneAudioUrl);
+			const rendered = await renderAudioTimeline(system, microphone, {
+				durationSec: validatedDurationSec,
+				sampleRate: exportCodec.sampleRate,
+				channels: exportCodec.numberOfChannels,
+				trimRegions: sortedTrims,
+				microphoneOffsetMs,
+				microphoneGain,
+				microphoneMuted,
+			});
+			if (rendered && !this.cancelled) await this.encodeAudioBuffer(rendered, muxer, exportCodec);
+			return;
+		}
+
 		// Speed edits need timeline playback to preserve pitch.
-		if (sortedSpeedRegions.length > 0) {
+		if (sortedSpeedRegions.length > 0 || microphoneAudioUrl) {
 			const renderedAudioBlob = await this.renderPitchPreservedTimelineAudio(
 				videoUrl,
 				sortedTrims,
 				sortedSpeedRegions,
 				validatedDurationSec,
+				microphoneAudioUrl,
+				microphoneOffsetMs,
+				microphoneGain,
+				microphoneMuted,
 			);
 			if (!this.cancelled && renderedAudioBlob.size > 0) {
 				await this.muxRenderedAudioBlob(renderedAudioBlob, muxer, exportCodec);
@@ -249,6 +330,64 @@ export class AudioProcessor {
 		// the validated duration boundary.
 		const readEndSec = validatedDurationSec + 0.5;
 		await this.processTrimOnlyAudio(demuxer, muxer, sortedTrims, readEndSec, exportCodec);
+	}
+
+	private async encodeAudioBuffer(buffer: AudioBuffer, muxer: VideoMuxer, codec: ExportAudioCodec) {
+		let encodingError: Error | null = null;
+		let writes = Promise.resolve();
+		const encoder = new AudioEncoder({
+			output: (chunk, metadata) => {
+				writes = writes
+					.then(() => muxer.addAudioChunk(chunk, metadata))
+					.catch((error: Error) => {
+						encodingError = error;
+					});
+			},
+			error: (error) => {
+				encodingError = error;
+			},
+		});
+		try {
+			encoder.configure({
+				codec: codec.encoderCodec,
+				sampleRate: buffer.sampleRate,
+				numberOfChannels: buffer.numberOfChannels,
+				bitrate: AUDIO_BITRATE,
+			});
+			for (let position = 0; position < buffer.length && !this.cancelled; position += 4096) {
+				if (encodingError) throw encodingError;
+				const frames = Math.min(4096, buffer.length - position);
+				const data = new Float32Array(frames * buffer.numberOfChannels);
+				for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+					data.set(
+						buffer.getChannelData(channel).subarray(position, position + frames),
+						channel * frames,
+					);
+				}
+				const audio = new AudioData({
+					format: "f32-planar",
+					sampleRate: buffer.sampleRate,
+					numberOfChannels: buffer.numberOfChannels,
+					numberOfFrames: frames,
+					timestamp: Math.round((position * 1_000_000) / buffer.sampleRate),
+					data,
+				});
+				try {
+					encoder.encode(audio);
+				} finally {
+					audio.close();
+				}
+				if (encoder.encodeQueueSize > DECODE_BACKPRESSURE_LIMIT) {
+					await encoder.flush();
+					await writes;
+				}
+			}
+			if (encoder.state === "configured") await encoder.flush();
+			await writes;
+			if (encodingError) throw encodingError;
+		} finally {
+			if (encoder.state !== "closed") encoder.close();
+		}
 	}
 
 	// Trim-only path, used for projects without speed regions.
@@ -408,10 +547,19 @@ export class AudioProcessor {
 		trimRegions: TrimRegion[],
 		speedRegions: SpeedRegion[],
 		validatedDurationSec: number,
+		microphoneAudioUrl?: string,
+		microphoneOffsetMs = 0,
+		microphoneGain = 1,
+		microphoneMuted = false,
 	): Promise<Blob> {
 		const media = document.createElement("audio");
 		media.src = videoUrl;
 		media.preload = "auto";
+		const microphoneMedia = microphoneAudioUrl ? document.createElement("audio") : null;
+		if (microphoneMedia) {
+			microphoneMedia.src = microphoneAudioUrl ?? "";
+			microphoneMedia.preload = "auto";
+		}
 
 		const pitchMedia = media as HTMLMediaElement & {
 			preservesPitch?: boolean;
@@ -423,6 +571,7 @@ export class AudioProcessor {
 		pitchMedia.webkitPreservesPitch = true;
 
 		await this.waitForLoadedMetadata(media);
+		if (microphoneMedia) await this.waitForLoadedMetadata(microphoneMedia);
 		if (this.cancelled) {
 			throw new Error("Export cancelled");
 		}
@@ -431,6 +580,31 @@ export class AudioProcessor {
 		const sourceNode = audioContext.createMediaElementSource(media);
 		const destinationNode = audioContext.createMediaStreamDestination();
 		sourceNode.connect(destinationNode);
+		const microphoneSourceNode = microphoneMedia
+			? audioContext.createMediaElementSource(microphoneMedia)
+			: null;
+		const microphoneGainNode = microphoneSourceNode ? audioContext.createGain() : null;
+		if (microphoneSourceNode && microphoneGainNode) {
+			microphoneGainNode.gain.value = microphoneMuted
+				? 0
+				: Math.max(0, Math.min(2, microphoneGain));
+			microphoneSourceNode.connect(microphoneGainNode);
+			microphoneGainNode.connect(destinationNode);
+		}
+		const syncMicrophone = async (videoTime: number, shouldPlay: boolean) => {
+			if (!microphoneMedia) return;
+			const targetTime = videoTime - microphoneOffsetMs / 1000;
+			if (targetTime < 0 || targetTime >= microphoneMedia.duration) {
+				microphoneMedia.pause();
+				if (targetTime < 0) microphoneMedia.currentTime = 0;
+				return;
+			}
+			if (Math.abs(microphoneMedia.currentTime - targetTime) > 0.05) {
+				await this.seekTo(microphoneMedia, targetTime);
+			}
+			microphoneMedia.playbackRate = media.playbackRate;
+			if (shouldPlay && microphoneMedia.paused) await microphoneMedia.play();
+		};
 
 		let rafId: number | null = null;
 		let recorder: MediaRecorder | null = null;
@@ -464,12 +638,14 @@ export class AudioProcessor {
 			if (initialSpeedRegion) {
 				media.playbackRate = initialSpeedRegion.speed;
 			}
+			await syncMicrophone(startPosition, false);
 
 			// Start recording only after seeking past trims.
 			const recording = this.startAudioRecording(destinationNode.stream);
 			recorder = recording.recorder;
 			recordedBlobPromise = recording.recordedBlobPromise;
 			await media.play();
+			await syncMicrophone(startPosition, true);
 
 			await new Promise<void>((resolve, reject) => {
 				const cleanup = () => {
@@ -502,6 +678,7 @@ export class AudioProcessor {
 					// container metadata.
 					if (media.currentTime >= validatedDurationSec) {
 						media.pause();
+						microphoneMedia?.pause();
 						cleanup();
 						resolve();
 						return;
@@ -529,6 +706,7 @@ export class AudioProcessor {
 								return;
 							}
 							if (recorder?.state === "paused") recorder.resume();
+							void syncMicrophone(skipToTime, true).catch(() => undefined);
 							media
 								.play()
 								.then(() => {
@@ -557,6 +735,20 @@ export class AudioProcessor {
 					const playbackRate = activeSpeedRegion ? activeSpeedRegion.speed : 1;
 					if (Math.abs(media.playbackRate - playbackRate) > 0.0001) {
 						media.playbackRate = playbackRate;
+						if (microphoneMedia) microphoneMedia.playbackRate = playbackRate;
+					}
+					if (microphoneMedia) {
+						const microphoneTarget = media.currentTime - microphoneOffsetMs / 1000;
+						if (microphoneTarget >= 0 && microphoneTarget < microphoneMedia.duration) {
+							if (Math.abs(microphoneMedia.currentTime - microphoneTarget) > 0.15) {
+								microphoneMedia.currentTime = microphoneTarget;
+							}
+							if (microphoneMedia.paused && !media.paused) {
+								void microphoneMedia.play().catch(() => undefined);
+							}
+						} else {
+							microphoneMedia.pause();
+						}
 					}
 
 					if (!media.paused && !media.ended) {
@@ -576,15 +768,22 @@ export class AudioProcessor {
 				cancelAnimationFrame(rafId);
 			}
 			media.pause();
+			microphoneMedia?.pause();
 			if (recorder && recorder.state !== "inactive") {
 				recorder.stop();
 			}
 			destinationNode.stream.getTracks().forEach((track) => track.stop());
 			sourceNode.disconnect();
+			microphoneSourceNode?.disconnect();
+			microphoneGainNode?.disconnect();
 			destinationNode.disconnect();
 			await audioContext.close();
 			media.src = "";
 			media.load();
+			if (microphoneMedia) {
+				microphoneMedia.src = "";
+				microphoneMedia.load();
+			}
 		}
 
 		if (!recordedBlobPromise) {

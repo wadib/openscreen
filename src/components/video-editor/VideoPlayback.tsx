@@ -67,6 +67,7 @@ import {
 	rotation3DPerspective,
 	type SpeedRegion,
 	type TrimRegion,
+	type ZoomArea,
 	type ZoomFocus,
 	type ZoomRegion,
 } from "./types";
@@ -77,11 +78,12 @@ import {
 	PixiCursorOverlay,
 	preloadCursorAssets,
 } from "./videoPlayback/cursorRenderer";
-import { clampFocusToScale } from "./videoPlayback/focusUtils";
 import { layoutVideoContent as layoutVideoContentUtil } from "./videoPlayback/layoutUtils";
 import { clamp01 } from "./videoPlayback/mathUtils";
 import { updateOverlayIndicator } from "./videoPlayback/overlayUtils";
+import { syncAudibleMedia } from "./videoPlayback/syncAudibleMedia";
 import { createVideoEventHandlers } from "./videoPlayback/videoEventHandlers";
+import { clampZoomAreaFocus, getZoomAreaMask } from "./videoPlayback/zoomArea";
 import { findDominantRegion } from "./videoPlayback/zoomRegionUtils";
 import { createZoomSpringState, resetZoomSpring, stepZoomSpring } from "./videoPlayback/zoomSpring";
 import {
@@ -91,10 +93,16 @@ import {
 	createMotionBlurState,
 	type MotionBlurState,
 } from "./videoPlayback/zoomTransform";
+import { ZoomAreaOverlay } from "./ZoomAreaOverlay";
 
 interface VideoPlaybackProps {
 	videoPath: string;
 	webcamVideoPath?: string;
+	webcamOffsetMs?: number;
+	microphoneAudioPath?: string;
+	microphoneOffsetMs?: number;
+	microphoneGain?: number;
+	microphoneMuted?: boolean;
 	webcamLayoutPreset: WebcamLayoutPreset;
 	webcamMaskShape?: import("./types").WebcamMaskShape;
 	webcamMirrored?: boolean;
@@ -114,6 +122,7 @@ interface VideoPlaybackProps {
 	onSelectZoom: (id: string | null) => void;
 	onZoomFocusChange: (id: string, focus: ZoomFocus) => void;
 	onZoomFocusDragEnd?: () => void;
+	onZoomAreaChange?: (id: string, area: ZoomArea, focus: ZoomFocus) => void;
 	isPlaying: boolean;
 	showShadow?: boolean;
 	shadowIntensity?: number;
@@ -222,6 +231,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		{
 			videoPath,
 			webcamVideoPath,
+			webcamOffsetMs = 0,
+			microphoneAudioPath,
+			microphoneOffsetMs = 0,
+			microphoneGain = 1,
+			microphoneMuted = false,
 			webcamLayoutPreset,
 			webcamMaskShape,
 			webcamMirrored = false,
@@ -241,6 +255,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			onSelectZoom,
 			onZoomFocusChange,
 			onZoomFocusDragEnd,
+			onZoomAreaChange,
 			isPlaying,
 			showShadow,
 			shadowIntensity = 0,
@@ -281,6 +296,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const videoRef = useRef<HTMLVideoElement | null>(null);
 		const supplementalAudioRef = useRef<HTMLAudioElement | null>(null);
 		const webcamVideoRef = useRef<HTMLVideoElement | null>(null);
+		const microphoneSharesWebcam = Boolean(
+			microphoneAudioPath &&
+				microphoneAudioPath === webcamVideoPath &&
+				microphoneOffsetMs === webcamOffsetMs,
+		);
 		const webcamWrapperRef = useRef<HTMLDivElement | null>(null);
 		const webcamReactiveZoomRef = useRef(webcamReactiveZoom);
 		const webcamLayoutPresetRef = useRef(webcamLayoutPreset);
@@ -332,6 +352,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		const baseMaskRef = useRef({ x: 0, y: 0, width: 0, height: 0 });
 		const cropBoundsRef = useRef({ startX: 0, endX: 0, startY: 0, endY: 0 });
 		const maskGraphicsRef = useRef<Graphics | null>(null);
+		const areaMaskKeyRef = useRef("");
 		const isPlayingRef = useRef(isPlaying);
 		const isSeekingRef = useRef(false);
 		const isScrubbingRef = useRef(false);
@@ -487,7 +508,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		// Clamp against getZoomScale(region), not region.depth: depth is just the preset
 		// slot (1x/2x/4x) and ignores customScale, which gives wrong drag bounds near the edges.
 		const clampFocusForRegion = useCallback((focus: ZoomFocus, region: ZoomRegion) => {
-			return clampFocusToScale(focus, getZoomScale(region));
+			return clampZoomAreaFocus(region, focus);
 		}, []);
 
 		const updateOverlayForRegion = useCallback(
@@ -565,6 +586,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				webcamPosition,
 				webcamMaskShape,
 			});
+			areaMaskKeyRef.current = "";
 
 			if (result) {
 				stageSizeRef.current = result.stageSize;
@@ -629,13 +651,11 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 						console.log("PLAY ERROR:", err);
 						throw err;
 					});
-					const supplementalAudio = supplementalAudioRef.current;
+					const supplementalAudio = microphoneSharesWebcam
+						? webcamVideoRef.current
+						: supplementalAudioRef.current;
 					if (supplementalAudio) {
-						supplementalAudio.currentTime = vid.currentTime;
-						supplementalAudio.playbackRate = vid.playbackRate;
-						await supplementalAudio.play().catch(() => {
-							// The main video remains the source of truth for playback state.
-						});
+						syncAudibleMedia(vid, supplementalAudio, microphoneOffsetMs);
 					}
 				} catch (error) {
 					allowPlaybackRef.current = false;
@@ -650,6 +670,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				}
 				video.pause();
 				supplementalAudioRef.current?.pause();
+				webcamVideoRef.current?.pause();
 			},
 		}));
 
@@ -1077,33 +1098,39 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 		}, []);
 
 		useEffect(() => {
+			let cancelled = false;
+			if (!videoPath || microphoneSharesWebcam) {
+				setSupplementalAudioPath(null);
+			} else if (microphoneAudioPath) {
+				setSupplementalAudioPath(microphoneAudioPath);
+			} else
+				window.electronAPI
+					?.preparePreviewAudioTrack?.(videoPath)
+					.then((result) => {
+						if (!cancelled) {
+							setSupplementalAudioPath(result.success ? (result.path ?? null) : null);
+						}
+					})
+					.catch(() => {
+						if (!cancelled) {
+							setSupplementalAudioPath(null);
+						}
+					});
+			return () => {
+				cancelled = true;
+			};
+		}, [videoPath, microphoneAudioPath, microphoneSharesWebcam]);
+
+		useEffect(() => {
 			if (!videoPath) {
 				lastResolvedDurationRef.current = null;
 				isResolvingDurationRef.current = false;
 				setVideoReady(false);
-				setSupplementalAudioPath(null);
 				return;
 			}
-
-			let cancelled = false;
-			window.electronAPI
-				?.preparePreviewAudioTrack?.(videoPath)
-				.then((result) => {
-					if (!cancelled) {
-						setSupplementalAudioPath(result.success ? (result.path ?? null) : null);
-					}
-				})
-				.catch(() => {
-					if (!cancelled) {
-						setSupplementalAudioPath(null);
-					}
-				});
-
 			const video = videoRef.current;
 			if (!video) {
-				return () => {
-					cancelled = true;
-				};
+				return;
 			}
 			video.pause();
 			video.currentTime = 0;
@@ -1121,41 +1148,56 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				videoReadyRafRef.current = null;
 			}
 			video.load();
-
-			return () => {
-				cancelled = true;
-			};
 		}, [videoPath]);
 
 		useEffect(() => {
 			const video = videoRef.current;
-			const supplementalAudio = supplementalAudioRef.current;
-			if (!video || !supplementalAudio || !supplementalAudioPath) {
+			const supplementalAudio = microphoneSharesWebcam
+				? webcamVideoRef.current
+				: supplementalAudioRef.current;
+			if (!video || !supplementalAudio || (!supplementalAudioPath && !microphoneSharesWebcam)) {
 				return;
 			}
 
-			const activeSpeedRegion =
-				speedRegions.find(
-					(region) => currentTime * 1000 >= region.startMs && currentTime * 1000 < region.endMs,
-				) ?? null;
-			supplementalAudio.playbackRate = activeSpeedRegion ? activeSpeedRegion.speed : 1;
-
-			if (!isPlaying) {
+			supplementalAudio.volume = Math.max(0, Math.min(1, microphoneGain));
+			supplementalAudio.muted = microphoneMuted;
+			let buffering = false;
+			const synchronize = () => {
+				if (!buffering) syncAudibleMedia(video, supplementalAudio, microphoneOffsetMs);
+			};
+			const seek = () => syncAudibleMedia(video, supplementalAudio, microphoneOffsetMs, true);
+			const wait = () => {
+				buffering = true;
 				supplementalAudio.pause();
-				if (Math.abs(supplementalAudio.currentTime - currentTime) > 0.05) {
-					supplementalAudio.currentTime = currentTime;
-				}
-				return;
-			}
-
-			if (Math.abs(supplementalAudio.currentTime - video.currentTime) > 0.15) {
-				supplementalAudio.currentTime = video.currentTime;
-			}
-
-			supplementalAudio.play().catch(() => {
-				// Keep video playback running even if supplemental preview audio is unavailable.
-			});
-		}, [currentTime, isPlaying, speedRegions, supplementalAudioPath]);
+			};
+			const resume = () => {
+				buffering = false;
+				synchronize();
+			};
+			seek();
+			// Read the media clock directly; React timeline updates can lag under rendering load.
+			const timer = window.setInterval(synchronize, 100);
+			for (const event of ["play", "pause", "ended"]) video.addEventListener(event, synchronize);
+			for (const event of ["seeking", "seeked"]) video.addEventListener(event, seek);
+			video.addEventListener("waiting", wait);
+			video.addEventListener("playing", resume);
+			return () => {
+				window.clearInterval(timer);
+				for (const event of ["play", "pause", "ended"])
+					video.removeEventListener(event, synchronize);
+				for (const event of ["seeking", "seeked"]) video.removeEventListener(event, seek);
+				video.removeEventListener("waiting", wait);
+				video.removeEventListener("playing", resume);
+			};
+		}, [
+			videoPath,
+			webcamVideoPath,
+			supplementalAudioPath,
+			microphoneSharesWebcam,
+			microphoneOffsetMs,
+			microphoneGain,
+			microphoneMuted,
+		]);
 
 		useEffect(() => {
 			if (!pixiReady || !videoReady) return;
@@ -1516,6 +1558,27 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 					motionVector,
 				);
 
+				const zoomMask = getZoomAreaMask(
+					shouldShowUnzoomedView ? null : region && { ...region, focus: targetFocus },
+					stageSizeRef.current,
+					baseMaskRef.current,
+					targetProgress,
+				);
+				const maskKey = `${zoomMask.x},${zoomMask.y},${zoomMask.width},${zoomMask.height},${borderRadiusRef.current}`;
+				if (maskKey !== areaMaskKeyRef.current && maskGraphicsRef.current) {
+					maskGraphicsRef.current
+						.clear()
+						.roundRect(
+							zoomMask.x,
+							zoomMask.y,
+							zoomMask.width,
+							zoomMask.height,
+							Math.min(borderRadiusRef.current, zoomMask.width / 2, zoomMask.height / 2),
+						)
+						.fill({ color: 0xffffff });
+					areaMaskKeyRef.current = maskKey;
+				}
+
 				const isMotionBlurActive =
 					(motionBlurAmountRef.current || 0) > 0 && isPlayingRef.current && !isScrubbingRef.current;
 
@@ -1643,7 +1706,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 									if (!cursorClipToBoundsRef.current) {
 										nativeCursorClipRef.current.style.clipPath = "none";
 									} else {
-										const mask = baseMaskRef.current;
+										const mask = zoomMask;
 										const stage = stageSizeRef.current;
 										const br = borderRadiusRef.current;
 										const s = cameraContainer ? Math.abs(cameraContainer.scale.x) : 1;
@@ -1797,6 +1860,43 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 
 		useEffect(() => {
 			const webcamVideo = webcamVideoRef.current;
+			if (!webcamVideo || !webcamVideoPath || microphoneSharesWebcam) {
+				return;
+			}
+
+			const targetTime = Math.max(0, currentTime - webcamOffsetMs / 1000);
+			const activeSpeedRegion =
+				speedRegions.find(
+					(region) => currentTime * 1000 >= region.startMs && currentTime * 1000 < region.endMs,
+				) ?? null;
+			webcamVideo.playbackRate = activeSpeedRegion ? activeSpeedRegion.speed : 1;
+
+			if (!isPlaying || currentTime < webcamOffsetMs / 1000) {
+				webcamVideo.pause();
+				if (Math.abs(webcamVideo.currentTime - targetTime) > 0.04) {
+					webcamVideo.currentTime = targetTime;
+				}
+				return;
+			}
+
+			if (Math.abs(webcamVideo.currentTime - targetTime) > 0.04) {
+				webcamVideo.currentTime = targetTime;
+			}
+
+			webcamVideo.play().catch(() => {
+				// Ignore webcam autoplay restoration failures.
+			});
+		}, [
+			currentTime,
+			isPlaying,
+			speedRegions,
+			webcamVideoPath,
+			webcamOffsetMs,
+			microphoneSharesWebcam,
+		]);
+
+		useEffect(() => {
+			const webcamVideo = webcamVideoRef.current;
 			if (!webcamVideo || !webcamVideoPath) {
 				setWebcamDimensions(null);
 				return;
@@ -1817,35 +1917,6 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 				webcamVideo.removeEventListener("loadedmetadata", handleLoadedMetadata);
 			};
 		}, [webcamVideoPath]);
-
-		useEffect(() => {
-			const webcamVideo = webcamVideoRef.current;
-			if (!webcamVideo || !webcamVideoPath) {
-				return;
-			}
-
-			const activeSpeedRegion =
-				speedRegions.find(
-					(region) => currentTime * 1000 >= region.startMs && currentTime * 1000 < region.endMs,
-				) ?? null;
-			webcamVideo.playbackRate = activeSpeedRegion ? activeSpeedRegion.speed : 1;
-
-			if (!isPlaying) {
-				webcamVideo.pause();
-				if (Math.abs(webcamVideo.currentTime - currentTime) > 0.05) {
-					webcamVideo.currentTime = currentTime;
-				}
-				return;
-			}
-
-			if (Math.abs(webcamVideo.currentTime - currentTime) > 0.15) {
-				webcamVideo.currentTime = currentTime;
-			}
-
-			webcamVideo.play().catch(() => {
-				// Ignore webcam autoplay restoration failures.
-			});
-		}, [currentTime, isPlaying, speedRegions, webcamVideoPath]);
 
 		useEffect(() => {
 			const webcamVideo = webcamVideoRef.current;
@@ -1965,7 +2036,7 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 										onPointerMove={handleWebcamPointerMove}
 										onPointerUp={handleWebcamPointerUp}
 										onPointerLeave={handleWebcamPointerUp}
-										muted
+										muted={!microphoneSharesWebcam || microphoneMuted}
 										preload="metadata"
 										playsInline
 									/>
@@ -1988,6 +2059,20 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 								className="absolute rounded-md border border-[#34B27B]/80 bg-[#34B27B]/20 shadow-[0_0_0_1px_rgba(52,178,123,0.35)]"
 								style={{ display: "none", pointerEvents: "none" }}
 							/>
+							{selectedZoom?.area &&
+								selectedZoom.focusMode !== "auto" &&
+								!isPlaying &&
+								!isPreviewingZoom &&
+								onZoomAreaChange && (
+									<ZoomAreaOverlay
+										area={selectedZoom.area}
+										focus={clampZoomAreaFocus(selectedZoom)}
+										width={overlaySize.width}
+										height={overlaySize.height}
+										onChange={(area, focus) => onZoomAreaChange(selectedZoom.id, area, focus)}
+										onCommit={() => onZoomFocusDragEnd?.()}
+									/>
+								)}
 							{(() => {
 								const filteredAnnotations = (annotationRegions || []).filter((annotation) => {
 									if (

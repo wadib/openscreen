@@ -51,7 +51,14 @@
 		"defaultCamera": "Fotocamera predefinita",
 		"searching": "Ricerca in corso...",
 		"noneFound": "Nessuna fotocamera trovata",
-		"unavailable": "Fotocamera non disponibile"
+		"unavailable": "Fotocamera non disponibile",
+		"cameraControls": "Controlli fotocamera",
+		"controlsUnavailable": "Controlli fotocamera non disponibili",
+		"noControls": "Nessun controllo regolabile",
+		"auto": "Auto",
+		"refreshControls": "Aggiorna controlli",
+		"closeControls": "Chiudi controlli",
+		"resetControl": "Ripristina predefinito"
 	},
 	"cursor": {
 		"show": "Mostra cursore",

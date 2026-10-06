@@ -4,6 +4,7 @@ import type { CursorCaptureMode } from "./recordingSession";
 export interface RecordingPreviewSettings {
 	cursorCaptureMode: CursorCaptureMode;
 	webcamEnabled: boolean;
+	paused: boolean;
 	webcamStreamId?: string;
 }
 

@@ -80,6 +80,7 @@ import type {
 	WebcamLayoutPreset,
 	WebcamMaskShape,
 	WebcamSizePreset,
+	ZoomArea,
 	ZoomDepth,
 	ZoomFocus,
 	ZoomFocusMode,
@@ -94,6 +95,7 @@ import {
 	ZOOM_DEPTH_SCALES,
 } from "./types";
 import { getFocusBoundsForScale } from "./videoPlayback/focusUtils";
+import { ZoomAreaSettings } from "./ZoomAreaSettings";
 
 function CustomSpeedInput({
 	value,
@@ -244,6 +246,9 @@ interface SettingsPanelProps {
 	selectedZoomCustomScale?: number | null;
 	onZoomCustomScaleChange?: (scale: number) => void;
 	onZoomCustomScaleCommit?: () => void;
+	selectedZoomArea?: ZoomArea;
+	onZoomAreaToggle?: (enabled: boolean) => void;
+	onZoomAreaChange?: (area: ZoomArea) => void;
 	onZoomPreviewStart?: () => void;
 	onZoomPreviewEnd?: () => void;
 	selectedZoomFocusMode?: ZoomFocusMode | null;
@@ -387,6 +392,9 @@ export function SettingsPanel({
 	selectedZoomCustomScale,
 	onZoomCustomScaleChange,
 	onZoomCustomScaleCommit,
+	selectedZoomArea,
+	onZoomAreaToggle,
+	onZoomAreaChange,
 	onZoomPreviewStart,
 	onZoomPreviewEnd,
 	selectedZoomFocusMode,
@@ -879,34 +887,44 @@ export function SettingsPanel({
 									×
 								</span>
 							</div>
-							<div className="grid grid-cols-6 gap-1">
-								{ZOOM_DEPTH_OPTIONS.map((option) => {
-									const effectiveScale =
-										selectedZoomCustomScale ??
-										(selectedZoomDepth != null ? ZOOM_DEPTH_SCALES[selectedZoomDepth] : null);
-									const isActive = effectiveScale === ZOOM_DEPTH_SCALES[option.depth];
-									return (
-										<Button
-											key={option.depth}
-											type="button"
-											disabled={!zoomEnabled}
-											onClick={() => onZoomDepthChange?.(option.depth)}
-											className={cn(
-												"h-8 w-full rounded-lg border px-1 text-center transition-all duration-150 ease-out",
-												zoomEnabled
-													? "opacity-100 cursor-pointer"
-													: "opacity-40 cursor-not-allowed",
-												isActive
-													? "border-[#34B27B]/70 bg-[#34B27B] text-white shadow-[0_8px_20px_rgba(52,178,123,0.18)]"
-													: "border-white/[0.06] bg-white/[0.035] text-slate-400 hover:bg-white/[0.075] hover:border-white/15 hover:text-slate-200",
-											)}
-										>
-											<span className="text-[11px] font-semibold">{option.label}</span>
-										</Button>
-									);
-								})}
-							</div>
-							{zoomEnabled && (
+							{onZoomAreaToggle && onZoomAreaChange && (
+								<ZoomAreaSettings
+									area={selectedZoomArea}
+									onToggle={onZoomAreaToggle}
+									onChange={onZoomAreaChange}
+									onCommit={() => onZoomCustomScaleCommit?.()}
+								/>
+							)}
+							{!selectedZoomArea && (
+								<div className="grid grid-cols-6 gap-1">
+									{ZOOM_DEPTH_OPTIONS.map((option) => {
+										const effectiveScale =
+											selectedZoomCustomScale ??
+											(selectedZoomDepth != null ? ZOOM_DEPTH_SCALES[selectedZoomDepth] : null);
+										const isActive = effectiveScale === ZOOM_DEPTH_SCALES[option.depth];
+										return (
+											<Button
+												key={option.depth}
+												type="button"
+												disabled={!zoomEnabled}
+												onClick={() => onZoomDepthChange?.(option.depth)}
+												className={cn(
+													"h-8 w-full rounded-lg border px-1 text-center transition-all duration-150 ease-out",
+													zoomEnabled
+														? "opacity-100 cursor-pointer"
+														: "opacity-40 cursor-not-allowed",
+													isActive
+														? "border-[#34B27B]/70 bg-[#34B27B] text-white shadow-[0_8px_20px_rgba(52,178,123,0.18)]"
+														: "border-white/[0.06] bg-white/[0.035] text-slate-400 hover:bg-white/[0.075] hover:border-white/15 hover:text-slate-200",
+												)}
+											>
+												<span className="text-[11px] font-semibold">{option.label}</span>
+											</Button>
+										);
+									})}
+								</div>
+							)}
+							{zoomEnabled && !selectedZoomArea && (
 								<div>
 									<SliderPrimitive.Root
 										min={MIN_ZOOM_SCALE}
@@ -1022,7 +1040,14 @@ export function SettingsPanel({
 										(selectedZoomDepth != null
 											? ZOOM_DEPTH_SCALES[selectedZoomDepth]
 											: MIN_ZOOM_SCALE);
-									const bounds = getFocusBoundsForScale(effectiveZoomScale);
+									const bounds = selectedZoomArea
+										? {
+												minX: selectedZoomArea.width / 2,
+												maxX: 1 - selectedZoomArea.width / 2,
+												minY: selectedZoomArea.height / 2,
+												maxY: 1 - selectedZoomArea.height / 2,
+											}
+										: getFocusBoundsForScale(effectiveZoomScale);
 									const xRange = bounds.maxX - bounds.minX;
 									const yRange = bounds.maxY - bounds.minY;
 									const focusToPercentX = (cx: number) =>

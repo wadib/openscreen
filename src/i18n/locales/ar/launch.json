@@ -51,7 +51,14 @@
 		"defaultCamera": "الكاميرا الافتراضية",
 		"searching": "جاري البحث...",
 		"noneFound": "لم يتم العثور على كاميرا",
-		"unavailable": "الكاميرا غير متوفرة"
+		"unavailable": "الكاميرا غير متوفرة",
+		"cameraControls": "عناصر التحكم بالكاميرا",
+		"controlsUnavailable": "عناصر التحكم بالكاميرا غير متاحة",
+		"noControls": "لا توجد عناصر تحكم قابلة للتعديل",
+		"auto": "تلقائي",
+		"refreshControls": "تحديث عناصر التحكم بالكاميرا",
+		"closeControls": "إغلاق عناصر التحكم بالكاميرا",
+		"resetControl": "إعادة الضبط إلى الافتراضي"
 	},
 	"sourceSelector": {
 		"loading": "جاري تحميل المصادر...",

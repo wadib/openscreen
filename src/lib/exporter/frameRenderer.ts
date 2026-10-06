@@ -29,6 +29,10 @@ import {
 } from "@/components/video-editor/videoPlayback/constants";
 import { advanceFollowFocus } from "@/components/video-editor/videoPlayback/cursorFollowUtils";
 import { clampFocusToScale } from "@/components/video-editor/videoPlayback/focusUtils";
+import {
+	clampZoomAreaFocus,
+	getZoomAreaMask,
+} from "@/components/video-editor/videoPlayback/zoomArea";
 import { findDominantRegion } from "@/components/video-editor/videoPlayback/zoomRegionUtils";
 import {
 	createZoomSpringState,
@@ -157,6 +161,7 @@ export class FrameRenderer {
 	private config: FrameRenderConfig;
 	private animationState: AnimationState;
 	private layoutCache: LayoutCache | null = null;
+	private zoomAreaMask: { x: number; y: number; width: number; height: number } | null = null;
 	private currentVideoTime = 0;
 	private motionBlurState: MotionBlurState = createMotionBlurState();
 	private nativeCursorMotionBlurState = createNativeCursorMotionBlurState();
@@ -544,7 +549,12 @@ export class FrameRenderer {
 	// the static maskRect and a static clip would crop it. Mirrors the preview.
 	private cameraAwareMaskRect() {
 		if (!this.layoutCache) return null;
-		const { x: maskX, y: maskY, width: maskW, height: maskH } = this.layoutCache.maskRect;
+		const {
+			x: maskX,
+			y: maskY,
+			width: maskW,
+			height: maskH,
+		} = this.zoomAreaMask ?? this.layoutCache.maskRect;
 		const camS = this.animationState.appliedScale;
 		const camX = this.animationState.x;
 		const camY = this.animationState.y;
@@ -556,7 +566,7 @@ export class FrameRenderer {
 			y: camY + camS * maskY,
 			width: camS * maskW,
 			height: camS * maskH,
-			br: this.layoutCache.maskBorderRadius * camS,
+			br: Math.min(this.layoutCache.maskBorderRadius, maskW / 2, maskH / 2) * camS,
 		};
 	}
 
@@ -804,7 +814,9 @@ export class FrameRenderer {
 
 		if (region && strength > 0) {
 			const zoomScale = blendedScale ?? getZoomScale(region);
-			const regionFocus = clampFocusToScale(region.focus, zoomScale);
+			const regionFocus = region.area
+				? clampZoomAreaFocus(region)
+				: clampFocusToScale(region.focus, zoomScale);
 
 			targetScaleFactor = zoomScale;
 			targetFocus = regionFocus;
@@ -885,6 +897,25 @@ export class FrameRenderer {
 		state.focusX = targetFocus.cx;
 		state.focusY = targetFocus.cy;
 		state.progress = targetProgress;
+		const mask = getZoomAreaMask(
+			region && { ...region, focus: targetFocus },
+			this.layoutCache.stageSize,
+			this.layoutCache.maskRect,
+			targetProgress,
+		);
+		this.zoomAreaMask = mask;
+		if (region?.area && this.maskGraphics && this.videoContainer) {
+			this.maskGraphics
+				.clear()
+				.roundRect(
+					mask.x - this.videoContainer.x,
+					mask.y - this.videoContainer.y,
+					mask.width,
+					mask.height,
+					Math.min(this.layoutCache.maskBorderRadius, mask.width / 2, mask.height / 2),
+				)
+				.fill({ color: 0xffffff });
+		}
 
 		const projectedTransform = computeZoomTransform({
 			stageSize: this.layoutCache.stageSize,

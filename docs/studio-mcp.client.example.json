@@ -1,0 +1,16 @@
+{
+	"mcpServers": {
+		"openscreen-studio": {
+			"command": "node",
+			"args": [
+				"C:/path/to/openscreen/scripts/studio-mcp.mjs",
+				"--executable",
+				"C:/path/to/openscreen/node_modules/electron/dist/electron.exe",
+				"--app",
+				"C:/path/to/openscreen",
+				"--root",
+				"C:/Users/YOU/AppData/Roaming/openscreen/recordings"
+			]
+		}
+	}
+}

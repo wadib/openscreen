@@ -68,6 +68,25 @@ export function rotation3DPerspective(width: number, height: number): number {
  */
 export type ZoomRegionSource = "auto" | "manual";
 
+export interface ZoomArea {
+	width: number;
+	height: number;
+	fit: "fit" | "fill";
+}
+
+export const MIN_ZOOM_AREA_SIZE = 0.05;
+
+export function normalizeZoomArea(value: unknown): ZoomArea | undefined {
+	if (!value || typeof value !== "object") return undefined;
+	const area = value as ZoomArea;
+	if (!Number.isFinite(area.width) || !Number.isFinite(area.height)) return undefined;
+	return {
+		width: Math.max(MIN_ZOOM_AREA_SIZE, Math.min(1, area.width)),
+		height: Math.max(MIN_ZOOM_AREA_SIZE, Math.min(1, area.height)),
+		fit: area.fit === "fill" ? "fill" : "fit",
+	};
+}
+
 export interface ZoomRegion {
 	id: string;
 	startMs: number;
@@ -78,6 +97,8 @@ export interface ZoomRegion {
 	rotationPreset?: Rotation3DPreset;
 	/** Custom scale overriding the preset depth (1.0-5.0, two decimal precision). */
 	customScale?: number;
+	/** Area dimensions are normalized to the unzoomed canvas; focus is its center. */
+	area?: ZoomArea;
 	source?: ZoomRegionSource;
 }
 
@@ -415,6 +436,12 @@ export const DEFAULT_ZOOM_DEPTH: ZoomDepth = 3;
 
 /** Returns the effective zoom scale for a region, preferring customScale over the preset. */
 export function getZoomScale(region: ZoomRegion): number {
+	const area = normalizeZoomArea(region.area);
+	if (area)
+		return (
+			1 /
+			(area.fit === "fill" ? Math.min(area.width, area.height) : Math.max(area.width, area.height))
+		);
 	if (region.customScale != null) {
 		const clamped = Math.max(MIN_ZOOM_SCALE, Math.min(MAX_ZOOM_SCALE, region.customScale));
 		if (Number.isFinite(clamped)) return clamped;

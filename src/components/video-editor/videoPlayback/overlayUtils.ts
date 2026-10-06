@@ -36,6 +36,11 @@ export function updateOverlayIndicator(params: OverlayUpdateParams) {
 	}
 
 	const zoomScale = getZoomScale(region);
+	if (region.area) {
+		indicatorEl.style.display = "none";
+		overlayEl.style.pointerEvents = isPlaying ? "none" : "auto";
+		return;
+	}
 	const focus = clampFocusToScale(focusOverride ?? region.focus, zoomScale);
 
 	// Zoom window shows the stage area that will be visible after zooming (1/zoomScale of stage dimensions)

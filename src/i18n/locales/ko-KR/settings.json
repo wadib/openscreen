@@ -1,5 +1,13 @@
 {
 	"zoom": {
+		"area": {
+			"title": "사용자 지정 영역",
+			"width": "너비",
+			"height": "높이",
+			"framing": "프레이밍",
+			"fit": "맞춤",
+			"fill": "채우기"
+		},
 		"previewHold": "누르고 있으면 줌 효과 미리보기",
 		"level": "줌 레벨",
 		"customScale": "커스텀 줌",

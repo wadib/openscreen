@@ -159,5 +159,6 @@ export function useRecordingPreview() {
 		retry,
 		webcam,
 		webcamEnabled: Boolean(settings?.webcamEnabled),
+		paused: Boolean(settings?.paused),
 	};
 }

@@ -16,6 +16,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_executable(wgc-capture
   src/audio_sample_utils.cpp
   src/audio_sample_utils.h
+  src/camera_controls.cpp
+  src/camera_controls.h
   src/capture_clock.h
   src/dshow_webcam_capture.cpp
   src/dshow_webcam_capture.h
@@ -30,6 +32,8 @@ add_executable(wgc-capture
   src/monitor_utils.h
   src/wasapi_loopback_capture.cpp
   src/wasapi_loopback_capture.h
+  src/wav_writer.cpp
+  src/wav_writer.h
   src/webcam_capture.cpp
   src/webcam_capture.h
   src/wgc_session.cpp

@@ -1,5 +1,13 @@
 {
 	"zoom": {
+		"area": {
+			"title": "Custom area",
+			"width": "Width",
+			"height": "Height",
+			"framing": "Framing",
+			"fit": "Fit",
+			"fill": "Fill"
+		},
 		"previewHold": "Hold to preview zoom effect",
 		"level": "Zoom Level",
 		"customScale": "Custom Zoom",

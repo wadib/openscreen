@@ -24,6 +24,13 @@ declare namespace NodeJS {
 // Used in Renderer process, expose in `preload.ts`
 interface Window {
 	electronAPI: {
+		onStudioMcpCommand: (
+			callback: (command: import("../src/lib/studioMcpContract").StudioCommand) => Promise<unknown>,
+		) => () => void;
+		writeStudioMcpExport: (
+			data: ArrayBuffer,
+			target: string,
+		) => Promise<{ success: boolean; path?: string; message?: string }>;
 		invokeNativeBridge: <TData = unknown>(
 			request: import("../src/native/contracts").NativeBridgeRequest,
 		) => Promise<import("../src/native/contracts").NativeBridgeResponse<TData>>;
@@ -164,6 +171,12 @@ interface Window {
 			recordingId?: number,
 			cursorCaptureMode?: import("../src/lib/recordingSession").CursorCaptureMode,
 		) => Promise<void>;
+		getCameraControls: (
+			deviceName: string,
+		) => Promise<import("../src/lib/cameraControls").CameraControlsResult>;
+		setCameraControl: (
+			request: import("../src/lib/cameraControls").SetCameraControlRequest,
+		) => Promise<import("../src/lib/cameraControls").CameraControlsResult>;
 		isNativeWindowsCaptureAvailable: () => Promise<{
 			success: boolean;
 			available: boolean;

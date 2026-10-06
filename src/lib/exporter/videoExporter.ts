@@ -13,6 +13,7 @@ import { getPlatform } from "@/utils/platformUtils";
 import { AudioProcessor } from "./audioEncoder";
 import { FrameRenderer } from "./frameRenderer";
 import { VideoMuxer } from "./muxer";
+import { shiftRegionsToSidecar } from "./sidecarTiming";
 import { StreamingVideoDecoder } from "./streamingDecoder";
 import { TimestampedVideoFrameQueue } from "./timestampedVideoFrameQueue";
 import type { ExportConfig, ExportProgress, ExportResult } from "./types";
@@ -23,6 +24,11 @@ const ENCODER_FLUSH_TIMEOUT_MS = 20_000;
 export interface VideoExporterConfig extends ExportConfig {
 	videoUrl: string;
 	webcamVideoUrl?: string;
+	webcamOffsetMs?: number;
+	microphoneAudioUrl?: string;
+	microphoneOffsetMs?: number;
+	microphoneGain?: number;
+	microphoneMuted?: boolean;
 	wallpaper: string;
 	zoomRegions: ZoomRegion[];
 	trimRegions?: TrimRegion[];
@@ -104,6 +110,7 @@ export function getSourceCopyFastPathBlockers(
 		);
 	}
 	if (config.webcamVideoUrl) blockers.push("webcam overlay is enabled");
+	if (config.microphoneAudioUrl) blockers.push("separate microphone track is enabled");
 	if (hasActiveTimeRegions(config.trimRegions)) blockers.push("trim regions are present");
 	if (hasActiveSpeedRegions(config.speedRegions)) blockers.push("speed regions are present");
 	if (hasActiveTimeRegions(config.zoomRegions)) blockers.push("zoom regions are present");
@@ -270,11 +277,13 @@ export class VideoExporter {
 			await this.initializeEncoder(encoderPreference);
 
 			const sourceDemuxer = streamingDecoder.getDemuxer();
-			const audioExportCodec =
-				videoInfo.hasAudio && sourceDemuxer
+			const hasMicrophoneTrack = Boolean(this.config.microphoneAudioUrl);
+			const audioExportCodec = hasMicrophoneTrack
+				? await AudioProcessor.selectSupportedExportCodec(48000, 2)
+				: videoInfo.hasAudio && sourceDemuxer
 					? await AudioProcessor.selectSupportedExportCodecForSource(sourceDemuxer)
 					: null;
-			if (videoInfo.hasAudio && !audioExportCodec) {
+			if ((videoInfo.hasAudio || hasMicrophoneTrack) && !audioExportCodec) {
 				console.warn("[VideoExporter] No supported audio export codec, exporting video-only.");
 			}
 
@@ -304,8 +313,8 @@ export class VideoExporter {
 							return webcamDecoder
 								.decodeAll(
 									this.config.frameRate,
-									this.config.trimRegions,
-									this.config.speedRegions,
+									shiftRegionsToSidecar(this.config.trimRegions, this.config.webcamOffsetMs),
+									shiftRegionsToSidecar(this.config.speedRegions, this.config.webcamOffsetMs),
 									async (webcamFrame, _exportTimestampUs, webcamSourceTimestampMs) => {
 										while (queue.length >= 12 && !this.cancelled && !stopWebcamDecode) {
 											await new Promise((resolve) => setTimeout(resolve, 2));
@@ -314,7 +323,10 @@ export class VideoExporter {
 											webcamFrame.close();
 											return;
 										}
-										queue.enqueue(webcamFrame, webcamSourceTimestampMs);
+										queue.enqueue(
+											webcamFrame,
+											webcamSourceTimestampMs + (this.config.webcamOffsetMs ?? 0),
+										);
 									},
 									onWarning,
 								)
@@ -476,6 +488,10 @@ export class VideoExporter {
 						this.config.speedRegions,
 						videoInfo.duration,
 						audioExportCodec,
+						this.config.microphoneAudioUrl,
+						this.config.microphoneOffsetMs,
+						this.config.microphoneGain,
+						this.config.microphoneMuted,
 					);
 				}
 			}

@@ -5,14 +5,16 @@ import type { CursorCaptureMode } from "@/lib/recordingSession";
 export function useRecordingPreviewHost(
 	stream: MediaStream | null,
 	cursorCaptureMode: CursorCaptureMode,
+	paused = false,
 ) {
 	useEffect(() => {
 		window.electronAPI?.setRecordingPreviewSettings?.({
 			cursorCaptureMode,
 			webcamEnabled: Boolean(stream),
+			paused,
 			webcamStreamId: stream?.id,
 		});
-	}, [stream, cursorCaptureMode]);
+	}, [stream, cursorCaptureMode, paused]);
 
 	useEffect(() => {
 		if (!stream || !window.electronAPI?.onWebcamPreviewSignal) return;

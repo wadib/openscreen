@@ -105,18 +105,23 @@ import {
 	DEFAULT_PLAYBACK_SPEED,
 	DEFAULT_ZOOM_DEPTH,
 	type FigureData,
+	getZoomScale,
+	normalizeZoomArea,
 	type PlaybackSpeed,
 	type Rotation3DPreset,
 	type SpeedRegion,
 	type TrimRegion,
 	ZOOM_DEPTH_SCALES,
+	type ZoomArea,
 	type ZoomDepth,
 	type ZoomFocus,
 	type ZoomFocusMode,
 	type ZoomRegion,
 } from "./types";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
+import { useStudioMcp } from "./useStudioMcp";
 import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
+import { clampZoomAreaFocus, getZoomAreaSize } from "./videoPlayback/zoomArea";
 
 /** Single Sonner slot so auto-caption phases update in place instead of stacking. */
 const AUTO_CAPTION_PROGRESS_TOAST_ID = "auto-caption-progress";
@@ -218,7 +223,13 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 	const [videoPath, setVideoPath] = useState<string | null>(null);
 	const [videoSourcePath, setVideoSourcePath] = useState<string | null>(null);
 	const [webcamVideoPath, setWebcamVideoPath] = useState<string | null>(null);
+	const [webcamOffsetMs, setWebcamOffsetMs] = useState(0);
 	const [webcamVideoSourcePath, setWebcamVideoSourcePath] = useState<string | null>(null);
+	const [microphoneAudioPath, setMicrophoneAudioPath] = useState<string | null>(null);
+	const [microphoneAudioSourcePath, setMicrophoneAudioSourcePath] = useState<string | null>(null);
+	const [microphoneOffsetMs, setMicrophoneOffsetMs] = useState(0);
+	const [microphoneGain, setMicrophoneGain] = useState(1);
+	const [microphoneMuted, setMicrophoneMuted] = useState(false);
 	const [currentProjectPath, setCurrentProjectPath] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -230,6 +241,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 	const durationRef = useRef(duration);
 	durationRef.current = duration;
 	const [selectedZoomId, setSelectedZoomId] = useState<string | null>(null);
+	const selectedZoomRegion = zoomRegions.find((region) => region.id === selectedZoomId);
 	const [isPreviewingZoom, setIsPreviewingZoom] = useState(false);
 	const [selectedTrimId, setSelectedTrimId] = useState<string | null>(null);
 	const [selectedSpeedId, setSelectedSpeedId] = useState<string | null>(null);
@@ -301,6 +313,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 	const videoPlaybackRef = useRef<VideoPlaybackRef>(null);
 	const [recordedBlurSource, setRecordedBlurSource] = useState<string | null>(null);
 	const canExportOriginal =
+		!microphoneAudioPath &&
 		recordedBlurSource !== fromFileUrl(videoSourcePath ?? videoPath ?? "") &&
 		!annotationRegions.some((region) => region.type === "blur") &&
 		/\.mp4$/i.test(videoSourcePath ?? fromFileUrl(videoPath ?? ""));
@@ -355,7 +368,15 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			webcamVideoSourcePath ?? (webcamVideoPath ? fromFileUrl(webcamVideoPath) : null);
 		return {
 			screenVideoPath,
-			...(webcamSourcePath ? { webcamVideoPath: webcamSourcePath } : {}),
+			...(webcamSourcePath ? { webcamVideoPath: webcamSourcePath, webcamOffsetMs } : {}),
+			...(microphoneAudioSourcePath
+				? {
+						microphoneAudioPath: microphoneAudioSourcePath,
+						microphoneOffsetMs,
+						microphoneGain,
+						microphoneMuted,
+					}
+				: {}),
 			...(recordingCursorCaptureMode ? { cursorCaptureMode: recordingCursorCaptureMode } : {}),
 		};
 	}, [
@@ -363,6 +384,11 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 		videoSourcePath,
 		webcamVideoPath,
 		webcamVideoSourcePath,
+		webcamOffsetMs,
+		microphoneAudioSourcePath,
+		microphoneOffsetMs,
+		microphoneGain,
+		microphoneMuted,
 		recordingCursorCaptureMode,
 	]);
 
@@ -379,6 +405,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			}
 			const sourcePath = projectMedia.screenVideoPath;
 			const webcamSourcePath = projectMedia.webcamVideoPath ?? null;
+			const microphoneSourcePath = projectMedia.microphoneAudioPath ?? null;
 			const projectCursorCaptureMode = projectMedia.cursorCaptureMode ?? null;
 			const normalizedEditor = normalizeProjectEditor(project.editor);
 			const inferredDurationMs = Math.max(
@@ -403,6 +430,12 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			setVideoPath(toFileUrl(sourcePath));
 			setWebcamVideoSourcePath(webcamSourcePath);
 			setWebcamVideoPath(webcamSourcePath ? toFileUrl(webcamSourcePath) : null);
+			setWebcamOffsetMs(projectMedia.webcamOffsetMs ?? 0);
+			setMicrophoneAudioSourcePath(microphoneSourcePath);
+			setMicrophoneAudioPath(microphoneSourcePath ? toFileUrl(microphoneSourcePath) : null);
+			setMicrophoneOffsetMs(projectMedia.microphoneOffsetMs ?? 0);
+			setMicrophoneGain(projectMedia.microphoneGain ?? 1);
+			setMicrophoneMuted(projectMedia.microphoneMuted ?? false);
 			setRecordingCursorCaptureMode(projectCursorCaptureMode);
 			setCurrentProjectPath(path ?? null);
 
@@ -472,7 +505,20 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 				createProjectSnapshot(
 					{
 						screenVideoPath: sourcePath,
-						...(webcamSourcePath ? { webcamVideoPath: webcamSourcePath } : {}),
+						...(webcamSourcePath
+							? {
+									webcamVideoPath: webcamSourcePath,
+									webcamOffsetMs: projectMedia.webcamOffsetMs ?? 0,
+								}
+							: {}),
+						...(microphoneSourcePath
+							? {
+									microphoneAudioPath: microphoneSourcePath,
+									microphoneOffsetMs: projectMedia.microphoneOffsetMs ?? 0,
+									microphoneGain: projectMedia.microphoneGain ?? 1,
+									microphoneMuted: projectMedia.microphoneMuted ?? false,
+								}
+							: {}),
 						...(projectCursorCaptureMode ? { cursorCaptureMode: projectCursorCaptureMode } : {}),
 					},
 					normalizedEditor,
@@ -580,13 +626,35 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 					setVideoPath(toFileUrl(sourcePath));
 					setWebcamVideoSourcePath(webcamSourcePath);
 					setWebcamVideoPath(webcamSourcePath ? toFileUrl(webcamSourcePath) : null);
+					setWebcamOffsetMs(session.webcamOffsetMs ?? 0);
+					const microphoneSourcePath = session.microphoneAudioPath
+						? fromFileUrl(session.microphoneAudioPath)
+						: null;
+					setMicrophoneAudioSourcePath(microphoneSourcePath);
+					setMicrophoneAudioPath(microphoneSourcePath ? toFileUrl(microphoneSourcePath) : null);
+					setMicrophoneOffsetMs(session.microphoneOffsetMs ?? 0);
+					setMicrophoneGain(session.microphoneGain ?? 1);
+					setMicrophoneMuted(session.microphoneMuted ?? false);
 					setRecordingCursorCaptureMode(session.cursorCaptureMode ?? null);
 					setCurrentProjectPath(null);
 					setLastSavedSnapshot(
 						createProjectSnapshot(
 							{
 								screenVideoPath: sourcePath,
-								...(webcamSourcePath ? { webcamVideoPath: webcamSourcePath } : {}),
+								...(webcamSourcePath
+									? {
+											webcamVideoPath: webcamSourcePath,
+											webcamOffsetMs: session.webcamOffsetMs ?? 0,
+										}
+									: {}),
+								...(microphoneSourcePath
+									? {
+											microphoneAudioPath: microphoneSourcePath,
+											microphoneOffsetMs: session.microphoneOffsetMs ?? 0,
+											microphoneGain: session.microphoneGain ?? 1,
+											microphoneMuted: session.microphoneMuted ?? false,
+										}
+									: {}),
 								...(session.cursorCaptureMode
 									? { cursorCaptureMode: session.cursorCaptureMode }
 									: {}),
@@ -857,7 +925,13 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 		setVideoPath(null);
 		setVideoSourcePath(null);
 		setWebcamVideoPath(null);
+		setWebcamOffsetMs(0);
 		setWebcamVideoSourcePath(null);
+		setMicrophoneAudioPath(null);
+		setMicrophoneAudioSourcePath(null);
+		setMicrophoneOffsetMs(0);
+		setMicrophoneGain(1);
+		setMicrophoneMuted(false);
 		setCurrentProjectPath(null);
 		setLastSavedSnapshot(null);
 		// Reset undoable editor state + undo/redo history to a clean slate.
@@ -1197,7 +1271,13 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			updateState((prev) => ({
 				zoomRegions: prev.zoomRegions.map((region) =>
 					region.id === id
-						? { ...region, focus: clampFocusToDepth(focus, region.depth), source: "manual" }
+						? {
+								...region,
+								focus: region.area
+									? clampZoomAreaFocus(region, focus)
+									: clampFocusToDepth(focus, region.depth),
+								source: "manual",
+							}
 						: region,
 				),
 			}));
@@ -1244,6 +1324,40 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 	const handleZoomCustomScaleCommit = useCallback(() => {
 		commitState();
 	}, [commitState]);
+
+	const handleZoomAreaChange = useCallback(
+		(id: string, area: ZoomArea, focus?: ZoomFocus) => {
+			const normalized = normalizeZoomArea(area);
+			if (!normalized) return;
+			updateState((prev) => ({
+				zoomRegions: prev.zoomRegions.map((region) => {
+					if (region.id !== id) return region;
+					const next = { ...region, area: normalized, source: "manual" as const };
+					return { ...next, focus: clampZoomAreaFocus(next, focus ?? region.focus) };
+				}),
+			}));
+		},
+		[updateState],
+	);
+
+	const handleZoomAreaToggle = useCallback(
+		(enabled: boolean) => {
+			if (!selectedZoomId) return;
+			pushState((prev) => ({
+				zoomRegions: prev.zoomRegions.map((region) => {
+					if (region.id !== selectedZoomId) return region;
+					const next = {
+						...region,
+						area: enabled ? getZoomAreaSize(region) : undefined,
+						customScale: Math.min(5, getZoomScale(region)),
+						source: "manual" as const,
+					};
+					return { ...next, focus: clampZoomAreaFocus(next) };
+				}),
+			}));
+		},
+		[pushState, selectedZoomId],
+	);
 
 	const handleZoomFocusModeChange = useCallback(
 		(focusMode: ZoomFocusMode) => {
@@ -1719,8 +1833,13 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			}
 
 			if (matchesShortcut(e, shortcuts.playPause, isMac)) {
-				// Let space pass through inside inputs/textareas.
-				if (isInput) {
+				// Focused controls keep their own activation keys, including hold-to-preview.
+				if (
+					isInput ||
+					((e.key === " " || e.key === "Enter") &&
+						e.target instanceof HTMLElement &&
+						e.target.closest('button, [role="button"]'))
+				) {
 					return;
 				}
 				e.preventDefault();
@@ -1885,14 +2004,16 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 	}, [unsavedExport, handleExportSaved]);
 
 	const handleExport = useCallback(
-		async (settings: ExportSettings) => {
+		async (settings: ExportSettings, agentTarget?: string) => {
 			if (!videoPath) {
+				if (agentTarget) throw new Error("No video loaded");
 				toast.error("No video loaded");
 				return;
 			}
 
 			const video = videoPlaybackRef.current?.video;
 			if (!video) {
+				if (agentTarget) throw new Error("Video not ready");
 				toast.error("Video not ready");
 				return;
 			}
@@ -1901,15 +2022,22 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			// hidden behind other windows after a long-running export.
 			const isGifFormat = settings.format === "gif";
 			const targetFileName = `export-${Date.now()}.${isGifFormat ? "gif" : "mp4"}`;
-			const pickResult = await window.electronAPI.pickExportSavePath(
-				targetFileName,
-				getExportFolder(),
-			);
+			const pickResult = agentTarget
+				? { success: true, path: agentTarget, canceled: false }
+				: await window.electronAPI.pickExportSavePath(targetFileName, getExportFolder());
 			if (pickResult.canceled || !pickResult.success || !pickResult.path) {
 				setShowExportDialog(false);
 				return;
 			}
 			const targetPath = pickResult.path;
+			let agentResult: { success: boolean; path?: string; message?: string } | null = null;
+			const writeExport = async (data: ArrayBuffer) => {
+				const result = agentTarget
+					? await window.electronAPI.writeStudioMcpExport(data, targetPath)
+					: await window.electronAPI.writeExportToPath(data, targetPath);
+				agentResult = result;
+				return result;
+			};
 
 			setIsExporting(true);
 			setExportProgress(null);
@@ -1945,6 +2073,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 					const gifExporter = new GifExporter({
 						videoUrl: videoPath,
 						webcamVideoUrl: webcamVideoPath || undefined,
+						webcamOffsetMs,
 						width: settings.gifConfig.width,
 						height: settings.gifConfig.height,
 						frameRate: settings.gifConfig.frameRate,
@@ -1997,7 +2126,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 							}
 						}
 
-						const saveResult = await window.electronAPI.writeExportToPath(arrayBuffer, targetPath);
+						const saveResult = await writeExport(arrayBuffer);
 
 						if (saveResult.success && saveResult.path) {
 							setUnsavedExport(null);
@@ -2040,6 +2169,11 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 					const exporter = new VideoExporter({
 						videoUrl: videoPath,
 						webcamVideoUrl: webcamVideoPath || undefined,
+						webcamOffsetMs,
+						microphoneAudioUrl: microphoneAudioPath || undefined,
+						microphoneOffsetMs,
+						microphoneGain,
+						microphoneMuted,
 						width: exportWidth,
 						height: exportHeight,
 						frameRate: 60,
@@ -2091,7 +2225,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 							}
 						}
 
-						const saveResult = await window.electronAPI.writeExportToPath(arrayBuffer, targetPath);
+						const saveResult = await writeExport(arrayBuffer);
 
 						if (saveResult.success && saveResult.path) {
 							setUnsavedExport(null);
@@ -2126,6 +2260,10 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 				}
 			} catch (error) {
 				console.error("Export error:", error);
+				agentResult = {
+					success: false,
+					message: error instanceof Error ? error.message : "Export failed",
+				};
 				if (error instanceof BackgroundLoadError) {
 					const message = t("errors.exportBackgroundLoadFailed", { url: error.displayUrl });
 					setExportError(message);
@@ -2148,11 +2286,19 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 				setShowExportDialog(false);
 				setExportProgress(null);
 			}
+			if (agentTarget && !agentResult?.success)
+				throw new Error(agentResult?.message || "Studio export failed or was canceled");
+			return agentResult;
 		},
 		[
 			videoPath,
 			videoSourcePath,
 			webcamVideoPath,
+			microphoneAudioPath,
+			webcamOffsetMs,
+			microphoneOffsetMs,
+			microphoneGain,
+			microphoneMuted,
 			wallpaper,
 			zoomRegions,
 			trimRegions,
@@ -2187,6 +2333,69 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			t,
 		],
 	);
+
+	useStudioMcp({
+		snapshot: currentProjectSnapshot,
+		state: editorState,
+		loading,
+		error,
+		hasUnsavedChanges,
+		projectPath: currentProjectPath,
+		duration,
+		currentTime,
+		isPlaying,
+		isExporting,
+		exportProgress,
+		exportError,
+		exportedFilePath,
+		video: () => videoPlaybackRef.current?.video,
+		applyProject: applyLoadedProject,
+		pushState,
+		undo,
+		redo,
+		copySaved: (path, snapshot) => {
+			setCurrentProjectPath(path);
+			setLastSavedSnapshot(snapshot);
+		},
+		setMicrophone: (args) => {
+			if (args.offsetMs !== undefined) setMicrophoneOffsetMs(args.offsetMs);
+			if (args.gain !== undefined) setMicrophoneGain(args.gain);
+			if (args.muted !== undefined) setMicrophoneMuted(args.muted);
+		},
+		preview: async (action, timeMs) => {
+			const video = videoPlaybackRef.current?.video;
+			if (!video) throw new Error("Video not ready");
+			if (action === "play") {
+				setIsPreviewingZoom(false);
+				await video.play();
+			} else if (action === "pause") {
+				video.pause();
+				setIsPreviewingZoom(true);
+			} else {
+				if (timeMs === undefined || timeMs > video.duration * 1000)
+					throw new Error("Seek time must be inside the source duration");
+				video.pause();
+				setIsPreviewingZoom(true);
+				if (Math.abs(video.currentTime - timeMs / 1000) > 0.001) {
+					await new Promise<void>((resolve, reject) => {
+						const done = () => {
+							clearTimeout(timer);
+							video.removeEventListener("seeked", done);
+							resolve();
+						};
+						const timer = setTimeout(() => {
+							video.removeEventListener("seeked", done);
+							reject(new Error("Preview seek timed out"));
+						}, 10_000);
+						video.addEventListener("seeked", done);
+						handleSeek(timeMs / 1000);
+					});
+				}
+			}
+		},
+		export: (path, quality) => handleExport({ format: "mp4", quality }, path),
+		cancelExport: () => exporterRef.current?.cancel(),
+	});
 
 	const handleOpenExportDialog = useCallback(() => {
 		if (!videoPath) {
@@ -2444,6 +2653,11 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 							ref={videoPlaybackRef}
 							videoPath={videoPath || ""}
 							webcamVideoPath={originalExport ? undefined : webcamVideoPath || undefined}
+							webcamOffsetMs={webcamOffsetMs}
+							microphoneAudioPath={originalExport ? undefined : microphoneAudioPath || undefined}
+							microphoneOffsetMs={microphoneOffsetMs}
+							microphoneGain={microphoneGain}
+							microphoneMuted={microphoneMuted}
 							webcamLayoutPreset={webcamLayoutPreset}
 							webcamMaskShape={webcamMaskShape}
 							webcamMirrored={webcamMirrored}
@@ -2510,6 +2724,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 					originalExclusions={[
 						...(recordingCursorCaptureMode === "editable-overlay" ? ["editable cursor"] : []),
 						...(webcamVideoPath ? ["webcam"] : []),
+						...(microphoneAudioPath ? ["microphone track"] : []),
 					]}
 					quality={exportQuality}
 					rate={gifFrameRate}
@@ -2800,11 +3015,16 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 												}}
 											>
 												<VideoPlayback
-													key={`${videoPath || "no-video"}:${webcamVideoPath || "no-webcam"}`}
+													key={`${videoPath || "no-video"}:${webcamVideoPath || "no-webcam"}:${microphoneAudioPath || "no-mic"}`}
 													aspectRatio={aspectRatio}
 													ref={videoPlaybackRef}
 													videoPath={videoPath || ""}
 													webcamVideoPath={webcamVideoPath || undefined}
+													webcamOffsetMs={webcamOffsetMs}
+													microphoneAudioPath={microphoneAudioPath || undefined}
+													microphoneOffsetMs={microphoneOffsetMs}
+													microphoneGain={microphoneGain}
+													microphoneMuted={microphoneMuted}
 													webcamLayoutPreset={webcamLayoutPreset}
 													webcamMaskShape={webcamMaskShape}
 													webcamMirrored={webcamMirrored}
@@ -2824,6 +3044,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 													onSelectZoom={handleSelectZoom}
 													onZoomFocusChange={handleZoomFocusChange}
 													onZoomFocusDragEnd={commitState}
+													onZoomAreaChange={handleZoomAreaChange}
 													isPlaying={isPlaying}
 													showShadow={shadowIntensity > 0}
 													shadowIntensity={shadowIntensity}
@@ -2889,11 +3110,20 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 										onZoomDepthChange={(depth) => selectedZoomId && handleZoomDepthChange(depth)}
 										selectedZoomCustomScale={
 											selectedZoomId
-												? (zoomRegions.find((z) => z.id === selectedZoomId)?.customScale ?? null)
+												? selectedZoomRegion
+													? getZoomScale(selectedZoomRegion)
+													: null
 												: null
 										}
 										onZoomCustomScaleChange={handleZoomCustomScaleChange}
 										onZoomCustomScaleCommit={handleZoomCustomScaleCommit}
+										selectedZoomArea={
+											zoomRegions.find((region) => region.id === selectedZoomId)?.area
+										}
+										onZoomAreaToggle={handleZoomAreaToggle}
+										onZoomAreaChange={(area) =>
+											selectedZoomId && handleZoomAreaChange(selectedZoomId, area)
+										}
 										onZoomPreviewStart={() => setIsPreviewingZoom(true)}
 										onZoomPreviewEnd={() => setIsPreviewingZoom(false)}
 										selectedZoomFocusMode={
@@ -3117,6 +3347,13 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 										})
 									}
 									videoUrl={videoPath ?? undefined}
+									microphoneAudioUrl={microphoneAudioPath ?? undefined}
+									microphoneOffsetMs={microphoneOffsetMs}
+									onMicrophoneOffsetChange={setMicrophoneOffsetMs}
+									microphoneGain={microphoneGain}
+									onMicrophoneGainChange={setMicrophoneGain}
+									microphoneMuted={microphoneMuted}
+									onMicrophoneMutedChange={setMicrophoneMuted}
 									showTrimWaveform={showTrimWaveform}
 									captionsLabel={t("autoCaptions.button")}
 									isGeneratingCaptions={isAutoCaptioning}

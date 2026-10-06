@@ -8,9 +8,14 @@ export default defineConfig({
 		browser: {
 			enabled: true,
 			provider: playwright({
-				launch: {
+				launchOptions: {
+					executablePath: process.env.OPENSCREEN_TEST_BROWSER_EXECUTABLE,
 					// Software WebGL so Pixi.js works in headless CI without a GPU.
-					args: ["--enable-unsafe-swiftshader", "--use-gl=swiftshader"],
+					args: [
+						"--enable-unsafe-swiftshader",
+						"--use-gl=swiftshader",
+						"--autoplay-policy=no-user-gesture-required",
+					],
 				},
 			}),
 			headless: true,

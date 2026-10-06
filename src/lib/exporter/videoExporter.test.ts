@@ -107,6 +107,15 @@ describe("isSourceCopyFastPathEligible", () => {
 			),
 		).toBe(false);
 	});
+
+	it("rejects source copy when a separate microphone track must be mixed", () => {
+		expect(
+			isSourceCopyFastPathEligible(
+				createConfig({ microphoneAudioUrl: "recording-microphone.wav" }),
+				{ width: 1920, height: 1080 },
+			),
+		).toBe(false);
+	});
 });
 
 describe("getSourceCopyFastPathBlockers", () => {

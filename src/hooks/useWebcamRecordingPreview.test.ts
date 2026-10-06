@@ -117,6 +117,7 @@ describe("webcam viewer connection", () => {
 		expect(settings).toHaveBeenCalledWith({
 			cursorCaptureMode: "hidden",
 			webcamEnabled: true,
+			paused: false,
 			webcamStreamId: "camera-stream",
 		});
 		act(() => receive({ id: "", type: "close" }));

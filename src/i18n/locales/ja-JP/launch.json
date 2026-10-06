@@ -51,7 +51,14 @@
 		"defaultCamera": "デフォルトのカメラ",
 		"searching": "検索中...",
 		"noneFound": "カメラが見つかりません",
-		"unavailable": "カメラが利用できません"
+		"unavailable": "カメラが利用できません",
+		"cameraControls": "カメラ調整",
+		"controlsUnavailable": "カメラ調整を利用できません",
+		"noControls": "調整可能な項目がありません",
+		"auto": "自動",
+		"refreshControls": "カメラ調整を更新",
+		"closeControls": "カメラ調整を閉じる",
+		"resetControl": "既定値に戻す"
 	},
 	"cursor": {
 		"show": "カーソルを表示",

@@ -90,6 +90,7 @@ export default function Item({
 			style={safeItemStyle}
 			{...listeners}
 			{...attributes}
+			data-timeline-item-id={id}
 			onPointerDownCapture={() => onSelect?.()}
 			className="group"
 		>
