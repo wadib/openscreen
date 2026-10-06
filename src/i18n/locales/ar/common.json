@@ -32,6 +32,8 @@
 		"toggleFullScreen": "ملء الشاشة",
 		"recordingStatus": "جاري التسجيل: {{source}}",
 		"about": "حول OpenScreen",
+		"help": "المساعدة",
+		"openHelp": "فتح المساعدة",
 		"services": "خدمات",
 		"hide": "إخفاء OpenScreen",
 		"hideOthers": "إخفاء الآخرين",

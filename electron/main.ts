@@ -26,6 +26,7 @@ import {
 	createCountdownOverlayWindow,
 	createEditorWindow,
 	createHudOverlayWindow,
+	createSettingsWindow,
 	createSourceSelectorWindow,
 } from "./windows";
 
@@ -156,8 +157,8 @@ function setupApplicationMenu() {
 			label: app.name,
 			submenu: [
 				{
-					role: "about",
 					label: mainT("common", "actions.about") || "About OpenScreen",
+					click: () => createSettingsWindow("about"),
 				},
 				{ type: "separator" },
 				{
@@ -291,6 +292,25 @@ function setupApplicationMenu() {
 							label: mainT("common", "actions.close") || "Close",
 						},
 					],
+		},
+		{
+			label: mainT("common", "actions.help") || "Help",
+			role: "help",
+			submenu: [
+				{
+					label: mainT("common", "actions.openHelp") || "Open Help",
+					click: () => createSettingsWindow("help"),
+				},
+				...(isMac
+					? []
+					: [
+							{ type: "separator" as const },
+							{
+								label: mainT("common", "actions.about") || "About OpenScreen",
+								click: () => createSettingsWindow("about"),
+							},
+						]),
+			],
 		},
 	);
 

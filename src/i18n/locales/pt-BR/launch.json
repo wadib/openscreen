@@ -74,6 +74,49 @@
 	"recording": {
 		"selectSource": "Por favor, selecione uma fonte para gravar"
 	},
+	"help": {
+		"title": "Ajuda",
+		"intro": "Orientação rápida para gravar e editar com o Openscreen.",
+		"recordingTitle": "Gravação",
+		"recordingDescription": "Escolha uma tela ou janela, ative as entradas necessárias e inicie a gravação. As escolhas de microfone, câmera, cursor e prévia ficam salvas.",
+		"studioTitle": "Open Studio",
+		"studioDescription": "Abra uma gravação ou projeto para editar zoom, cortes, áreas desfocadas, velocidade, cursor, câmera e áudio.",
+		"exportTitle": "Exportação",
+		"exportDescription": "Exporte um MP4 ou GIF editado ou salve um projeto do Openscreen para continuar depois.",
+		"mcpTitle": "Acesso de agentes de IA",
+		"mcpDescription": "O Studio MCP {{version}} oferece {{count}} ferramentas locais do Studio. Ele pode editar, visualizar, salvar cópias e exportar, mas não pode iniciar gravações, executar comandos, excluir, sobrescrever ou enviar arquivos.",
+		"troubleshootingTitle": "Solução de problemas",
+		"troubleshootingDescription": "Se a prévia ou captura não estiver disponível, selecione a fonte novamente e confira as permissões de tela, microfone e câmera do sistema.",
+		"openShortcuts": "Ver atalhos",
+		"reportIssue": "Relatar um problema"
+	},
+	"about": {
+		"title": "Sobre",
+		"description": "Gravação e edição de tela para trabalho focado.",
+		"versionLabel": "Openscreen e Open Studio",
+		"loadingVersion": "Carregando...",
+		"systemLabel": "Sistema",
+		"mcpLabel": "Protocolo Studio MCP",
+		"mcpTools": "{{count}} ferramentas",
+		"openSource": "O Openscreen é um software de código aberto.",
+		"repository": "Código-fonte",
+		"license": "Licença",
+		"componentsTitle": "Componentes",
+		"componentsBundled": "Os componentes são testados juntos e atualizados com o Openscreen.",
+		"component": {
+			"studioMcp": "Protocolo Studio MCP",
+			"captureEngine": "Mecanismo de captura",
+			"blurry": "Blurry",
+			"cameraControls": "Controles da câmera"
+		},
+		"checkUpdates": "Verificar atualizações",
+		"checkingUpdates": "Verificando...",
+		"updateAvailable": "O Openscreen {{version}} está disponível.",
+		"upToDate": "O Openscreen está atualizado.",
+		"manifestUnavailable": "Esta versão não inclui dados detalhados dos componentes.",
+		"viewRelease": "Ver versão",
+		"updateCheckFailed": "Não foi possível verificar atualizações. Confira a conexão e tente novamente."
+	},
 	"language": "Idioma",
 	"systemLanguagePrompt": {
 		"title": "Usar o idioma do seu sistema?",

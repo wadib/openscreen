@@ -5,17 +5,28 @@ import type { Locale } from "@/i18n/config";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
 import type { AfterRecording } from "../../../electron/afterRecording";
 import type { QuietSupport } from "../../../electron/recording/quiet-recording";
+import { isUpdateCheckEnabled } from "../../../electron/update-checker";
 import { Button } from "../ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Tooltip } from "../ui/tooltip";
 import { ShortcutsConfigDialog } from "../video-editor/ShortcutsConfigDialog";
+import { type AppInfo, SettingsAbout } from "./SettingsAbout";
+import { SettingsHelp } from "./SettingsHelp";
+
+const SETTINGS_SECTIONS = new Set(["general", "shortcuts", "help", "about"]);
+
+function getInitialSection() {
+	const requested = new URLSearchParams(window.location.search).get("section") ?? "general";
+	return SETTINGS_SECTIONS.has(requested) ? requested : "general";
+}
 
 export function SettingsWindow() {
 	const t = useScopedT("launch");
 	const common = useScopedT("common");
 	const { locale, setLocale, resolveSystemLocaleSuggestion } = useI18n();
 	const [language, setLanguage] = useState(locale);
-	const [tab, setTab] = useState("general");
+	const [tab, setTab] = useState(getInitialSection);
+	const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
 	const shortcutsT = useScopedT("shortcuts");
 	const [mode, setMode] = useState<AfterRecording["mode"]>("editor");
 	const [editorPath, setEditorPath] = useState("");
@@ -32,6 +43,23 @@ export function SettingsWindow() {
 	useEffect(() => {
 		document.title = t("settings.title");
 	}, [t]);
+	useEffect(() => {
+		return window.electronAPI.onSettingsSectionChanged((section) => {
+			if (SETTINGS_SECTIONS.has(section)) setTab(section);
+		});
+	}, []);
+	useEffect(() => {
+		let active = true;
+		void window.electronAPI.getAppInfo().then(
+			(info) => {
+				if (active) setAppInfo(info);
+			},
+			() => undefined,
+		);
+		return () => {
+			active = false;
+		};
+	}, []);
 	useEffect(() => {
 		let active = true;
 		void window.electronAPI
@@ -129,6 +157,12 @@ export function SettingsWindow() {
 				</TabsTrigger>
 				<TabsTrigger value="shortcuts" disabled={saving || shortcutSaving || choosing}>
 					{shortcutsT("title")}
+				</TabsTrigger>
+				<TabsTrigger value="help" disabled={saving || shortcutSaving || choosing}>
+					{t("help.title")}
+				</TabsTrigger>
+				<TabsTrigger value="about" disabled={saving || shortcutSaving || choosing}>
+					{t("about.title")}
 				</TabsTrigger>
 			</TabsList>
 			<TabsContent
@@ -285,6 +319,23 @@ export function SettingsWindow() {
 					onClose={close}
 					onSavingChange={setShortcutSaving}
 				/>
+			</TabsContent>
+			<TabsContent
+				forceMount
+				value="help"
+				className="m-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+			>
+				<SettingsHelp
+					onOpenShortcuts={() => setTab("shortcuts")}
+					updatesEnabled={isUpdateCheckEnabled(appInfo?.version)}
+				/>
+			</TabsContent>
+			<TabsContent
+				forceMount
+				value="about"
+				className="m-0 flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+			>
+				<SettingsAbout appInfo={appInfo} />
 			</TabsContent>
 		</Tabs>
 	);

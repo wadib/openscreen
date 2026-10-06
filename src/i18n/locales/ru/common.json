@@ -32,6 +32,8 @@
 		"toggleFullScreen": "Полноэкранный режим",
 		"recordingStatus": "Запись: {{source}}",
 		"about": "О OpenScreen",
+		"help": "Справка",
+		"openHelp": "Открыть справку",
 		"services": "Сервисы",
 		"hide": "Скрыть OpenScreen",
 		"hideOthers": "Скрыть остальные",

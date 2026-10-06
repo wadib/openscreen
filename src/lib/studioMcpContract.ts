@@ -1,4 +1,5 @@
 export type StudioArguments = Record<string, unknown>;
+export const STUDIO_MCP_VERSION = "1.0.0";
 export interface StudioCommand {
 	id: string;
 	name: string;

@@ -76,6 +76,49 @@
 	"recording": {
 		"selectSource": "Por favor selecciona una fuente para grabar"
 	},
+	"help": {
+		"title": "Ayuda",
+		"intro": "Guía rápida para grabar y editar con Openscreen.",
+		"recordingTitle": "Grabación",
+		"recordingDescription": "Elige una pantalla o ventana, activa las entradas necesarias e inicia la grabación. Se recuerdan el micrófono, la cámara, el cursor y la vista previa seleccionados.",
+		"studioTitle": "Open Studio",
+		"studioDescription": "Abre una grabación o proyecto para editar zoom, recortes, zonas desenfocadas, velocidad, cursor, cámara y audio.",
+		"exportTitle": "Exportación",
+		"exportDescription": "Exporta un MP4 o GIF editado, o guarda un proyecto de Openscreen para continuar después.",
+		"mcpTitle": "Acceso para agentes de IA",
+		"mcpDescription": "Studio MCP {{version}} ofrece {{count}} herramientas locales de Studio. Puede editar, previsualizar, guardar copias y exportar, pero no puede iniciar grabaciones, ejecutar comandos, eliminar, sobrescribir ni subir archivos.",
+		"troubleshootingTitle": "Solución de problemas",
+		"troubleshootingDescription": "Si la vista previa o la captura no están disponibles, vuelve a elegir la fuente y revisa los permisos de pantalla, micrófono y cámara del sistema.",
+		"openShortcuts": "Ver atajos",
+		"reportIssue": "Informar de un problema"
+	},
+	"about": {
+		"title": "Acerca de",
+		"description": "Grabación y edición de pantalla para trabajar con concentración.",
+		"versionLabel": "Openscreen y Open Studio",
+		"loadingVersion": "Cargando...",
+		"systemLabel": "Sistema",
+		"mcpLabel": "Protocolo Studio MCP",
+		"mcpTools": "{{count}} herramientas",
+		"openSource": "Openscreen es software de código abierto.",
+		"repository": "Código fuente",
+		"license": "Licencia",
+		"componentsTitle": "Componentes",
+		"componentsBundled": "Los componentes se prueban juntos y se actualizan con Openscreen.",
+		"component": {
+			"studioMcp": "Protocolo Studio MCP",
+			"captureEngine": "Motor de captura",
+			"blurry": "Blurry",
+			"cameraControls": "Controles de cámara"
+		},
+		"checkUpdates": "Buscar actualizaciones",
+		"checkingUpdates": "Buscando...",
+		"updateAvailable": "Openscreen {{version}} está disponible.",
+		"upToDate": "Openscreen está actualizado.",
+		"manifestUnavailable": "Esta versión no incluye datos detallados de los componentes.",
+		"viewRelease": "Ver versión",
+		"updateCheckFailed": "No se pudieron buscar actualizaciones. Comprueba la conexión e inténtalo de nuevo."
+	},
 	"language": "Idioma",
 	"systemLanguagePrompt": {
 		"title": "¿Usar el idioma del sistema?",

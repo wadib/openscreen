@@ -32,6 +32,8 @@
 		"toggleFullScreen": "Basculer en plein écran",
 		"recordingStatus": "Enregistrement : {{source}}",
 		"about": "À propos d’OpenScreen",
+		"help": "Aide",
+		"openHelp": "Ouvrir l’aide",
 		"services": "Services",
 		"hide": "Masquer OpenScreen",
 		"hideOthers": "Masquer les autres",

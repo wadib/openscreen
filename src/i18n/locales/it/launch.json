@@ -76,6 +76,49 @@
 	"recording": {
 		"selectSource": "Seleziona una sorgente da registrare"
 	},
+	"help": {
+		"title": "Aiuto",
+		"intro": "Guida rapida per registrare e modificare con Openscreen.",
+		"recordingTitle": "Registrazione",
+		"recordingDescription": "Scegli uno schermo o una finestra, abilita gli ingressi necessari e avvia la registrazione. Le scelte di microfono, videocamera, cursore e anteprima vengono ricordate.",
+		"studioTitle": "Open Studio",
+		"studioDescription": "Apri una registrazione o un progetto per modificare zoom, tagli, aree sfocate, velocità, cursore, videocamera e audio.",
+		"exportTitle": "Esportazione",
+		"exportDescription": "Esporta un MP4 o GIF modificato oppure salva un progetto Openscreen per continuare in seguito.",
+		"mcpTitle": "Accesso agenti IA",
+		"mcpDescription": "Studio MCP {{version}} offre {{count}} strumenti Studio locali. Può modificare, mostrare anteprime, salvare copie ed esportare, ma non può avviare registrazioni, eseguire comandi, eliminare, sovrascrivere o caricare file.",
+		"troubleshootingTitle": "Risoluzione dei problemi",
+		"troubleshootingDescription": "Se anteprima o acquisizione non sono disponibili, seleziona di nuovo la sorgente e controlla i permessi di schermo, microfono e videocamera del sistema.",
+		"openShortcuts": "Visualizza scorciatoie",
+		"reportIssue": "Segnala un problema"
+	},
+	"about": {
+		"title": "Informazioni",
+		"description": "Registrazione e modifica dello schermo per lavorare con concentrazione.",
+		"versionLabel": "Openscreen e Open Studio",
+		"loadingVersion": "Caricamento...",
+		"systemLabel": "Sistema",
+		"mcpLabel": "Protocollo Studio MCP",
+		"mcpTools": "{{count}} strumenti",
+		"openSource": "Openscreen è software open source.",
+		"repository": "Codice sorgente",
+		"license": "Licenza",
+		"componentsTitle": "Componenti",
+		"componentsBundled": "I componenti vengono testati insieme e aggiornati con Openscreen.",
+		"component": {
+			"studioMcp": "Protocollo Studio MCP",
+			"captureEngine": "Motore di acquisizione",
+			"blurry": "Blurry",
+			"cameraControls": "Controlli videocamera"
+		},
+		"checkUpdates": "Controlla aggiornamenti",
+		"checkingUpdates": "Controllo...",
+		"updateAvailable": "È disponibile Openscreen {{version}}.",
+		"upToDate": "Openscreen è aggiornato.",
+		"manifestUnavailable": "Questa versione non include dati dettagliati sui componenti.",
+		"viewRelease": "Visualizza versione",
+		"updateCheckFailed": "Impossibile controllare gli aggiornamenti. Verifica la connessione e riprova."
+	},
 	"language": "Lingua",
 	"systemLanguagePrompt": {
 		"title": "Usare la lingua del sistema?",

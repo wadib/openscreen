@@ -69,6 +69,49 @@
 	"recording": {
 		"selectSource": "Vui lòng chọn một nguồn để ghi"
 	},
+	"help": {
+		"title": "Trợ giúp",
+		"intro": "Hướng dẫn nhanh để ghi và chỉnh sửa bằng Openscreen.",
+		"recordingTitle": "Ghi hình",
+		"recordingDescription": "Chọn màn hình hoặc cửa sổ, bật các đầu vào cần thiết rồi bắt đầu ghi. Lựa chọn micrô, camera, con trỏ và xem trước sẽ được ghi nhớ.",
+		"studioTitle": "Open Studio",
+		"studioDescription": "Mở bản ghi hoặc dự án để chỉnh độ phóng, cắt, vùng làm mờ, tốc độ, con trỏ, bố cục camera và âm thanh.",
+		"exportTitle": "Xuất",
+		"exportDescription": "Xuất MP4 hoặc GIF đã chỉnh sửa, hoặc lưu dự án Openscreen để tiếp tục chỉnh sửa sau.",
+		"mcpTitle": "Quyền truy cập của tác nhân AI",
+		"mcpDescription": "Studio MCP {{version}} cung cấp {{count}} công cụ Studio cục bộ. Tác nhân có thể chỉnh sửa, xem trước, lưu bản sao và xuất, nhưng không thể bắt đầu ghi, chạy lệnh hệ thống, xóa, ghi đè hoặc tải tệp lên.",
+		"troubleshootingTitle": "Khắc phục sự cố",
+		"troubleshootingDescription": "Nếu không thể xem trước hoặc ghi hình, hãy chọn lại nguồn và kiểm tra quyền màn hình, micrô và camera trong cài đặt hệ thống.",
+		"openShortcuts": "Xem phím tắt",
+		"reportIssue": "Báo cáo sự cố"
+	},
+	"about": {
+		"title": "Giới thiệu",
+		"description": "Ghi và chỉnh sửa màn hình cho công việc tập trung.",
+		"versionLabel": "Openscreen và Open Studio",
+		"loadingVersion": "Đang tải...",
+		"systemLabel": "Hệ thống",
+		"mcpLabel": "Giao thức Studio MCP",
+		"mcpTools": "{{count}} công cụ",
+		"openSource": "Openscreen là phần mềm mã nguồn mở.",
+		"repository": "Mã nguồn",
+		"license": "Giấy phép",
+		"componentsTitle": "Thành phần",
+		"componentsBundled": "Các thành phần được kiểm tra tương thích và cập nhật cùng Openscreen.",
+		"component": {
+			"studioMcp": "Giao thức Studio MCP",
+			"captureEngine": "Bộ máy ghi hình",
+			"blurry": "Blurry",
+			"cameraControls": "Điều khiển camera"
+		},
+		"checkUpdates": "Kiểm tra cập nhật",
+		"checkingUpdates": "Đang kiểm tra...",
+		"updateAvailable": "Đã có Openscreen {{version}}.",
+		"upToDate": "Openscreen đã được cập nhật.",
+		"manifestUnavailable": "Bản phát hành này không có dữ liệu phiên bản thành phần chi tiết.",
+		"viewRelease": "Xem bản phát hành",
+		"updateCheckFailed": "Không thể kiểm tra cập nhật. Hãy kiểm tra kết nối và thử lại."
+	},
 	"language": "Ngôn ngữ",
 	"systemLanguagePrompt": {
 		"title": "Sử dụng ngôn ngữ hệ thống của bạn?",

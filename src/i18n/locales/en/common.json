@@ -32,6 +32,8 @@
 		"toggleFullScreen": "Toggle Full Screen",
 		"recordingStatus": "Recording: {{source}}",
 		"about": "About OpenScreen",
+		"help": "Help",
+		"openHelp": "Open Help",
 		"services": "Services",
 		"hide": "Hide OpenScreen",
 		"hideOthers": "Hide Others",

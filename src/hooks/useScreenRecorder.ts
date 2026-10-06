@@ -128,6 +128,9 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const recordingId = useRef<number>(0);
 	const accumulatedDurationMs = useRef(0);
 	const segmentStartedAt = useRef<number | null>(null);
+	// Native pause/resume awaits the main process; a second toggle in that window would read
+	// the stale paused flag and repeat the same command instead of reversing it.
+	const pauseToggleInFlight = useRef(false);
 	const finalizingRecordingId = useRef<number | null>(null);
 	const allowAutoFinalize = useRef(false);
 	const discardRecordingId = useRef<number | null>(null);
@@ -1664,6 +1667,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 	const togglePaused = () => {
 		const activeNativeWindowsRecording = nativeWindowsRecording.current;
 		if (activeNativeWindowsRecording && !activeNativeWindowsRecording.finalizing) {
+			if (pauseToggleInFlight.current) return;
+			pauseToggleInFlight.current = true;
 			void (async () => {
 				const activeMicrophoneRecorder = activeNativeWindowsRecording.microphoneRecorder?.recorder;
 				const activeWebcamRecorder = activeNativeWindowsRecording.webcamRecorder?.recorder;
@@ -1704,6 +1709,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				} catch (error) {
 					console.error("Failed to toggle native Windows pause state:", error);
 					toast.error(error instanceof Error ? error.message : "Failed to toggle pause state");
+				} finally {
+					pauseToggleInFlight.current = false;
 				}
 			})();
 			return;
@@ -1711,6 +1718,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 
 		const activeNativeMacRecording = nativeMacRecording.current;
 		if (activeNativeMacRecording && !activeNativeMacRecording.finalizing) {
+			if (pauseToggleInFlight.current) return;
+			pauseToggleInFlight.current = true;
 			void (async () => {
 				const activeWebcamRecorder = webcamRecorder.current?.recorder;
 				try {
@@ -1744,6 +1753,8 @@ export function useScreenRecorder(): UseScreenRecorderReturn {
 				} catch (error) {
 					console.error("Failed to toggle native macOS pause state:", error);
 					toast.error(error instanceof Error ? error.message : "Failed to toggle pause state");
+				} finally {
+					pauseToggleInFlight.current = false;
 				}
 			})();
 			return;

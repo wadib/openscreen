@@ -32,6 +32,8 @@
 		"toggleFullScreen": "전체 화면 전환",
 		"recordingStatus": "녹화 중: {{source}}",
 		"about": "OpenScreen 정보",
+		"help": "도움말",
+		"openHelp": "도움말 열기",
 		"services": "서비스",
 		"hide": "OpenScreen 숨기기",
 		"hideOthers": "다른 항목 숨기기",

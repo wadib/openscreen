@@ -32,6 +32,8 @@
 		"toggleFullScreen": "Tela Cheia",
 		"recordingStatus": "Gravando: {{source}}",
 		"about": "Sobre o OpenScreen",
+		"help": "Ajuda",
+		"openHelp": "Abrir ajuda",
 		"services": "Serviços",
 		"hide": "Ocultar OpenScreen",
 		"hideOthers": "Ocultar Outros",

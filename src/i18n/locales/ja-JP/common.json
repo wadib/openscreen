@@ -32,6 +32,8 @@
 		"toggleFullScreen": "フルスクリーンを切り替え",
 		"recordingStatus": "録画中: {{source}}",
 		"about": "OpenScreenについて",
+		"help": "ヘルプ",
+		"openHelp": "ヘルプを開く",
 		"services": "サービス",
 		"hide": "OpenScreenを隠す",
 		"hideOthers": "ほかを隠す",

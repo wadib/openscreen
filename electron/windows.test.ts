@@ -23,7 +23,12 @@ vi.mock("electron", async () => {
 		}
 		loadFile = vi.fn();
 		loadURL = vi.fn();
+		center = vi.fn();
+		close = vi.fn();
+		focus = vi.fn();
+		setMenu = vi.fn();
 		setSize = vi.fn();
+		show = vi.fn();
 	}
 	return {
 		BrowserWindow: MockWindow,
@@ -69,4 +74,24 @@ it("keeps styling and load notifications for a live editor", async () => {
 	win.webContents.emit("did-finish-load");
 	expect(win.webContents.insertCSS).toHaveBeenCalledOnce();
 	expect(win.webContents.send).toHaveBeenCalledWith("main-process-message", expect.any(String));
+});
+
+it("opens a requested settings section and reuses the live window", async () => {
+	const { createSettingsWindow } = await import("./windows");
+	const win = createSettingsWindow("help") as unknown as {
+		loadFile: ReturnType<typeof vi.fn>;
+		show: ReturnType<typeof vi.fn>;
+		focus: ReturnType<typeof vi.fn>;
+		contents: { send: ReturnType<typeof vi.fn> };
+	};
+	expect(win.loadFile).toHaveBeenCalledWith(
+		expect.any(String),
+		expect.objectContaining({ query: { windowType: "settings", section: "help" } }),
+	);
+
+	const reused = createSettingsWindow("about");
+	expect(reused).toBe(win);
+	expect(win.contents.send).toHaveBeenCalledWith("settings-select-section", "about");
+	expect(win.show).toHaveBeenCalledOnce();
+	expect(win.focus).toHaveBeenCalledOnce();
 });

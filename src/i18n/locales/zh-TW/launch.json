@@ -76,6 +76,49 @@
 	"recording": {
 		"selectSource": "請選擇要錄製的來源"
 	},
+	"help": {
+		"title": "說明",
+		"intro": "使用 Openscreen 錄製與編輯的快速指南。",
+		"recordingTitle": "錄製",
+		"recordingDescription": "選擇螢幕或視窗，啟用需要的輸入，然後開始錄製。應用程式會記住所選的麥克風、攝影機、游標與預覽設定。",
+		"studioTitle": "Open Studio",
+		"studioDescription": "開啟錄製或專案，可編輯縮放、裁切、模糊區域、播放速度、游標、攝影機配置與音訊。",
+		"exportTitle": "匯出",
+		"exportDescription": "匯出編輯後的 MP4 或 GIF，或儲存 Openscreen 專案以便稍後繼續編輯。",
+		"mcpTitle": "AI 代理程式存取",
+		"mcpDescription": "Studio MCP {{version}} 提供 {{count}} 個本機 Studio 工具。代理程式可以編輯、預覽、儲存副本與匯出，但無法開始錄製、執行 shell 命令、刪除、覆寫或上傳檔案。",
+		"troubleshootingTitle": "疑難排解",
+		"troubleshootingDescription": "如果預覽或擷取無法使用，請重新選擇來源，並在系統設定中確認螢幕、麥克風與攝影機權限。",
+		"openShortcuts": "檢視快速鍵",
+		"reportIssue": "回報問題"
+	},
+	"about": {
+		"title": "關於",
+		"description": "為專注工作而設計的螢幕錄製與編輯。",
+		"versionLabel": "Openscreen 與 Open Studio",
+		"loadingVersion": "載入中...",
+		"systemLabel": "系統",
+		"mcpLabel": "Studio MCP 協定",
+		"mcpTools": "{{count}} 個工具",
+		"openSource": "Openscreen 是開放原始碼軟體。",
+		"repository": "原始碼",
+		"license": "授權條款",
+		"componentsTitle": "元件",
+		"componentsBundled": "元件經過相容性測試，並隨 Openscreen 一起更新。",
+		"component": {
+			"studioMcp": "Studio MCP 協定",
+			"captureEngine": "擷取引擎",
+			"blurry": "Blurry",
+			"cameraControls": "攝影機控制"
+		},
+		"checkUpdates": "檢查更新",
+		"checkingUpdates": "正在檢查...",
+		"updateAvailable": "Openscreen {{version}} 已發佈。",
+		"upToDate": "Openscreen 已是最新版本。",
+		"manifestUnavailable": "此版本未包含詳細的元件版本資料。",
+		"viewRelease": "檢視版本",
+		"updateCheckFailed": "無法檢查更新。請確認網路連線後再試一次。"
+	},
 	"language": "語言",
 	"systemLanguagePrompt": {
 		"title": "要使用系統語言嗎？",

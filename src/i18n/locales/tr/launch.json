@@ -76,6 +76,49 @@
 	"recording": {
 		"selectSource": "Lütfen kayıt için bir kaynak seçin"
 	},
+	"help": {
+		"title": "Yardım",
+		"intro": "Openscreen ile kayıt ve düzenleme için kısa rehber.",
+		"recordingTitle": "Kayıt",
+		"recordingDescription": "Bir ekran veya pencere seçin, gereken girişleri etkinleştirin ve kaydı başlatın. Seçtiğiniz mikrofon, kamera, imleç ve önizleme ayarları hatırlanır.",
+		"studioTitle": "Open Studio",
+		"studioDescription": "Yakınlaştırma, kırpma, bulanık alanlar, hız, imleç, kamera düzeni ve sesi değiştirmek için bir kayıt veya proje açın.",
+		"exportTitle": "Dışa aktarma",
+		"exportDescription": "Düzenlenmiş MP4 veya GIF dosyasını dışa aktarın ya da daha sonra devam etmek için Openscreen projesini kaydedin.",
+		"mcpTitle": "Yapay zekâ aracısı erişimi",
+		"mcpDescription": "Studio MCP {{version}}, {{count}} yerel Studio aracı sunar. Düzenleme, önizleme, kopya kaydetme ve dışa aktarma yapabilir; kayıt başlatamaz, kabuk komutu çalıştıramaz, dosya silemez, üzerine yazamaz veya yükleyemez.",
+		"troubleshootingTitle": "Sorun giderme",
+		"troubleshootingDescription": "Önizleme veya yakalama kullanılamıyorsa kaynağı yeniden seçin ve sistem ayarlarında ekran, mikrofon ve kamera izinlerini doğrulayın.",
+		"openShortcuts": "Kısayolları göster",
+		"reportIssue": "Sorun bildir"
+	},
+	"about": {
+		"title": "Hakkında",
+		"description": "Odaklı çalışma için ekran kaydı ve düzenleme.",
+		"versionLabel": "Openscreen ve Open Studio",
+		"loadingVersion": "Yükleniyor...",
+		"systemLabel": "Sistem",
+		"mcpLabel": "Studio MCP protokolü",
+		"mcpTools": "{{count}} araç",
+		"openSource": "Openscreen açık kaynaklı bir yazılımdır.",
+		"repository": "Kaynak kodu",
+		"license": "Lisans",
+		"componentsTitle": "Bileşenler",
+		"componentsBundled": "Bileşenler birlikte uyumluluk testinden geçirilir ve Openscreen ile güncellenir.",
+		"component": {
+			"studioMcp": "Studio MCP protokolü",
+			"captureEngine": "Yakalama motoru",
+			"blurry": "Blurry",
+			"cameraControls": "Kamera kontrolleri"
+		},
+		"checkUpdates": "Güncellemeleri denetle",
+		"checkingUpdates": "Denetleniyor...",
+		"updateAvailable": "Openscreen {{version}} kullanılabilir.",
+		"upToDate": "Openscreen güncel.",
+		"manifestUnavailable": "Bu sürüm ayrıntılı bileşen sürüm verisi içermiyor.",
+		"viewRelease": "Sürümü görüntüle",
+		"updateCheckFailed": "Güncellemeler denetlenemedi. Bağlantınızı kontrol edip yeniden deneyin."
+	},
 	"language": "Dil",
 	"systemLanguagePrompt": {
 		"title": "Sistem dilinizi kullanmak ister misiniz?",

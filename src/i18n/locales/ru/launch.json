@@ -69,6 +69,49 @@
 	"recording": {
 		"selectSource": "Пожалуйста, выберите источник для записи"
 	},
+	"help": {
+		"title": "Справка",
+		"intro": "Краткое руководство по записи и монтажу в Openscreen.",
+		"recordingTitle": "Запись",
+		"recordingDescription": "Выберите экран или окно, включите нужные источники и начните запись. Выбранные микрофон, камера, курсор и предпросмотр сохраняются.",
+		"studioTitle": "Open Studio",
+		"studioDescription": "Откройте запись или проект, чтобы изменить масштаб, обрезку, области размытия, скорость, курсор, расположение камеры и звук.",
+		"exportTitle": "Экспорт",
+		"exportDescription": "Экспортируйте смонтированный MP4 или GIF либо сохраните проект Openscreen, чтобы продолжить позже.",
+		"mcpTitle": "Доступ ИИ-агентов",
+		"mcpDescription": "Studio MCP {{version}} предоставляет {{count}} локальных инструментов Studio. Он может редактировать, показывать предпросмотр, сохранять копии и экспортировать, но не может запускать запись, выполнять команды, удалять, перезаписывать или загружать файлы.",
+		"troubleshootingTitle": "Устранение неполадок",
+		"troubleshootingDescription": "Если предпросмотр или захват недоступен, выберите источник заново и проверьте системные разрешения экрана, микрофона и камеры.",
+		"openShortcuts": "Показать сочетания клавиш",
+		"reportIssue": "Сообщить о проблеме"
+	},
+	"about": {
+		"title": "О программе",
+		"description": "Запись и монтаж экрана для сосредоточенной работы.",
+		"versionLabel": "Openscreen и Open Studio",
+		"loadingVersion": "Загрузка...",
+		"systemLabel": "Система",
+		"mcpLabel": "Протокол Studio MCP",
+		"mcpTools": "Инструментов: {{count}}",
+		"openSource": "Openscreen — программное обеспечение с открытым исходным кодом.",
+		"repository": "Исходный код",
+		"license": "Лицензия",
+		"componentsTitle": "Компоненты",
+		"componentsBundled": "Компоненты проходят совместное тестирование и обновляются вместе с Openscreen.",
+		"component": {
+			"studioMcp": "Протокол Studio MCP",
+			"captureEngine": "Модуль захвата",
+			"blurry": "Blurry",
+			"cameraControls": "Управление камерой"
+		},
+		"checkUpdates": "Проверить обновления",
+		"checkingUpdates": "Проверка...",
+		"updateAvailable": "Доступен Openscreen {{version}}.",
+		"upToDate": "Установлена последняя версия Openscreen.",
+		"manifestUnavailable": "Этот выпуск не содержит подробных данных о версиях компонентов.",
+		"viewRelease": "Открыть выпуск",
+		"updateCheckFailed": "Не удалось проверить обновления. Проверьте подключение и повторите попытку."
+	},
 	"language": "Язык",
 	"systemLanguagePrompt": {
 		"title": "Использовать системный язык?",

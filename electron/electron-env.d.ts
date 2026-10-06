@@ -58,6 +58,14 @@ interface Window {
 		) => Promise<import("./afterRecording").AfterRecording>;
 		chooseRecordingEditor: () => Promise<string | null>;
 		closeSettings: () => Promise<void>;
+		getAppInfo: () => Promise<{
+			name: string;
+			version: string;
+			platform: NodeJS.Platform;
+			arch: string;
+		}>;
+		checkForUpdates: () => Promise<import("./update-checker").UpdateCheckResult>;
+		onSettingsSectionChanged: (callback: (section: string) => void) => () => void;
 		recordingVideoSaved: (filePath: string) => Promise<void>;
 		dismissRecordingVideo: () => Promise<{ success: boolean }>;
 		openFullEditor: () => Promise<void>;

@@ -80,6 +80,133 @@
 	"recording": {
 		"selectSource": "Please select a source to record"
 	},
+	"help": {
+		"title": "Help",
+		"intro": "Quick guidance for recording and editing with Openscreen.",
+		"recordingTitle": "Recording",
+		"recordingDescription": "Choose a screen or window, enable the inputs you need, then start recording. Your selected microphone, camera, cursor and preview settings are remembered.",
+		"studioTitle": "Open Studio",
+		"studioDescription": "Open a recording or project to edit zooms, trims, blur regions, playback speed, cursor, camera layout and audio.",
+		"exportTitle": "Export",
+		"exportDescription": "Export an edited MP4 or GIF, or save an Openscreen project when you want to continue editing later.",
+		"mcpTitle": "AI agent access",
+		"mcpDescription": "Studio MCP {{version}} provides {{count}} local Studio tools. It can edit, preview, save copies and export, but cannot start recording, run shell commands, delete, overwrite or upload files.",
+		"troubleshootingTitle": "Troubleshooting",
+		"troubleshootingDescription": "If preview or capture is unavailable, reselect the source and confirm screen, microphone and camera permissions in your system settings.",
+		"guide": {
+			"intro": "Choose a topic for complete instructions. The first guide covers the full recording workflow.",
+			"quickStart": {
+				"title": "Quick start",
+				"intro": "Record, review and save a video in one workflow.",
+				"step1": "Choose a full screen or application window from the source selector.",
+				"step2": "Enable the microphone, system audio, camera, cursor and preview you want in the recording.",
+				"step3": "Press Record. The countdown appears on the selected screen or window before capture starts.",
+				"step4": "Use Pause and Resume without creating a new recording, or Stop when the session is complete.",
+				"step5": "Open Studio, send the video to another editor, or export directly according to Settings."
+			},
+			"recording": {
+				"title": "Recording setup and controls",
+				"intro": "The control bar remains above other windows and remembers your selected modes and devices.",
+				"step1": "Screen records the complete monitor; Window follows the selected application and its supported popup surfaces.",
+				"step2": "Microphone and system audio are separate inputs. Choose the exact microphone from its menu and set its level there.",
+				"step3": "Camera enables the webcam overlay. Camera controls expose settings supported by the selected device.",
+				"step4": "Cursor mode controls whether the system cursor is burned in or captured as an editable Studio overlay.",
+				"step5": "Preview shows the selected source, cursor mode and webcam state before and during recording.",
+				"step6": "Settings controls quiet recording, after-recording behavior and when the control bar hides."
+			},
+			"pause": {
+				"title": "Pause, resume and stop",
+				"intro": "Pause and resume operate on the same synchronized recording session.",
+				"step1": "Pause stops captured video and audio time together; the paused interval is excluded from the result.",
+				"step2": "Resume continues the same media tracks and project without inserting the time spent paused.",
+				"step3": "Stop finalizes the media before applying the selected after-recording action. Long recordings can take time to finalize.",
+				"step4": "Cancel discards the active session. Use Stop when you need the recording preserved."
+			},
+			"studio": {
+				"title": "Open Studio editing",
+				"intro": "Studio edits a recording non-destructively and keeps the source media separate.",
+				"step1": "Open a video or .openscreen project. Project files retain timeline edits and references to their media.",
+				"step2": "Use timeline regions for trims, speed changes, zooms and editable blur effects.",
+				"step3": "Zoom regions support custom position, size and aspect ratio rather than only fixed presets.",
+				"step4": "Adjust cursor appearance, webcam layout and microphone mix from their Studio controls.",
+				"step5": "Preview the current timeline before export and use undo or redo while editing.",
+				"step6": "Save a project or copy before moving source recordings to another location."
+			},
+			"blur": {
+				"title": "Live blur and Studio blur",
+				"intro": "Live Blurry and editable Studio blur solve different parts of the workflow.",
+				"step1": "On Windows, the Blur button left of Cursor opens the original Blurry settings panel.",
+				"step2": "A green Blur button means Blurry is selected. Deselecting it sends Escape to clear the current selection.",
+				"step3": "Blurry affects the real desktop while recording; the preview reflects what the capture source can see.",
+				"step4": "Studio blur regions are timeline effects that can be moved, resized or removed after recording.",
+				"step5": "Blurry is Windows-only. Studio blur remains available for editing on supported desktop platforms."
+			},
+			"export": {
+				"title": "Save and export",
+				"intro": "Choose an output based on whether the work is finished or will be edited again.",
+				"step1": "Export MP4 for normal video delivery or GIF for short silent animations.",
+				"step2": "Direct export skips Studio after recording and writes the configured video output immediately.",
+				"step3": "Saving an .openscreen project preserves editable timeline data; it is not a playable video by itself.",
+				"step4": "The after-recording Export action can copy the saved video path to the clipboard.",
+				"step5": "Keep the source recording until the final exported file has been opened and checked."
+			},
+			"updates": {
+				"title": "Versions and updates",
+				"intro": "About shows the installed app, MCP and bundled component versions.",
+				"step1": "Check for updates is manual and contacts the official wadib/openscreen GitHub release endpoint.",
+				"step2": "Openscreen never downloads or installs an update without your action.",
+				"step3": "Capture engines, Blurry and camera controls are compatibility-tested and updated with the app installer.",
+				"step4": "A release component manifest enables exact per-component comparison; older releases fall back to app version status."
+			},
+			"mcp": {
+				"title": "Studio MCP for AI agents",
+				"intro": "Studio MCP {{version}} exposes {{count}} local Studio tools through the documented stdio server.",
+				"step1": "Agents can inspect status, open a project, review history and save a new project copy.",
+				"step2": "Agents can create or adjust zoom, trim, speed, microphone and layout edits through validated arguments.",
+				"step3": "Agents can preview, create snapshots and export through Studio's normal media pipeline.",
+				"step4": "Agents cannot start recording, run shell commands, delete or overwrite files, upload media or bypass destination checks."
+			},
+			"troubleshooting": {
+				"title": "Troubleshooting and recovery",
+				"intro": "Start with the source and permissions, then verify the saved media before changing the project.",
+				"step1": "Preview unavailable: reselect the screen or window, then confirm operating-system screen-recording permission.",
+				"step2": "Missing microphone or camera: select the device again and confirm microphone or camera permission in system settings.",
+				"step3": "No sound in Studio: verify the microphone waveform and selected track, then test an exported MP4 to separate playback from capture issues.",
+				"step4": "A long Stop operation can be finalizing the media. Do not terminate Openscreen while the recording is being saved.",
+				"step5": "Recordings and projects are retained in Openscreen's application-data recordings folder unless you choose another destination.",
+				"step6": "Use Report a problem with the app version, operating system, capture mode and exact error text."
+			}
+		},
+		"openShortcuts": "View shortcuts",
+		"reportIssue": "Report a problem"
+	},
+	"about": {
+		"title": "About",
+		"description": "Screen recording and editing for focused work.",
+		"versionLabel": "Openscreen and Open Studio",
+		"loadingVersion": "Loading...",
+		"systemLabel": "System",
+		"mcpLabel": "Studio MCP protocol",
+		"mcpTools": "{{count}} tools",
+		"openSource": "Openscreen is open-source software.",
+		"repository": "Source code",
+		"license": "License",
+		"componentsTitle": "Components",
+		"componentsBundled": "Components are compatibility-tested and updated together with Openscreen.",
+		"component": {
+			"studioMcp": "Studio MCP protocol",
+			"captureEngine": "Capture engine",
+			"blurry": "Blurry",
+			"cameraControls": "Camera controls"
+		},
+		"checkUpdates": "Check for updates",
+		"checkingUpdates": "Checking...",
+		"updateAvailable": "Openscreen {{version}} is available.",
+		"upToDate": "Openscreen is up to date.",
+		"manifestUnavailable": "This release does not include detailed component version data.",
+		"viewRelease": "View release",
+		"updateCheckFailed": "Could not check for updates. Check your connection and try again."
+	},
 	"language": "Language",
 	"systemLanguagePrompt": {
 		"title": "Use your system language?",

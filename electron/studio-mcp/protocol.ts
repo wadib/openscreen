@@ -1,4 +1,5 @@
 import {
+	STUDIO_MCP_VERSION,
 	STUDIO_TOOLS,
 	type StudioArguments,
 	validateStudioTool,
@@ -32,7 +33,7 @@ export async function handleStudioRpc(
 		return result({
 			protocolVersion: requested === "2025-03-26" ? requested : "2024-11-05",
 			capabilities: { tools: {} },
-			serverInfo: { name: "openscreen-studio", version: "1.0.0" },
+			serverInfo: { name: "openscreen-studio", version: STUDIO_MCP_VERSION },
 		});
 	}
 	if (rpc.method === "ping") return result({});

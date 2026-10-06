@@ -100,6 +100,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.invoke("save-after-recording-settings", settings),
 	chooseRecordingEditor: () => ipcRenderer.invoke("choose-recording-editor"),
 	closeSettings: () => ipcRenderer.invoke("close-settings"),
+	getAppInfo: () => ipcRenderer.invoke("get-app-info"),
+	checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
+	onSettingsSectionChanged: (callback: (section: string) => void) => {
+		const listener = (_event: Electron.IpcRendererEvent, section: string) => callback(section);
+		ipcRenderer.on("settings-select-section", listener);
+		return () => ipcRenderer.removeListener("settings-select-section", listener);
+	},
 	openFullEditor: () => {
 		return ipcRenderer.invoke("switch-to-editor");
 	},

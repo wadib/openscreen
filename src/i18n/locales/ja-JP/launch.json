@@ -76,6 +76,49 @@
 	"recording": {
 		"selectSource": "録画するソースを選択してください"
 	},
+	"help": {
+		"title": "ヘルプ",
+		"intro": "Openscreen で録画と編集を行うためのクイックガイドです。",
+		"recordingTitle": "録画",
+		"recordingDescription": "画面またはウィンドウを選び、必要な入力を有効にして録画を開始します。選択したマイク、カメラ、カーソル、プレビュー設定は保存されます。",
+		"studioTitle": "Open Studio",
+		"studioDescription": "録画やプロジェクトを開き、ズーム、トリミング、ぼかし範囲、再生速度、カーソル、カメラ配置、音声を編集できます。",
+		"exportTitle": "書き出し",
+		"exportDescription": "編集済みの MP4 または GIF を書き出すか、後で編集を続けるため Openscreen プロジェクトを保存します。",
+		"mcpTitle": "AI エージェントアクセス",
+		"mcpDescription": "Studio MCP {{version}} は {{count}} 個のローカル Studio ツールを提供します。編集、プレビュー、コピー保存、書き出しは可能ですが、録画開始、シェルコマンド実行、ファイルの削除、上書き、アップロードはできません。",
+		"troubleshootingTitle": "トラブルシューティング",
+		"troubleshootingDescription": "プレビューやキャプチャを利用できない場合は、ソースを選び直し、システム設定で画面、マイク、カメラの権限を確認してください。",
+		"openShortcuts": "ショートカットを表示",
+		"reportIssue": "問題を報告"
+	},
+	"about": {
+		"title": "このアプリについて",
+		"description": "集中した作業のための画面録画と編集。",
+		"versionLabel": "Openscreen / Open Studio",
+		"loadingVersion": "読み込み中...",
+		"systemLabel": "システム",
+		"mcpLabel": "Studio MCP プロトコル",
+		"mcpTools": "{{count}} 個のツール",
+		"openSource": "Openscreen はオープンソースソフトウェアです。",
+		"repository": "ソースコード",
+		"license": "ライセンス",
+		"componentsTitle": "コンポーネント",
+		"componentsBundled": "コンポーネントは互換性をまとめて検証し、Openscreen と共に更新されます。",
+		"component": {
+			"studioMcp": "Studio MCP プロトコル",
+			"captureEngine": "キャプチャエンジン",
+			"blurry": "Blurry",
+			"cameraControls": "カメラコントロール"
+		},
+		"checkUpdates": "更新を確認",
+		"checkingUpdates": "確認中...",
+		"updateAvailable": "Openscreen {{version}} を利用できます。",
+		"upToDate": "Openscreen は最新です。",
+		"manifestUnavailable": "このリリースには詳細なコンポーネントバージョン情報がありません。",
+		"viewRelease": "リリースを表示",
+		"updateCheckFailed": "更新を確認できませんでした。接続を確認して再試行してください。"
+	},
 	"language": "言語",
 	"systemLanguagePrompt": {
 		"title": "システム言語を使用しますか？",

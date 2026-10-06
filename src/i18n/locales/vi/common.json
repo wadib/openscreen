@@ -32,6 +32,8 @@
 		"toggleFullScreen": "Bật/tắt toàn màn hình",
 		"recordingStatus": "Đang ghi: {{source}}",
 		"about": "Giới thiệu OpenScreen",
+		"help": "Trợ giúp",
+		"openHelp": "Mở trợ giúp",
 		"services": "Dịch vụ",
 		"hide": "Ẩn OpenScreen",
 		"hideOthers": "Ẩn ứng dụng khác",

@@ -32,6 +32,8 @@
 		"toggleFullScreen": "Alternar pantalla completa",
 		"recordingStatus": "Grabando: {{source}}",
 		"about": "Acerca de OpenScreen",
+		"help": "Ayuda",
+		"openHelp": "Abrir ayuda",
 		"services": "Servicios",
 		"hide": "Ocultar OpenScreen",
 		"hideOthers": "Ocultar otros",

@@ -69,6 +69,49 @@
 	"recording": {
 		"selectSource": "يرجى تحديد مصدر للتسجيل"
 	},
+	"help": {
+		"title": "المساعدة",
+		"intro": "إرشادات سريعة للتسجيل والتحرير باستخدام Openscreen.",
+		"recordingTitle": "التسجيل",
+		"recordingDescription": "اختر شاشة أو نافذة، وفعّل المدخلات التي تحتاجها، ثم ابدأ التسجيل. يتم تذكر إعدادات الميكروفون والكاميرا والمؤشر والمعاينة.",
+		"studioTitle": "Open Studio",
+		"studioDescription": "افتح تسجيلاً أو مشروعاً لتحرير التكبير والقص ومناطق التمويه وسرعة التشغيل والمؤشر وتخطيط الكاميرا والصوت.",
+		"exportTitle": "التصدير",
+		"exportDescription": "صدّر ملف MP4 أو GIF محرراً، أو احفظ مشروع Openscreen لمتابعة التحرير لاحقاً.",
+		"mcpTitle": "وصول وكيل الذكاء الاصطناعي",
+		"mcpDescription": "يوفر Studio MCP {{version}} عدد {{count}} من أدوات Studio المحلية. يمكنه التحرير والمعاينة وحفظ نسخ والتصدير، لكنه لا يستطيع بدء التسجيل أو تشغيل أوامر النظام أو حذف الملفات أو استبدالها أو رفعها.",
+		"troubleshootingTitle": "استكشاف الأخطاء",
+		"troubleshootingDescription": "إذا كانت المعاينة أو الالتقاط غير متاحين، فأعد اختيار المصدر وتحقق من أذونات الشاشة والميكروفون والكاميرا في إعدادات النظام.",
+		"openShortcuts": "عرض الاختصارات",
+		"reportIssue": "الإبلاغ عن مشكلة"
+	},
+	"about": {
+		"title": "حول التطبيق",
+		"description": "تسجيل الشاشة وتحريرها للعمل المركّز.",
+		"versionLabel": "Openscreen وOpen Studio",
+		"loadingVersion": "جارٍ التحميل...",
+		"systemLabel": "النظام",
+		"mcpLabel": "بروتوكول Studio MCP",
+		"mcpTools": "{{count}} أداة",
+		"openSource": "Openscreen برنامج مفتوح المصدر.",
+		"repository": "الشفرة المصدرية",
+		"license": "الترخيص",
+		"componentsTitle": "المكونات",
+		"componentsBundled": "تُختبر المكونات للتوافق ويتم تحديثها مع Openscreen.",
+		"component": {
+			"studioMcp": "بروتوكول Studio MCP",
+			"captureEngine": "محرك الالتقاط",
+			"blurry": "Blurry",
+			"cameraControls": "عناصر تحكم الكاميرا"
+		},
+		"checkUpdates": "التحقق من التحديثات",
+		"checkingUpdates": "جارٍ التحقق...",
+		"updateAvailable": "يتوفر Openscreen {{version}}.",
+		"upToDate": "Openscreen محدّث.",
+		"manifestUnavailable": "لا يتضمن هذا الإصدار بيانات تفصيلية عن إصدارات المكونات.",
+		"viewRelease": "عرض الإصدار",
+		"updateCheckFailed": "تعذر التحقق من التحديثات. تحقق من الاتصال وحاول مرة أخرى."
+	},
 	"language": "اللغة",
 	"systemLanguagePrompt": {
 		"title": "هل تريد استخدام لغة نظامك؟",

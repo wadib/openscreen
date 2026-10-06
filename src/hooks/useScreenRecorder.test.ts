@@ -560,3 +560,34 @@ it("does not clear the controls when Cancel cannot stop native capture", async (
 	expect(result.current.recording).toBe(true);
 	expect(error).toHaveBeenCalledWith("Still running");
 });
+
+it("ignores a second pause toggle while the native pause is still in flight", async () => {
+	nativeStart.mockResolvedValue({
+		success: true,
+		recordingId: 456,
+		captureStartedAtMs: Date.now(),
+	});
+	let releasePause: (value: { success: boolean }) => void = () => undefined;
+	nativePause.mockImplementationOnce(
+		() =>
+			new Promise((resolve) => {
+				releasePause = resolve;
+			}),
+	);
+	const { result } = await startNativeRecording();
+
+	act(() => result.current.togglePaused());
+	act(() => result.current.togglePaused());
+	expect(nativePause).toHaveBeenCalledOnce();
+	expect(nativeResume).not.toHaveBeenCalled();
+
+	await act(async () => {
+		releasePause({ success: true });
+		await Promise.resolve();
+	});
+	expect(result.current.paused).toBe(true);
+
+	await act(async () => result.current.togglePaused());
+	expect(nativeResume).toHaveBeenCalledOnce();
+	expect(result.current.paused).toBe(false);
+});

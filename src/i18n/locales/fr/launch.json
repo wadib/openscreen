@@ -76,6 +76,49 @@
 	"recording": {
 		"selectSource": "Veuillez sélectionner une source à enregistrer"
 	},
+	"help": {
+		"title": "Aide",
+		"intro": "Guide rapide pour enregistrer et monter avec Openscreen.",
+		"recordingTitle": "Enregistrement",
+		"recordingDescription": "Choisissez un écran ou une fenêtre, activez les entrées nécessaires, puis lancez l’enregistrement. Le microphone, la caméra, le pointeur et l’aperçu sélectionnés sont mémorisés.",
+		"studioTitle": "Open Studio",
+		"studioDescription": "Ouvrez un enregistrement ou un projet pour modifier les zooms, coupes, zones floutées, la vitesse, le pointeur, la caméra et l’audio.",
+		"exportTitle": "Exportation",
+		"exportDescription": "Exportez un MP4 ou GIF monté, ou enregistrez un projet Openscreen pour le reprendre plus tard.",
+		"mcpTitle": "Accès des agents IA",
+		"mcpDescription": "Studio MCP {{version}} fournit {{count}} outils Studio locaux. Il peut monter, prévisualiser, enregistrer des copies et exporter, mais pas lancer un enregistrement, exécuter des commandes, supprimer, écraser ou téléverser des fichiers.",
+		"troubleshootingTitle": "Dépannage",
+		"troubleshootingDescription": "Si l’aperçu ou la capture est indisponible, resélectionnez la source et vérifiez les autorisations d’écran, de microphone et de caméra du système.",
+		"openShortcuts": "Voir les raccourcis",
+		"reportIssue": "Signaler un problème"
+	},
+	"about": {
+		"title": "À propos",
+		"description": "Enregistrement et montage d’écran pour un travail concentré.",
+		"versionLabel": "Openscreen et Open Studio",
+		"loadingVersion": "Chargement...",
+		"systemLabel": "Système",
+		"mcpLabel": "Protocole Studio MCP",
+		"mcpTools": "{{count}} outils",
+		"openSource": "Openscreen est un logiciel open source.",
+		"repository": "Code source",
+		"license": "Licence",
+		"componentsTitle": "Composants",
+		"componentsBundled": "Les composants sont testés ensemble et mis à jour avec Openscreen.",
+		"component": {
+			"studioMcp": "Protocole Studio MCP",
+			"captureEngine": "Moteur de capture",
+			"blurry": "Blurry",
+			"cameraControls": "Commandes de caméra"
+		},
+		"checkUpdates": "Rechercher des mises à jour",
+		"checkingUpdates": "Recherche...",
+		"updateAvailable": "Openscreen {{version}} est disponible.",
+		"upToDate": "Openscreen est à jour.",
+		"manifestUnavailable": "Cette version ne contient pas le détail des versions des composants.",
+		"viewRelease": "Voir la version",
+		"updateCheckFailed": "Impossible de rechercher les mises à jour. Vérifiez votre connexion et réessayez."
+	},
 	"language": "Langue",
 	"systemLanguagePrompt": {
 		"title": "Utiliser la langue de votre système ?",

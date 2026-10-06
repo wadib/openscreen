@@ -32,6 +32,8 @@
 		"toggleFullScreen": "Tam Ekranı Aç/Kapat",
 		"recordingStatus": "Kaydediliyor: {{source}}",
 		"about": "OpenScreen Hakkında",
+		"help": "Yardım",
+		"openHelp": "Yardımı aç",
 		"services": "Servisler",
 		"hide": "OpenScreen’i Gizle",
 		"hideOthers": "Diğerlerini Gizle",

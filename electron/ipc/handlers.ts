@@ -13,6 +13,7 @@ import {
 	desktopCapturer,
 	dialog,
 	ipcMain,
+	net,
 	screen,
 	shell,
 	systemPreferences,
@@ -64,8 +65,9 @@ import {
 	QuietRecordingController,
 } from "../recording/quiet-recording";
 import { validateFinalizedMp4 } from "../recording/validate-mp4";
-import { patchWebmDurationOnDisk } from "../recording/webm-duration";
+import { type DurationPatchResult, patchWebmDurationOnDisk } from "../recording/webm-duration";
 import { readWindowBounds } from "../recording/window-bounds";
+import { checkForUpdates } from "../update-checker";
 import {
 	closeRecordingPreviewWindow,
 	closeSettingsWindow,
@@ -342,6 +344,30 @@ function resolveRecordingOutputPath(fileName: string): string {
 
 function isValidDurationMs(value: number | undefined): value is number {
 	return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+/**
+ * A sidecar track whose media runs well past the session length kept recording through a
+ * pause and will drift against the screen. The duration patch would otherwise hide it, so
+ * leave a trace in the recording's diagnostic log (when it has one) for later repair.
+ */
+async function recordWebmTimelineMismatch(
+	createdAt: number,
+	track: "webcam" | "microphone",
+	filePath: string,
+	result: DurationPatchResult,
+): Promise<void> {
+	if (!result.timeline?.mismatch) return;
+	const diagnosticPath = path.join(RECORDINGS_DIR, `recording-${createdAt}.diagnostic.jsonl`);
+	try {
+		await fs.access(diagnosticPath);
+		await fs.appendFile(
+			diagnosticPath,
+			`${JSON.stringify({ at: new Date().toISOString(), event: "sidecar-timeline-mismatch", track, filePath, ...result.timeline })}\n`,
+		);
+	} catch {
+		// No diagnostic log for this recording (browser capture path); the console warning stands.
+	}
 }
 
 /**
@@ -1407,6 +1433,19 @@ async function loadRecordedSessionForVideoPath(
 	}
 }
 
+async function getDisplayVersion() {
+	if (app.isPackaged) return app.getVersion();
+	try {
+		const packageJson = JSON.parse(
+			await fs.readFile(path.join(process.env.APP_ROOT ?? process.cwd(), "package.json"), "utf8"),
+		) as { version?: unknown };
+		if (typeof packageJson.version === "string" && packageJson.version) return packageJson.version;
+	} catch {
+		// Fall back to Electron's metadata when a development package file is unavailable.
+	}
+	return app.getVersion();
+}
+
 export function registerIpcHandlers(
 	createEditorWindow: (exportOnly?: boolean, showInitially?: boolean) => void,
 	createSourceSelectorWindow: () => BrowserWindow,
@@ -1771,6 +1810,22 @@ export function registerIpcHandlers(
 	});
 	ipcMain.handle("close-settings", (event) => {
 		if (isSettingsWindow(event.sender.id)) closeSettingsWindow();
+	});
+	ipcMain.handle("get-app-info", async (event) => {
+		if (!isSettingsWindow(event.sender.id)) throw new Error("Settings window required");
+		return {
+			name: app.getName(),
+			version: await getDisplayVersion(),
+			platform: process.platform,
+			arch: process.arch,
+		};
+	});
+	ipcMain.handle("check-for-updates", async (event) => {
+		if (!isSettingsWindow(event.sender.id)) throw new Error("Settings window required");
+		const currentVersion = await getDisplayVersion();
+		return checkForUpdates(currentVersion, process.platform, (input, init) =>
+			net.fetch(input, init),
+		);
 	});
 	ipcMain.handle("finish-recording", async () => {
 		const preference = await readAfterRecording();
@@ -2822,10 +2877,20 @@ export function registerIpcHandlers(
 				patches.push(patchWebmDurationOnDisk(screenVideoPath, payload.durationMs));
 			}
 			if (webcamStreamed && webcamVideoPath) {
-				patches.push(patchWebmDurationOnDisk(webcamVideoPath, payload.durationMs));
+				const webcamPath = webcamVideoPath;
+				patches.push(
+					patchWebmDurationOnDisk(webcamPath, payload.durationMs).then((result) =>
+						recordWebmTimelineMismatch(createdAt, "webcam", webcamPath, result),
+					),
+				);
 			}
 			if (microphoneStreamed && microphoneAudioPath) {
-				patches.push(patchWebmDurationOnDisk(microphoneAudioPath, payload.durationMs));
+				const microphonePath = microphoneAudioPath;
+				patches.push(
+					patchWebmDurationOnDisk(microphonePath, payload.durationMs).then((result) =>
+						recordWebmTimelineMismatch(createdAt, "microphone", microphonePath, result),
+					),
+				);
 			}
 			await Promise.all(patches);
 		}

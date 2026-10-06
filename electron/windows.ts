@@ -22,6 +22,7 @@ const ASSET_BASE_URL_ARG = `--asset-base-url=${pathToFileURL(`${ASSET_BASE_DIR}$
 
 let hudOverlayWindow: BrowserWindow | null = null;
 let settingsWindow: BrowserWindow | null = null;
+export type SettingsSection = "general" | "shortcuts" | "help" | "about";
 export function isRecorderWindow(requesterId: number): boolean {
 	return Boolean(
 		hudOverlayWindow &&
@@ -42,15 +43,16 @@ export function closeSettingsWindow() {
 	settingsWindow?.close();
 }
 
-export function createSettingsWindow(): BrowserWindow {
+export function createSettingsWindow(initialSection: SettingsSection = "general"): BrowserWindow {
 	if (settingsWindow && !settingsWindow.isDestroyed()) {
+		settingsWindow.webContents.send("settings-select-section", initialSection);
 		settingsWindow.show();
 		settingsWindow.focus();
 		return settingsWindow;
 	}
 	const win = new BrowserWindow({
-		width: 420,
-		height: 440,
+		width: 520,
+		height: 600,
 		useContentSize: true,
 		title: "Settings",
 		parent: hudOverlayWindow ?? undefined,
@@ -78,10 +80,12 @@ export function createSettingsWindow(): BrowserWindow {
 		if (settingsWindow === win) settingsWindow = null;
 	});
 	if (VITE_DEV_SERVER_URL) {
-		void win.loadURL(`${VITE_DEV_SERVER_URL}?windowType=settings`);
+		void win.loadURL(
+			`${VITE_DEV_SERVER_URL}?windowType=settings&section=${encodeURIComponent(initialSection)}`,
+		);
 	} else {
 		void win.loadFile(path.join(RENDERER_DIST, "index.html"), {
-			query: { windowType: "settings" },
+			query: { windowType: "settings", section: initialSection },
 		});
 	}
 	return win;
