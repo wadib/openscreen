@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolvePortableMediaPaths } from "../projectMediaPaths";
 
 export class StudioFiles {
 	private constructor(private readonly roots: string[]) {}
@@ -75,7 +76,10 @@ export class StudioFiles {
 		if (path.extname(file).toLowerCase() !== ".openscreen")
 			throw new Error("Expected an .openscreen project");
 		if ((await fs.stat(file)).size > 8 * 1024 * 1024) throw new Error("Project exceeds 8 MiB");
-		const project = JSON.parse(await fs.readFile(file, "utf8"));
+		const { project } = await resolvePortableMediaPaths(
+			JSON.parse(await fs.readFile(file, "utf8")),
+			file,
+		);
 		if (
 			!project ||
 			!project.editor ||

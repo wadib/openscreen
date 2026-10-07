@@ -3,6 +3,7 @@ import net from "node:net";
 import { StringDecoder } from "node:string_decoder";
 import { app, type BrowserWindow, ipcMain } from "electron";
 import type { StudioArguments, StudioCommand } from "../../src/lib/studioMcpContract";
+import { withPortableMediaPaths } from "../projectMediaPaths";
 import { StudioFiles } from "./files";
 import { handleStudioRpc, rpcError } from "./protocol";
 
@@ -129,10 +130,11 @@ export async function startStudioMcp(getWindow: () => BrowserWindow | null) {
 			}
 			if (name === "studio_save_copy") {
 				const snapshot = (await dispatch(name, args)) as { project: unknown; snapshot: string };
+				const target = await files.newPath(args.path as string, ".openscreen");
 				const saved = await files.writeNew(
-					args.path as string,
+					target,
 					".openscreen",
-					JSON.stringify(snapshot.project, null, 2),
+					JSON.stringify(withPortableMediaPaths(snapshot.project, target), null, 2),
 				);
 				await dispatch("studio_copy_saved", { path: saved, snapshot: snapshot.snapshot });
 				return { path: saved };

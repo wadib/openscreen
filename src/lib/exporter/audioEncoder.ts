@@ -1,4 +1,4 @@
-import { ALL_FORMATS, AudioBufferSink, BlobSource, Input } from "mediabunny";
+import { ALL_FORMATS, AudioBufferSink, AudioSample, BlobSource, Input } from "mediabunny";
 import { WebDemuxer } from "web-demuxer";
 import type { SpeedRegion, TrimRegion } from "@/components/video-editor/types";
 import { renderAudioTimeline } from "./audioTimeline";
@@ -16,6 +16,8 @@ export interface ExportAudioCodec {
 	label: string;
 	sampleRate: number;
 	numberOfChannels: number;
+	/** Encoded by the bundled WebAssembly AAC encoder (via the muxer) instead of WebCodecs. */
+	software?: boolean;
 }
 
 type ExportAudioCodecCandidate = Omit<ExportAudioCodec, "sampleRate" | "numberOfChannels">;
@@ -24,6 +26,82 @@ const EXPORT_AUDIO_CODECS: ExportAudioCodecCandidate[] = [
 	{ encoderCodec: "mp4a.40.2", muxerCodec: "aac", label: "AAC" },
 	{ encoderCodec: "opus", muxerCodec: "opus", label: "Opus" },
 ];
+
+const SOFTWARE_AAC_SAMPLE_RATES = [
+	96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350,
+];
+const SOFTWARE_AAC_MAX_CHANNELS = 2;
+
+let softwareAacRegistration: Promise<boolean> | null = null;
+
+/**
+ * Chromium has no AAC encoder on Linux, which left Linux exports with Opus-in-MP4 (unplayable
+ * in some editors and players). Load Mediabunny's WebAssembly AAC encoder there instead. It is
+ * only registered when WebCodecs cannot encode AAC, so native encoders keep priority.
+ */
+export function ensureSoftwareAacEncoder(): Promise<boolean> {
+	softwareAacRegistration ??= import("@mediabunny/aac-encoder")
+		.then(({ registerAacEncoder }) => {
+			registerAacEncoder();
+			return true;
+		})
+		.catch((error) => {
+			console.warn("[AudioProcessor] Software AAC encoder unavailable:", error);
+			softwareAacRegistration = null;
+			return false;
+		});
+	return softwareAacRegistration;
+}
+
+type ExportAudioEncoder = Pick<
+	AudioEncoder,
+	"state" | "encodeQueueSize" | "configure" | "encode" | "flush" | "close"
+>;
+
+/** WebCodecs-shaped encoder that hands raw audio to a muxer which encodes it in software. */
+class MuxerSampleEncoder implements ExportAudioEncoder {
+	state: CodecState = "unconfigured";
+	encodeQueueSize = 0;
+	private writes: Promise<void> = Promise.resolve();
+
+	constructor(
+		private readonly muxer: VideoMuxer,
+		private readonly onError: (error: Error) => void,
+	) {}
+
+	configure() {
+		this.state = "configured";
+	}
+
+	encode(data: AudioData) {
+		// Callers close their AudioData right after encode(); keep our own reference.
+		const sample = new AudioSample(data.clone());
+		this.encodeQueueSize++;
+		this.writes = this.writes
+			.then(() => this.muxer.addAudioSample(sample))
+			.catch((error: Error) => {
+				sample.close();
+				this.onError(error);
+			})
+			.finally(() => {
+				this.encodeQueueSize--;
+			});
+	}
+
+	async flush() {
+		await this.writes;
+	}
+
+	close() {
+		this.state = "closed";
+	}
+}
+
+function createExportAudioEncoder(muxer: VideoMuxer, init: AudioEncoderInit): ExportAudioEncoder {
+	return muxer.acceptsAudioSamples
+		? new MuxerSampleEncoder(muxer, (error) => init.error(error as DOMException))
+		: new AudioEncoder(init);
+}
 
 function averageChannels(sourcePlanes: Float32Array[], frame: number) {
 	let mixed = 0;
@@ -185,9 +263,30 @@ export class AudioProcessor {
 					return { ...codec, sampleRate, numberOfChannels: channels };
 				}
 			}
+			if (codec.muxerCodec === "aac") {
+				const software = await AudioProcessor.selectSoftwareAacCodec(sampleRate, channelOptions);
+				if (software) return software;
+			}
 		}
 
 		return null;
+	}
+
+	private static async selectSoftwareAacCodec(
+		sampleRate: number,
+		channelOptions: number[],
+	): Promise<ExportAudioCodec | null> {
+		if (!SOFTWARE_AAC_SAMPLE_RATES.includes(sampleRate)) return null;
+		const channels = channelOptions.find((count) => count <= SOFTWARE_AAC_MAX_CHANNELS);
+		if (!channels || !(await ensureSoftwareAacEncoder())) return null;
+		return {
+			encoderCodec: "mp4a.40.2",
+			muxerCodec: "aac",
+			label: "AAC (software)",
+			sampleRate,
+			numberOfChannels: channels,
+			software: true,
+		};
 	}
 
 	static async selectSupportedExportCodecForSource(
@@ -335,7 +434,7 @@ export class AudioProcessor {
 	private async encodeAudioBuffer(buffer: AudioBuffer, muxer: VideoMuxer, codec: ExportAudioCodec) {
 		let encodingError: Error | null = null;
 		let writes = Promise.resolve();
-		const encoder = new AudioEncoder({
+		const encoder = createExportAudioEncoder(muxer, {
 			output: (chunk, metadata) => {
 				writes = writes
 					.then(() => muxer.addAudioChunk(chunk, metadata))
@@ -472,7 +571,7 @@ export class AudioProcessor {
 		// Phase 2: re-encode with timestamps adjusted for trim gaps.
 		const encodedChunks: { chunk: EncodedAudioChunk; meta?: EncodedAudioChunkMetadata }[] = [];
 
-		const encoder = new AudioEncoder({
+		const encoder = createExportAudioEncoder(muxer, {
 			output: (chunk: EncodedAudioChunk, meta?: EncodedAudioChunkMetadata) => {
 				encodedChunks.push({ chunk, meta });
 			},
@@ -498,7 +597,9 @@ export class AudioProcessor {
 			bitrate: AUDIO_BITRATE,
 		};
 
-		const encodeSupport = await AudioEncoder.isConfigSupported(encodeConfig);
+		const encodeSupport = selectedCodec.software
+			? { supported: muxer.acceptsAudioSamples }
+			: await AudioEncoder.isConfigSupported(encodeConfig);
 		if (!encodeSupport.supported) {
 			console.warn(
 				`[AudioProcessor] ${selectedCodec.label} encoding not supported, skipping audio`,

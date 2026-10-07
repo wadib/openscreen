@@ -169,6 +169,16 @@ export interface VideoPlaybackRef {
 	containerRef: React.RefObject<HTMLDivElement>;
 	play: () => Promise<void>;
 	pause: () => void;
+	/** Current preview layout, or null before the first layout pass. Used to place auto zooms. */
+	getLayoutGeometry: () => VideoLayoutGeometry | null;
+}
+
+export interface VideoLayoutGeometry {
+	stageSize: { width: number; height: number };
+	videoSize: { width: number; height: number };
+	baseScale: number;
+	baseOffset: { x: number; y: number };
+	baseMask: { x: number; y: number; width: number; height: number };
 }
 
 function getResolvedVideoDuration(video: HTMLVideoElement): number | null {
@@ -641,6 +651,16 @@ const VideoPlayback = forwardRef<VideoPlaybackRef, VideoPlaybackProps>(
 			videoSprite: videoSpriteRef.current,
 			videoContainer: videoContainerRef.current,
 			containerRef,
+			getLayoutGeometry: () =>
+				stageSizeRef.current.width > 0 && baseMaskRef.current.width > 0
+					? {
+							stageSize: { ...stageSizeRef.current },
+							videoSize: { ...videoSizeRef.current },
+							baseScale: baseScaleRef.current,
+							baseOffset: { ...baseOffsetRef.current },
+							baseMask: { ...baseMaskRef.current },
+						}
+					: null,
 			play: async () => {
 				const vid = videoRef.current;
 				if (!vid) return;

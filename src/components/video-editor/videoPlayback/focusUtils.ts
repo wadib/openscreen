@@ -138,3 +138,50 @@ export function stageFocusToVideoSpace(
 		cy: videoNormY,
 	};
 }
+
+/** Inverse of stageFocusToVideoSpace: a point in recording space mapped onto the stage. */
+export function videoFocusToStageSpace(
+	focus: ZoomFocus,
+	stageSize: StageSize,
+	videoSize: { width: number; height: number },
+	baseScale: number,
+	baseOffset: { x: number; y: number },
+): ZoomFocus {
+	if (
+		!stageSize.width ||
+		!stageSize.height ||
+		!videoSize.width ||
+		!videoSize.height ||
+		baseScale <= 0
+	) {
+		return focus;
+	}
+	return {
+		cx: (baseOffset.x + focus.cx * videoSize.width * baseScale) / stageSize.width,
+		cy: (baseOffset.y + focus.cy * videoSize.height * baseScale) / stageSize.height,
+	};
+}
+
+/**
+ * Keep a zoom's view (1/zoomScale of the stage, centred on focus) inside the visible
+ * recording so it never shows the padding wallpaper or cuts content at the recording edge.
+ * When the view is larger than the recording on an axis, centre it on the recording.
+ */
+export function clampFocusInsideMask(
+	focus: ZoomFocus,
+	zoomScale: number,
+	stageSize: StageSize,
+	baseMask: { x: number; y: number; width: number; height: number },
+): ZoomFocus {
+	if (!stageSize.width || !stageSize.height || zoomScale <= 0) return focus;
+	const half = 0.5 / zoomScale;
+	const fit = (value: number, start: number, size: number) => {
+		const low = start + half;
+		const high = start + size - half;
+		return low > high ? start + size / 2 : clamp(value, low, high);
+	};
+	return {
+		cx: fit(focus.cx, baseMask.x / stageSize.width, baseMask.width / stageSize.width),
+		cy: fit(focus.cy, baseMask.y / stageSize.height, baseMask.height / stageSize.height),
+	};
+}

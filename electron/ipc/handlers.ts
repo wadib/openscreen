@@ -50,6 +50,7 @@ import { RECORDINGS_DIR } from "../main";
 import { createCursorRecordingSession } from "../native-bridge/cursor/recording/factory";
 import { requestMacCursorAccessibilityAccess } from "../native-bridge/cursor/recording/macNativeCursorRecordingSession";
 import type { CursorRecordingSession } from "../native-bridge/cursor/recording/session";
+import { resolvePortableMediaPaths, withPortableMediaPaths } from "../projectMediaPaths";
 import { CaptureStopPendingError, waitForCaptureStop } from "../recording/capture-stop";
 import { RecordingDiagnostics } from "../recording/diagnostics";
 import {
@@ -386,6 +387,18 @@ async function finalizeRecordingFile(
 		await fs.writeFile(filePath, Buffer.from(videoData));
 	}
 	return streamed;
+}
+
+/** Parse a project and point moved media at its portable (project-relative) location. */
+async function readPortableProject(content: string, projectFilePath: string): Promise<unknown> {
+	const { project, remapped } = await resolvePortableMediaPaths(
+		JSON.parse(content),
+		projectFilePath,
+	);
+	if (remapped.length) {
+		console.info(`[project] Found moved media next to the project: ${remapped.join(", ")}`);
+	}
+	return project;
 }
 
 async function getApprovedProjectSession(
@@ -3267,7 +3280,7 @@ export function registerIpcHandlers(
 			if (trustedExistingProjectPath) {
 				await fs.writeFile(
 					trustedExistingProjectPath,
-					JSON.stringify(projectData, null, 2),
+					JSON.stringify(withPortableMediaPaths(projectData, trustedExistingProjectPath), null, 2),
 					"utf-8",
 				);
 				currentProjectPath = trustedExistingProjectPath;
@@ -3308,7 +3321,11 @@ export function registerIpcHandlers(
 				};
 			}
 
-			await fs.writeFile(result.filePath, JSON.stringify(projectData, null, 2), "utf-8");
+			await fs.writeFile(
+				result.filePath,
+				JSON.stringify(withPortableMediaPaths(projectData, result.filePath), null, 2),
+				"utf-8",
+			);
 			currentProjectPath = result.filePath;
 
 			return {
@@ -3374,7 +3391,7 @@ export function registerIpcHandlers(
 
 			const filePath = result.filePaths[0];
 			const content = await fs.readFile(filePath, "utf-8");
-			const project = JSON.parse(content);
+			const project = await readPortableProject(content, filePath);
 			currentProjectPath = filePath;
 			setCurrentRecordingSessionState(await getApprovedProjectSession(project, filePath));
 
@@ -3411,7 +3428,7 @@ export function registerIpcHandlers(
 				return { success: false, message: "File not found" };
 			}
 			const content = await fs.readFile(filePath, "utf-8");
-			const project = JSON.parse(content);
+			const project = await readPortableProject(content, filePath);
 			currentProjectPath = filePath;
 
 			// Approve session paths but tolerate failures (e.g. video moved outside trusted
@@ -3448,7 +3465,7 @@ export function registerIpcHandlers(
 			}
 
 			const content = await fs.readFile(currentProjectPath, "utf-8");
-			const project = JSON.parse(content);
+			const project = await readPortableProject(content, currentProjectPath);
 			setCurrentRecordingSessionState(await getApprovedProjectSession(project, currentProjectPath));
 			return {
 				success: true,

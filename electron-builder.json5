@@ -84,6 +84,25 @@
     "artifactName": "${productName}-Linux-${version}.${ext}",
     "category": "AudioVideo"
   },
+  // electron-builder's default pacman depends include http-parser (dropped from Arch) and
+  // libappindicator-gtk3 (AUR only), which makes `pacman -U` refuse the package. Electron
+  // bundles ffmpeg, re2, snappy etc., so list only the system libraries it loads.
+  "pacman": {
+    "depends": [
+      "gtk3",
+      "nss",
+      "alsa-lib",
+      "libxss",
+      "libxtst",
+      "libnotify",
+      "libsecret",
+      "libcups",
+      "libdrm",
+      "mesa",
+      "at-spi2-core",
+      "xdg-utils"
+    ]
+  },
   "win": {
     "target": [
       "nsis"

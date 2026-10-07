@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@mediabunny/aac-encoder", () => ({ registerAacEncoder: vi.fn() }));
+
 import { AudioProcessor, downmixPlanarChannelsForExport } from "./audioEncoder";
 
 describe("AudioProcessor.selectSupportedExportCodec", () => {
@@ -153,5 +156,44 @@ describe("AudioProcessor.encodeAudioBuffer backpressure", () => {
 		expect(timestamps.length).toBeGreaterThan(100);
 		for (let i = 1; i < timestamps.length; i++)
 			expect(timestamps[i]).toBeGreaterThan(timestamps[i - 1]);
+	});
+});
+
+describe("AudioProcessor software AAC fallback", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("prefers software AAC over Opus when WebCodecs cannot encode AAC", async () => {
+		vi.stubGlobal("AudioEncoder", {
+			isConfigSupported: vi.fn(async (config: AudioEncoderConfig) => ({
+				config,
+				supported: config.codec === "opus",
+			})),
+		});
+
+		const codec = await AudioProcessor.selectSupportedExportCodec(48000, 2);
+
+		expect(codec).toMatchObject({
+			encoderCodec: "mp4a.40.2",
+			muxerCodec: "aac",
+			software: true,
+			sampleRate: 48000,
+			numberOfChannels: 2,
+		});
+	});
+
+	it("keeps Opus when the sample rate is not an AAC rate", async () => {
+		vi.stubGlobal("AudioEncoder", {
+			isConfigSupported: vi.fn(async (config: AudioEncoderConfig) => ({
+				config,
+				supported: config.codec === "opus",
+			})),
+		});
+
+		const codec = await AudioProcessor.selectSupportedExportCodec(37000, 2);
+
+		expect(codec).toMatchObject({ muxerCodec: "opus" });
+		expect(codec?.software).toBeUndefined();
 	});
 });

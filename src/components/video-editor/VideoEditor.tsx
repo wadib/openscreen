@@ -121,6 +121,7 @@ import {
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
 import { useStudioMcp } from "./useStudioMcp";
 import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
+import { clampFocusInsideMask, videoFocusToStageSpace } from "./videoPlayback/focusUtils";
 import { clampZoomAreaFocus, getZoomAreaSize } from "./videoPlayback/zoomArea";
 
 /** Single Sonner slot so auto-caption phases update in place instead of stacking. */
@@ -1134,21 +1135,45 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			const suggestions = buildAutoZoomSuggestions({
 				cursorTelemetry,
 				totalMs,
-				existingRegions,
-				defaultDurationMs: Math.max(1000, Math.round(totalMs * 0.05)),
+				existingRegions: existingRegions.map((region) => ({
+					start: region.startMs,
+					end: region.endMs,
+				})),
+				trimRegions: trimRegions.map((trim) => ({ start: trim.startMs, end: trim.endMs })),
+				clickTimestampsMs: cursorClickTimestamps,
 			});
+			const scale = ZOOM_DEPTH_SCALES[DEFAULT_ZOOM_DEPTH];
+			// Cursor telemetry is in recording space but zoom focus is stage-normalized: map it
+			// through the live layout (padding, crop, webcam layout) and keep the view inside
+			// the recording so a zoom never shows wallpaper or clips the content it targets.
+			const geometry = videoPlaybackRef.current?.getLayoutGeometry() ?? null;
+			const toStage = (focus: ZoomFocus): ZoomFocus =>
+				geometry
+					? clampFocusInsideMask(
+							videoFocusToStageSpace(
+								focus,
+								geometry.stageSize,
+								geometry.videoSize,
+								geometry.baseScale,
+								geometry.baseOffset,
+							),
+							scale,
+							geometry.stageSize,
+							geometry.baseMask,
+						)
+					: clampFocusToDepth(focus, DEFAULT_ZOOM_DEPTH);
 			return suggestions.map((suggestion) => ({
 				id: `zoom-${nextZoomIdRef.current++}`,
-				startMs: Math.round(suggestion.span.start),
-				endMs: Math.round(suggestion.span.end),
+				startMs: suggestion.span.start,
+				endMs: suggestion.span.end,
 				depth: DEFAULT_ZOOM_DEPTH,
-				customScale: ZOOM_DEPTH_SCALES[DEFAULT_ZOOM_DEPTH],
-				focus: clampFocusToDepth(suggestion.focus, DEFAULT_ZOOM_DEPTH),
+				customScale: scale,
+				focus: toStage(suggestion.focus),
 				focusMode: autoFocusAll ? ("auto" as const) : undefined,
 				source: "auto" as const,
 			}));
 		},
-		[cursorTelemetry, duration, autoFocusAll],
+		[cursorTelemetry, cursorClickTimestamps, duration, trimRegions, autoFocusAll],
 	);
 
 	// Auto-suggest zooms once per fresh recording (no existing zooms, telemetry

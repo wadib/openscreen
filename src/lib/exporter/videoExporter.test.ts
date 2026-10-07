@@ -1,7 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+	EncoderConfigUnsupportedError,
 	getSourceCopyFastPathBlockers,
+	h264CodecCandidates,
 	isSourceCopyFastPathEligible,
+	VideoExporter,
 	type VideoExporterConfig,
 } from "./videoExporter";
 
@@ -126,5 +129,49 @@ describe("getSourceCopyFastPathBlockers", () => {
 				height: 1032,
 			}),
 		).toContain("output-size 1920x1080 differs from source 1920x1032");
+	});
+});
+
+describe("h264CodecCandidates", () => {
+	it("tries the requested codec first, then lower levels and profiles without duplicates", () => {
+		expect(h264CodecCandidates()).toEqual([
+			"avc1.640033",
+			"avc1.640032",
+			"avc1.64002A",
+			"avc1.4D402A",
+			"avc1.42E02A",
+		]);
+		expect(h264CodecCandidates("avc1.4D4028")[0]).toBe("avc1.4D4028");
+		expect(new Set(h264CodecCandidates("avc1.64002A")).size).toBe(
+			h264CodecCandidates("avc1.64002A").length,
+		);
+	});
+});
+
+describe("VideoExporter.export failure reporting", () => {
+	afterEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("reports what broke the first attempt, not the fallback's unsupported encoder mode", async () => {
+		const attempt = vi
+			.spyOn(
+				VideoExporter.prototype as unknown as {
+					exportWithEncoderPreference: () => Promise<unknown>;
+				},
+				"exportWithEncoderPreference",
+			)
+			.mockRejectedValueOnce(new Error("Timestamps cannot be smaller than the largest timestamp"))
+			.mockRejectedValueOnce(
+				new EncoderConfigUnsupportedError(
+					"Hardware video encoding is not supported on this system.",
+				),
+			);
+		const result = await new VideoExporter(createConfig()).export();
+		expect(attempt).toHaveBeenCalledTimes(2);
+		expect(result).toMatchObject({
+			success: false,
+			error: "Timestamps cannot be smaller than the largest timestamp",
+		});
 	});
 });

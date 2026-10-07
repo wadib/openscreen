@@ -143,6 +143,27 @@ function isMp4Source(videoUrl: string, blob: Blob) {
 	}
 }
 
+export const DEFAULT_H264_CODEC = "avc1.640033";
+
+/** Thrown when no codec/profile variant is accepted by the encoder in a given mode. */
+export class EncoderConfigUnsupportedError extends Error {}
+
+/**
+ * The requested codec first, then H.264 variants in order of decreasing demands:
+ * High 5.1 -> 5.0 -> 4.2, Main 4.2, Constrained Baseline 4.2. Duplicates are skipped.
+ */
+export function h264CodecCandidates(requested?: string): string[] {
+	const ordered = [
+		requested || DEFAULT_H264_CODEC,
+		"avc1.640033",
+		"avc1.640032",
+		"avc1.64002A",
+		"avc1.4D402A",
+		"avc1.42E02A",
+	];
+	return ordered.filter((codec, index) => ordered.indexOf(codec) === index);
+}
+
 export class VideoExporter {
 	private config: VideoExporterConfig;
 	private streamingDecoder: StreamingVideoDecoder | null = null;
@@ -161,6 +182,8 @@ export class VideoExporter {
 	private chunkCount = 0;
 	private lastEncoderOutputAt = 0;
 	private fatalEncoderError: Error | null = null;
+	/** The H.264 codec string the encoder accepted (may be a fallback of the requested one). */
+	private activeCodec = DEFAULT_H264_CODEC;
 
 	constructor(config: VideoExporterConfig) {
 		this.config = config;
@@ -169,6 +192,7 @@ export class VideoExporter {
 	async export(): Promise<ExportResult> {
 		const encoderPreferences = this.getEncoderPreferences();
 		let lastError: Error | null = null;
+		let firstRealError: Error | null = null;
 
 		for (const encoderPreference of encoderPreferences) {
 			try {
@@ -176,6 +200,9 @@ export class VideoExporter {
 			} catch (error) {
 				const normalizedError = error instanceof Error ? error : new Error(String(error));
 				lastError = normalizedError;
+				if (!firstRealError && !(normalizedError instanceof EncoderConfigUnsupportedError)) {
+					firstRealError = normalizedError;
+				}
 
 				if (this.cancelled) {
 					return { success: false, error: "Export cancelled" };
@@ -196,9 +223,11 @@ export class VideoExporter {
 			}
 		}
 
+		// A later attempt failing only because its encoder mode is unavailable must not hide
+		// what actually broke the earlier attempt.
 		return {
 			success: false,
-			error: lastError?.message || "Export failed",
+			error: (firstRealError ?? lastError)?.message || "Export failed",
 		};
 	}
 
@@ -288,7 +317,12 @@ export class VideoExporter {
 			}
 
 			const hasAudio = Boolean(audioExportCodec);
-			const muxer = new VideoMuxer(this.config, hasAudio, audioExportCodec?.muxerCodec);
+			const muxer = new VideoMuxer(
+				this.config,
+				hasAudio,
+				audioExportCodec?.muxerCodec,
+				audioExportCodec?.software ? "samples" : "packets",
+			);
 			this.muxer = muxer;
 			await muxer.initialize();
 
@@ -549,7 +583,7 @@ export class VideoExporter {
 
 							const metadata: EncodedVideoChunkMetadata = {
 								decoderConfig: {
-									codec: this.config.codec || "avc1.640033",
+									codec: this.activeCodec,
 									codedWidth: this.config.width,
 									codedHeight: this.config.height,
 									description: this.videoDescription,
@@ -578,24 +612,36 @@ export class VideoExporter {
 			},
 		});
 
-		const encoderConfig: VideoEncoderConfig = {
-			codec: this.config.codec || "avc1.640033",
-			width: this.config.width,
-			height: this.config.height,
-			bitrate: this.config.bitrate,
-			framerate: this.config.frameRate,
-			latencyMode: "quality",
-			bitrateMode: "variable",
-			hardwareAcceleration,
-		};
-
-		const support = await VideoEncoder.isConfigSupported(encoderConfig);
-		if (!support.supported) {
-			throw new Error(
+		// Some encoders reject the default High@5.1 profile/level for a given size or rate even
+		// though a lower level encodes it fine (1080p60 only needs 4.2). Try the requested codec,
+		// then progressively more compatible H.264 levels/profiles before giving up.
+		let encoderConfig: VideoEncoderConfig | null = null;
+		for (const codec of h264CodecCandidates(this.config.codec)) {
+			const candidate: VideoEncoderConfig = {
+				codec,
+				width: this.config.width,
+				height: this.config.height,
+				bitrate: this.config.bitrate,
+				framerate: this.config.frameRate,
+				latencyMode: "quality",
+				bitrateMode: "variable",
+				hardwareAcceleration,
+			};
+			if ((await VideoEncoder.isConfigSupported(candidate)).supported) {
+				encoderConfig = candidate;
+				break;
+			}
+		}
+		if (!encoderConfig) {
+			throw new EncoderConfigUnsupportedError(
 				hardwareAcceleration === "prefer-hardware"
 					? "Hardware video encoding is not supported on this system."
 					: "Software video encoding is not supported on this system.",
 			);
+		}
+		this.activeCodec = encoderConfig.codec;
+		if (encoderConfig.codec !== (this.config.codec || DEFAULT_H264_CODEC)) {
+			console.warn(`[VideoExporter] Falling back to ${encoderConfig.codec}`);
 		}
 
 		console.log(
