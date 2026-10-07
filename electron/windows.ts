@@ -347,6 +347,9 @@ ipcMain.on("hud-overlay-set-size", (_event, width: number, height: number) => {
  * Frameless transparent HUD overlay, always-on-top, centred at the bottom of the
  * primary display. Follows the user across macOS Spaces so it isn't lost on switch.
  */
+export const HUD_WINDOW_TITLE = "Openscreen Recorder";
+export const COUNTDOWN_WINDOW_TITLE = "Openscreen Countdown";
+
 export function createHudOverlayWindow(showInitially = true): BrowserWindow {
 	const primaryDisplay = screen.getPrimaryDisplay();
 	const { workArea } = primaryDisplay;
@@ -378,6 +381,9 @@ export function createHudOverlayWindow(showInitially = true): BrowserWindow {
 		alwaysOnTop: true,
 		skipTaskbar: true,
 		hasShadow: false,
+		// Fixed title so tiling compositors (Hyprland/Omarchy) can match the HUD with a window
+		// rule (no border, shadow or blur) without touching the editor, which shares the app id.
+		title: HUD_WINDOW_TITLE,
 		show: false, // shown via ready-to-show to avoid black rectangle flash
 		webPreferences: {
 			preload: path.join(__dirname, "preload.mjs"),
@@ -387,6 +393,7 @@ export function createHudOverlayWindow(showInitially = true): BrowserWindow {
 			backgroundThrottling: false,
 		},
 	});
+	win.on("page-title-updated", (event) => event.preventDefault());
 	win.setIgnoreMouseEvents(true, { forward: true });
 	// Recover z-order without activation, while respecting explicit hiding and popups.
 	const keepOnTop = () => {
@@ -598,6 +605,7 @@ export function createCountdownOverlayWindow(): BrowserWindow {
 		transparent: true,
 		backgroundColor: "#00000000",
 		hasShadow: false,
+		title: COUNTDOWN_WINDOW_TITLE,
 		show: false,
 		webPreferences: {
 			preload: path.join(__dirname, "preload.mjs"),
@@ -608,6 +616,7 @@ export function createCountdownOverlayWindow(): BrowserWindow {
 		},
 	});
 
+	win.on("page-title-updated", (event) => event.preventDefault());
 	win.setIgnoreMouseEvents(true);
 
 	if (process.platform === "darwin") {

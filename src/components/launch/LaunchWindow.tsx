@@ -155,6 +155,9 @@ export function LaunchWindow() {
 		() => loadUserPreferences().trayLayout,
 	);
 	const [supportsCursorModeToggle, setSupportsCursorModeToggle] = useState(false);
+	// Wayland ignores app-requested window positions, so on Linux the drag handle uses a
+	// native drag region (the compositor moves the window) instead of moveHudOverlayBy.
+	const [nativeHudDrag, setNativeHudDrag] = useState(false);
 	const [cameraControlsSupported, setCameraControlsSupported] = useState(false);
 	const [cameraControlsOpen, setCameraControlsOpen] = useState(false);
 	const webcamExpanded = isWebcamHovered || isWebcamFocused || cameraControlsOpen;
@@ -235,6 +238,7 @@ export function LaunchWindow() {
 				if (!cancelled) {
 					setSupportsCursorModeToggle(platform === "win32" || platform === "darwin");
 					setCameraControlsSupported(platform === "win32");
+					setNativeHudDrag(platform === "linux");
 				}
 			})
 			.catch(() => {
@@ -829,11 +833,16 @@ export function LaunchWindow() {
 			>
 				{/* Drag handle */}
 				<div
-					className={`flex ${trayLayout === "vertical" ? "h-6 w-8" : "h-8 w-7"} cursor-grab items-center justify-center active:cursor-grabbing ${styles.electronNoDrag}`}
-					onPointerDown={handleHudDragPointerDown}
-					onPointerMove={handleHudDragPointerMove}
-					onPointerUp={handleHudDragPointerEnd}
-					onPointerCancel={handleHudDragPointerEnd}
+					data-testid="hud-drag-handle"
+					className={`flex ${trayLayout === "vertical" ? "h-6 w-8" : "h-8 w-7"} cursor-grab items-center justify-center active:cursor-grabbing ${nativeHudDrag ? styles.electronDrag : styles.electronNoDrag}`}
+					{...(nativeHudDrag
+						? {}
+						: {
+								onPointerDown: handleHudDragPointerDown,
+								onPointerMove: handleHudDragPointerMove,
+								onPointerUp: handleHudDragPointerEnd,
+								onPointerCancel: handleHudDragPointerEnd,
+							})}
 				>
 					{getIcon("drag", "text-white/30")}
 				</div>
