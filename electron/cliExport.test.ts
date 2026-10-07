@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	CliUsageError,
 	isCliExportInvocation,
+	matchesProjectPattern,
 	parseCliExportArgs,
 	resolveCliExportJobs,
 } from "./cliExport";
@@ -76,5 +77,39 @@ describe("resolveCliExportJobs", () => {
 	it("fails fast on a missing project", async () => {
 		const request = parseCliExportArgs(["--export", "gone.openscreen", "gone.mp4"], cwd)!;
 		await expect(resolveCliExportJobs(request, async () => false)).rejects.toThrow(/not found/);
+	});
+});
+
+describe("project filters", () => {
+	it("matches shell-style patterns with or without the extension", () => {
+		expect(matchesProjectPattern("recording-1_p2_done.openscreen", "*_done")).toBe(true);
+		expect(matchesProjectPattern("recording-1_p2_done.openscreen", "*_DONE.openscreen")).toBe(true);
+		expect(matchesProjectPattern("recording-1_p2_clean.openscreen", "*_done")).toBe(false);
+		expect(matchesProjectPattern("p3a_done.openscreen", "p3?_done")).toBe(true);
+		expect(matchesProjectPattern("a.b(1)_done.openscreen", "a.b(1)*")).toBe(true);
+		expect(matchesProjectPattern("axb_done.openscreen", "a.b*")).toBe(false);
+	});
+
+	it("applies --only and --exclude to --export-dir", async () => {
+		const request = parseCliExportArgs(
+			["--export-dir", "projects", "out", "--only", "*_done", "--exclude", "*p2_done"],
+			cwd,
+		)!;
+		expect(request.only).toEqual(["*_done"]);
+		expect(request.exclude).toEqual(["*p2_done"]);
+		const result = await resolveCliExportJobs(
+			request,
+			async (file) => file.endsWith(".openscreen"),
+			async () => [
+				"r1_p2_done.openscreen",
+				"r1_p2b_done.openscreen",
+				"r2_p3a_clean.openscreen",
+				"r2_p3a_done.openscreen",
+			],
+		);
+		expect(result.jobs.map((job) => path.basename(job.project))).toEqual([
+			"r1_p2b_done.openscreen",
+			"r2_p3a_done.openscreen",
+		]);
 	});
 });

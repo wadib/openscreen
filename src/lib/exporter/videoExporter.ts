@@ -137,6 +137,17 @@ async function canvasFrameMatchesPixels(canvas: HTMLCanvasElement): Promise<bool
 	}
 }
 
+/**
+ * Encoder order per platform. Windows hardware encoders reject some 1080p60 profiles, and
+ * Chromium on Linux exposes no hardware H.264 encoder (the attempt always fails), so both try
+ * software first. macOS keeps hardware first.
+ */
+export function encoderPreferencesFor(userAgent: string): HardwareAcceleration[] {
+	const linux = /Linux/i.test(userAgent) && !/Android/i.test(userAgent);
+	if (/\bWindows\b/i.test(userAgent) || linux) return ["prefer-software", "prefer-hardware"];
+	return ["prefer-hardware", "prefer-software"];
+}
+
 export function getSourceCopyFastPathBlockers(
 	config: VideoExporterConfig,
 	videoInfo: { width: number; height: number },
@@ -810,10 +821,7 @@ export class VideoExporter {
 	}
 
 	private getEncoderPreferences(): HardwareAcceleration[] {
-		if (typeof navigator !== "undefined" && /\bWindows\b/i.test(navigator.userAgent)) {
-			return ["prefer-software", "prefer-hardware"];
-		}
-		return ["prefer-hardware", "prefer-software"];
+		return encoderPreferencesFor(typeof navigator === "undefined" ? "" : navigator.userAgent);
 	}
 
 	private async trySourceCopyFastPath(videoInfo: { width: number; height: number }) {

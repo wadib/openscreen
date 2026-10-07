@@ -7,6 +7,7 @@ import path from "node:path";
  *   Openscreen --export project.openscreen out.mp4 [--export other.openscreen other.mp4 ...]
  *   Openscreen --export-dir <folder with .openscreen files> <output folder>
  *   options: --quality medium|good|source   --overwrite   --show
+ *            --only <pattern>   --exclude <pattern>   (filter --export-dir by project name)
  *
  * Jobs run one after another in a hidden editor window; progress goes to stdout and the
  * process exits with 0 when every job succeeded, 1 otherwise.
@@ -25,6 +26,9 @@ export interface CliExportRequest {
 	quality: CliExportQuality;
 	overwrite: boolean;
 	show: boolean;
+	/** --export-dir filters: shell-style patterns (* and ?) matched against project names. */
+	only: string[];
+	exclude: string[];
 }
 
 export class CliUsageError extends Error {}
@@ -44,6 +48,8 @@ export function parseCliExportArgs(
 		quality: "good",
 		overwrite: false,
 		show: false,
+		only: [],
+		exclude: [],
 	};
 	const value = (index: number, flag: string) => {
 		const next = argv[index];
@@ -82,9 +88,24 @@ export function parseCliExportArgs(
 			request.overwrite = true;
 		} else if (arg === "--show") {
 			request.show = true;
+		} else if (arg === "--only" || arg === "--exclude") {
+			(arg === "--only" ? request.only : request.exclude).push(value(index + 1, arg));
+			index += 1;
 		}
 	}
 	return request;
+}
+
+/**
+ * Shell-style name match (`*`, `?`, case-insensitive) against a project file name. The
+ * `.openscreen` extension is optional in the pattern: `*_done` matches `p2_done.openscreen`.
+ */
+export function matchesProjectPattern(fileName: string, pattern: string): boolean {
+	const base = fileName.replace(/\.openscreen$/i, "");
+	const wanted = pattern.replace(/\.openscreen$/i, "");
+	const escaped = wanted.replace(/[.+^${}()|[\]\\]/g, "\\$&");
+	const regex = new RegExp(`^${escaped.replace(/\*/g, ".*").replace(/\?/g, ".")}$`, "i");
+	return regex.test(base);
 }
 
 /** Expand --export-dir folders into jobs (sorted by name) and drop jobs whose output exists. */
@@ -101,6 +122,12 @@ export async function resolveCliExportJobs(
 	for (const { folder, outputDir } of request.exportDirs) {
 		const names = (await listDir(folder))
 			.filter((name) => name.toLowerCase().endsWith(".openscreen"))
+			.filter(
+				(name) =>
+					(request.only.length === 0 ||
+						request.only.some((pattern) => matchesProjectPattern(name, pattern))) &&
+					!request.exclude.some((pattern) => matchesProjectPattern(name, pattern)),
+			)
 			.sort((a, b) => a.localeCompare(b));
 		for (const name of names) {
 			all.push({
@@ -128,4 +155,7 @@ Options:
   --quality medium|good|source   Export quality (default: good)
   --overwrite                    Replace existing output files (default: skip them)
   --show                         Show the editor window while exporting
+  --only <pattern>               With --export-dir: only projects whose name matches
+                                 (* and ?, e.g. --only "*_done"); repeatable
+  --exclude <pattern>            With --export-dir: skip matching projects; repeatable
 `;

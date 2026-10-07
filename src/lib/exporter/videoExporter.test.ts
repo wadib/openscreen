@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
 	EncoderConfigUnsupportedError,
+	encoderPreferencesFor,
 	getSourceCopyFastPathBlockers,
 	h264CodecCandidates,
 	isSourceCopyFastPathEligible,
@@ -173,5 +174,22 @@ describe("VideoExporter.export failure reporting", () => {
 			success: false,
 			error: "Timestamps cannot be smaller than the largest timestamp",
 		});
+	});
+});
+
+describe("encoderPreferencesFor", () => {
+	it("tries software first on Windows and Linux, hardware first on macOS", () => {
+		expect(encoderPreferencesFor("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")).toEqual([
+			"prefer-software",
+			"prefer-hardware",
+		]);
+		expect(encoderPreferencesFor("Mozilla/5.0 (X11; Linux x86_64) Electron/41")).toEqual([
+			"prefer-software",
+			"prefer-hardware",
+		]);
+		expect(encoderPreferencesFor("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5)")).toEqual([
+			"prefer-hardware",
+			"prefer-software",
+		]);
 	});
 });
