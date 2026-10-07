@@ -130,5 +130,9 @@
 		"maximize": "Maximizar",
 		"restore": "Restaurar",
 		"close": "Cerrar"
+	},
+	"transcriptLane": {
+		"done": "Transcripción lista: {{words}} palabras ({{engine}})",
+		"failed": "Error al transcribir"
 	}
 }

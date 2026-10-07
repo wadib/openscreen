@@ -5,6 +5,7 @@ import { normalizeCursorThemeId } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
 import type { ProjectMedia } from "@/lib/recordingSession";
 import { normalizeProjectMedia } from "@/lib/recordingSession";
+import { normalizeTranscript, type ProjectTranscript } from "@/lib/transcript/transcript";
 import { DEFAULT_WALLPAPER, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { ASPECT_RATIOS, type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import {
@@ -96,6 +97,8 @@ export interface ProjectEditorState {
 	exportFormat: ExportFormat;
 	audioEnhancement: AudioEnhancement;
 	cutCrossfadeMs: number;
+	/** Timed words shown in the timeline's transcript lane; null when not transcribed. */
+	transcript: ProjectTranscript | null;
 	gifFrameRate: GifFrameRate;
 	gifLoop: boolean;
 	gifSizePreset: GifSizePreset;
@@ -533,6 +536,7 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 				: DEFAULT_EXPORT_SETTINGS.quality,
 		exportFormat: editor.exportFormat === "gif" ? "gif" : DEFAULT_EXPORT_SETTINGS.format,
 		audioEnhancement: normalizeAudioEnhancement(editor.audioEnhancement),
+		transcript: normalizeTranscript(editor.transcript),
 		cutCrossfadeMs:
 			isFiniteNumber(editor.cutCrossfadeMs) &&
 			(CUT_CROSSFADE_CHOICES as readonly number[]).includes(editor.cutCrossfadeMs)

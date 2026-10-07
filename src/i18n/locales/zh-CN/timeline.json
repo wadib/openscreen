@@ -55,5 +55,22 @@
 	"microphone": {
 		"autoSync": "自动",
 		"autoSyncHint": "自动测量麦克风偏移"
+	},
+	"lanes": {
+		"zoom": "缩放",
+		"transcript": "转写",
+		"microphone": "麦克风",
+		"trim": "裁剪",
+		"annotation": "文字",
+		"blur": "模糊",
+		"speed": "速度"
+	},
+	"transcript": {
+		"empty": "还没有转写。点击“转写”在这里显示讲话内容。",
+		"working": "正在转写…",
+		"create": "转写",
+		"redo": "重做",
+		"createHint": "转写旁白并显示在缩放轨道下方",
+		"redoHint": "重新转写并替换当前内容"
 	}
 }

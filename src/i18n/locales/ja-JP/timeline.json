@@ -55,5 +55,22 @@
 	"microphone": {
 		"autoSync": "自動",
 		"autoSyncHint": "マイクのオフセットを自動で測定"
+	},
+	"lanes": {
+		"zoom": "ズーム",
+		"transcript": "文字起こし",
+		"microphone": "マイク",
+		"trim": "トリム",
+		"annotation": "テキスト",
+		"blur": "ぼかし",
+		"speed": "速度"
+	},
+	"transcript": {
+		"empty": "文字起こしはまだありません。「文字起こし」で話した内容をここに表示します。",
+		"working": "文字起こし中…",
+		"create": "文字起こし",
+		"redo": "やり直す",
+		"createHint": "ナレーションを文字起こししてズームレーンの下に表示します",
+		"redoHint": "もう一度文字起こしして現在の内容を置き換えます"
 	}
 }

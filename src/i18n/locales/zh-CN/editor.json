@@ -130,5 +130,9 @@
 		"maximize": "最大化",
 		"restore": "还原",
 		"close": "关闭"
+	},
+	"transcriptLane": {
+		"done": "转写完成：{{words}} 个词（{{engine}}）",
+		"failed": "转写失败"
 	}
 }

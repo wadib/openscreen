@@ -130,5 +130,9 @@
 		"maximize": "Agrandir",
 		"restore": "Restaurer",
 		"close": "Fermer"
+	},
+	"transcriptLane": {
+		"done": "Transcription prête : {{words}} mots ({{engine}})",
+		"failed": "Échec de la transcription"
 	}
 }

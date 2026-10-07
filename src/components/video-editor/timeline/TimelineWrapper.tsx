@@ -10,6 +10,7 @@ import type {
 import { TimelineContext, useTimelineContext } from "dnd-timeline";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import { TIMELINE_LANE_LABEL_WIDTH } from "./Row";
 
 interface TimelineWrapperProps {
 	children: ReactNode;
@@ -529,6 +530,7 @@ export default function TimelineWrapper({
 			onDragMove={onDragMove}
 			onDragEnd={onDragEndWithTooltip}
 			autoScroll={{ enabled: false }}
+			sidebarWidth={TIMELINE_LANE_LABEL_WIDTH}
 		>
 			<div className="relative">
 				{children}

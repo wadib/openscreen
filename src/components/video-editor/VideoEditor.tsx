@@ -54,6 +54,7 @@ import { computeFrameStepTime } from "@/lib/frameStep";
 import { recordedBlursToAnnotations } from "@/lib/liveBlur";
 import type { CursorCaptureMode, ProjectMedia } from "@/lib/recordingSession";
 import { matchesShortcut } from "@/lib/shortcuts";
+import type { ProjectTranscript } from "@/lib/transcript/transcript";
 import {
 	getExportFolder,
 	getProjectFolder,
@@ -265,6 +266,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 	);
 	const [exportFormat, setExportFormat] = useState<ExportFormat>(DEFAULT_EXPORT_SETTINGS.format);
 	const [audioEnhancement, setAudioEnhancement] = useState<AudioEnhancement>(NO_AUDIO_ENHANCEMENT);
+	const [transcript, setTranscript] = useState<ProjectTranscript | null>(null);
 	const [cutCrossfadeMs, setCutCrossfadeMs] = useState<number>(DEFAULT_CUT_CROSSFADE_MS);
 	const [originalExport, setOriginalExport] = useState(false);
 	const [gifFrameRate, setGifFrameRate] = useState<GifFrameRate>(DEFAULT_GIF_SETTINGS.frameRate);
@@ -481,6 +483,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			setExportQuality(normalizedEditor.exportQuality);
 			setExportFormat(normalizedEditor.exportFormat);
 			setAudioEnhancement(normalizedEditor.audioEnhancement);
+			setTranscript(normalizedEditor.transcript);
 			setCutCrossfadeMs(normalizedEditor.cutCrossfadeMs);
 			setGifFrameRate(normalizedEditor.gifFrameRate);
 			setGifLoop(normalizedEditor.gifLoop);
@@ -575,6 +578,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			gifLoop,
 			gifSizePreset,
 			audioEnhancement,
+			transcript,
 			cutCrossfadeMs,
 			cursorTheme,
 		});
@@ -608,6 +612,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 		gifLoop,
 		gifSizePreset,
 		audioEnhancement,
+		transcript,
 		cutCrossfadeMs,
 	]);
 
@@ -766,6 +771,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 				gifLoop,
 				gifSizePreset,
 				audioEnhancement,
+				transcript,
 				cutCrossfadeMs,
 				cursorTheme,
 			};
@@ -833,6 +839,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			gifLoop,
 			gifSizePreset,
 			audioEnhancement,
+			transcript,
 			cutCrossfadeMs,
 			cursorTheme,
 			videoPath,
@@ -954,6 +961,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 		setMicrophoneOffsetMs(0);
 		setMicrophoneGain(1);
 		setMicrophoneMuted(false);
+		setTranscript(null);
 		setCurrentProjectPath(null);
 		setLastSavedSnapshot(null);
 		// Reset undoable editor state + undo/redo history to a clean slate.
@@ -1084,7 +1092,14 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 		video.currentTime = time;
 	}
 
-	const { isCleaningUp, runCleanup, isSyncingMicrophone, autoSyncMicrophone } = useSpeechTools({
+	const {
+		isCleaningUp,
+		runCleanup,
+		isSyncingMicrophone,
+		autoSyncMicrophone,
+		isTranscribing,
+		transcribe,
+	} = useSpeechTools({
 		videoPath,
 		webcamVideoPath,
 		webcamOffsetMs,
@@ -1096,6 +1111,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 		trimRegions,
 		pushState,
 		nextTrimIdRef,
+		setTranscript,
 		t,
 	});
 
@@ -3045,6 +3061,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 				<div className="flex-1 min-h-0 relative">
 					<EditorEmptyState
 						onVideoImported={(path) => {
+							setTranscript(null);
 							setVideoPath(toFileUrl(path));
 							setVideoSourcePath(path);
 							setWebcamVideoPath(null);
@@ -3457,6 +3474,9 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 									onReviewZooms={() => setShowZoomReview(true)}
 									onAutoSyncMicrophone={() => void autoSyncMicrophone()}
 									isSyncingMicrophone={isSyncingMicrophone}
+									transcriptWords={transcript?.words}
+									onTranscribe={() => void transcribe()}
+									isTranscribing={isTranscribing}
 								/>
 							</div>
 						</Panel>

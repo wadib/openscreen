@@ -59,5 +59,22 @@
 	"microphone": {
 		"autoSync": "Auto",
 		"autoSyncHint": "Measure the microphone offset automatically"
+	},
+	"lanes": {
+		"zoom": "Zoom",
+		"transcript": "Transcript",
+		"microphone": "Mic",
+		"trim": "Trim",
+		"annotation": "Text",
+		"blur": "Blur",
+		"speed": "Speed"
+	},
+	"transcript": {
+		"empty": "No transcript yet. Use Transcribe to show the spoken words here.",
+		"working": "Transcribing…",
+		"create": "Transcribe",
+		"redo": "Redo",
+		"createHint": "Transcribe the narration and show it under the zoom lane",
+		"redoHint": "Transcribe again and replace the current transcript"
 	}
 }

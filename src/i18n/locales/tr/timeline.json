@@ -55,5 +55,22 @@
 	"microphone": {
 		"autoSync": "Otomatik",
 		"autoSyncHint": "Mikrofon kaymasını otomatik ölç"
+	},
+	"lanes": {
+		"zoom": "Yakınlaştırma",
+		"transcript": "Döküm",
+		"microphone": "Mikrofon",
+		"trim": "Kırpma",
+		"annotation": "Metin",
+		"blur": "Bulanıklık",
+		"speed": "Hız"
+	},
+	"transcript": {
+		"empty": "Henüz döküm yok. Konuşulanları burada görmek için Dökümü oluştur'u kullanın.",
+		"working": "Döküm oluşturuluyor…",
+		"create": "Dökümü oluştur",
+		"redo": "Yeniden",
+		"createHint": "Anlatımın dökümünü çıkarıp yakınlaştırma şeridinin altında gösterir",
+		"redoHint": "Yeniden döküm çıkarıp mevcut dökümü değiştirir"
 	}
 }

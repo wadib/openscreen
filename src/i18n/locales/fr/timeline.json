@@ -55,5 +55,22 @@
 	"microphone": {
 		"autoSync": "Auto",
 		"autoSyncHint": "Mesurer automatiquement le décalage du micro"
+	},
+	"lanes": {
+		"zoom": "Zoom",
+		"transcript": "Transcription",
+		"microphone": "Micro",
+		"trim": "Coupe",
+		"annotation": "Texte",
+		"blur": "Flou",
+		"speed": "Vitesse"
+	},
+	"transcript": {
+		"empty": "Pas encore de transcription. Utilisez Transcrire pour afficher les paroles ici.",
+		"working": "Transcription…",
+		"create": "Transcrire",
+		"redo": "Refaire",
+		"createHint": "Transcrire la narration et l’afficher sous la piste de zoom",
+		"redoHint": "Transcrire à nouveau et remplacer la transcription actuelle"
 	}
 }

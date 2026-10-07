@@ -130,5 +130,9 @@
 		"maximize": "最大化",
 		"restore": "元に戻す",
 		"close": "閉じる"
+	},
+	"transcriptLane": {
+		"done": "文字起こし完了: {{words}} 語 ({{engine}})",
+		"failed": "文字起こしに失敗しました"
 	}
 }

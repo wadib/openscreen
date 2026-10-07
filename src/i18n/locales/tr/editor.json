@@ -130,5 +130,9 @@
 		"maximize": "Ekranı kapla",
 		"restore": "Geri yükle",
 		"close": "Kapat"
+	},
+	"transcriptLane": {
+		"done": "Döküm hazır: {{words}} sözcük ({{engine}})",
+		"failed": "Döküm başarısız"
 	}
 }

@@ -130,5 +130,9 @@
 		"maximize": "تكبير",
 		"restore": "استعادة",
 		"close": "إغلاق"
+	},
+	"transcriptLane": {
+		"done": "النص جاهز: {{words}} كلمة ({{engine}})",
+		"failed": "فشل التفريغ"
 	}
 }

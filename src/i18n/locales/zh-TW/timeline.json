@@ -55,5 +55,22 @@
 	"microphone": {
 		"autoSync": "自動",
 		"autoSyncHint": "自動測量麥克風偏移"
+	},
+	"lanes": {
+		"zoom": "縮放",
+		"transcript": "逐字稿",
+		"microphone": "麥克風",
+		"trim": "修剪",
+		"annotation": "文字",
+		"blur": "模糊",
+		"speed": "速度"
+	},
+	"transcript": {
+		"empty": "尚無逐字稿。點選「轉錄」在這裡顯示說話內容。",
+		"working": "正在轉錄…",
+		"create": "轉錄",
+		"redo": "重做",
+		"createHint": "轉錄旁白並顯示在縮放軌道下方",
+		"redoHint": "重新轉錄並取代目前的逐字稿"
 	}
 }

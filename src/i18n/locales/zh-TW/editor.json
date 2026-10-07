@@ -130,5 +130,9 @@
 		"maximize": "最大化",
 		"restore": "還原",
 		"close": "關閉"
+	},
+	"transcriptLane": {
+		"done": "逐字稿完成：{{words}} 個詞（{{engine}}）",
+		"failed": "轉錄失敗"
 	}
 }

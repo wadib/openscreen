@@ -55,5 +55,22 @@
 	"microphone": {
 		"autoSync": "Tự động",
 		"autoSyncHint": "Tự động đo độ lệch micrô"
+	},
+	"lanes": {
+		"zoom": "Thu phóng",
+		"transcript": "Bản ghi lời",
+		"microphone": "Micrô",
+		"trim": "Cắt",
+		"annotation": "Văn bản",
+		"blur": "Làm mờ",
+		"speed": "Tốc độ"
+	},
+	"transcript": {
+		"empty": "Chưa có bản ghi lời. Dùng Chép lời để hiện lời nói ở đây.",
+		"working": "Đang chép lời…",
+		"create": "Chép lời",
+		"redo": "Làm lại",
+		"createHint": "Chép lời thuyết minh và hiện dưới làn thu phóng",
+		"redoHint": "Chép lời lại và thay bản hiện tại"
 	}
 }

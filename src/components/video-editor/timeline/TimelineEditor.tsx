@@ -5,6 +5,7 @@ import {
 	Captions,
 	Check,
 	ChevronDown,
+	FileText,
 	Gauge,
 	ListVideo,
 	Loader2,
@@ -32,6 +33,7 @@ import { useScopedT } from "@/contexts/I18nContext";
 import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { useAudioPeaks } from "@/hooks/useAudioPeaks";
 import { matchesShortcut } from "@/lib/shortcuts";
+import type { TranscriptWord } from "@/lib/transcript/transcript";
 import { cn } from "@/lib/utils";
 import { ASPECT_RATIOS, type AspectRatio, getAspectRatioLabel } from "@/utils/aspectRatioUtils";
 import { formatShortcut } from "@/utils/platformUtils";
@@ -43,6 +45,7 @@ import Item from "./Item";
 import KeyframeMarkers from "./KeyframeMarkers";
 import Row from "./Row";
 import TimelineWrapper from "./TimelineWrapper";
+import { TranscriptLane } from "./TranscriptLane";
 
 const ZOOM_ROW_ID = "row-zoom";
 const TRIM_ROW_ID = "row-trim";
@@ -50,6 +53,8 @@ const MICROPHONE_ROW_ID = "row-microphone";
 const ANNOTATION_ROW_ID = "row-annotation";
 const BLUR_ROW_ID = "row-blur";
 const SPEED_ROW_ID = "row-speed";
+const TRANSCRIPT_ROW_ID = "row-transcript";
+const EMPTY_TRANSCRIPT: readonly TranscriptWord[] = [];
 const FALLBACK_RANGE_MS = 1000;
 const TARGET_MARKER_COUNT = 12;
 
@@ -120,6 +125,11 @@ interface TimelineEditorProps {
 	/** Measures the microphone offset automatically. */
 	onAutoSyncMicrophone?: () => void;
 	isSyncingMicrophone?: boolean;
+	/** Timed words shown in the transcript lane under the zoom lane. */
+	transcriptWords?: readonly TranscriptWord[];
+	/** Creates or redoes the transcript. Hidden when omitted. */
+	onTranscribe?: () => void;
+	isTranscribing?: boolean;
 }
 
 interface TimelineScaleConfig {
@@ -605,6 +615,9 @@ function Timeline({
 	onMicrophoneMutedChange,
 	onAutoSyncMicrophone,
 	isSyncingMicrophone = false,
+	transcriptWords = EMPTY_TRANSCRIPT,
+	onTranscribe,
+	isTranscribing = false,
 }: {
 	items: TimelineRenderItem[];
 	videoDurationMs: number;
@@ -633,6 +646,9 @@ function Timeline({
 	onMicrophoneMutedChange?: (muted: boolean) => void;
 	onAutoSyncMicrophone?: () => void;
 	isSyncingMicrophone?: boolean;
+	transcriptWords?: readonly TranscriptWord[];
+	onTranscribe?: () => void;
+	isTranscribing?: boolean;
 }) {
 	const t = useScopedT("timeline");
 	const { setTimelineRef, style, sidebarWidth, range, pixelsToValue } = useTimelineContext();
@@ -793,6 +809,13 @@ function Timeline({
 	const annotationItems = items.filter((item) => item.rowId === ANNOTATION_ROW_ID);
 	const blurItems = items.filter((item) => item.rowId === BLUR_ROW_ID);
 	const speedItems = items.filter((item) => item.rowId === SPEED_ROW_ID);
+	const cutSpans = useMemo(
+		() =>
+			trimItems
+				.map((item) => ({ startMs: item.span.start, endMs: item.span.end }))
+				.sort((a, b) => a.startMs - b.startMs),
+		[trimItems],
+	);
 
 	return (
 		<div
@@ -819,7 +842,13 @@ function Timeline({
 				keyframes={keyframes}
 			/>
 
-			<Row id={ZOOM_ROW_ID} isEmpty={zoomItems.length === 0} hint={t("hints.pressZoom")}>
+			<Row
+				id={ZOOM_ROW_ID}
+				label={t("lanes.zoom")}
+				cutSpans={cutSpans}
+				isEmpty={zoomItems.length === 0}
+				hint={t("hints.pressZoom")}
+			>
 				{zoomItems.map((item) => (
 					<Item
 						id={item.id}
@@ -838,9 +867,44 @@ function Timeline({
 				))}
 			</Row>
 
+			<Row
+				id={TRANSCRIPT_ROW_ID}
+				label={t("lanes.transcript")}
+				cutSpans={cutSpans}
+				minHeight={42}
+				isEmpty={transcriptWords.length === 0}
+				hint={isTranscribing ? t("transcript.working") : t("transcript.empty")}
+				labelExtra={
+					onTranscribe ? (
+						<button
+							type="button"
+							onClick={(event) => {
+								event.stopPropagation();
+								onTranscribe();
+							}}
+							onPointerDown={(event) => event.stopPropagation()}
+							disabled={isTranscribing}
+							className="flex w-fit items-center gap-1 rounded border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[9.5px] text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-50"
+							title={transcriptWords.length ? t("transcript.redoHint") : t("transcript.createHint")}
+						>
+							{isTranscribing ? (
+								<Loader2 className="h-3 w-3 animate-spin" />
+							) : (
+								<FileText className="h-3 w-3" />
+							)}
+							{transcriptWords.length ? t("transcript.redo") : t("transcript.create")}
+						</button>
+					) : null
+				}
+			>
+				<TranscriptLane words={transcriptWords} trims={cutSpans} onSeek={onSeek} />
+			</Row>
+
 			{microphoneAudioUrl && (
 				<Row
 					id={MICROPHONE_ROW_ID}
+					label={t("lanes.microphone")}
+					cutSpans={cutSpans}
 					background={
 						<BackgroundWaveform
 							peaks={microphonePeaks}
@@ -923,6 +987,7 @@ function Timeline({
 
 			<Row
 				id={TRIM_ROW_ID}
+				label={t("lanes.trim")}
 				isEmpty={trimItems.length === 0}
 				hint={t("hints.pressTrim")}
 				background={
@@ -953,6 +1018,8 @@ function Timeline({
 
 			<Row
 				id={ANNOTATION_ROW_ID}
+				label={t("lanes.annotation")}
+				cutSpans={cutSpans}
 				isEmpty={annotationItems.length === 0}
 				hint={t("hints.pressAnnotation")}
 			>
@@ -972,7 +1039,13 @@ function Timeline({
 			</Row>
 
 			{BLUR_REGIONS_ENABLED && (
-				<Row id={BLUR_ROW_ID} isEmpty={blurItems.length === 0} hint={t("hints.pressBlur")}>
+				<Row
+					id={BLUR_ROW_ID}
+					label={t("lanes.blur")}
+					cutSpans={cutSpans}
+					isEmpty={blurItems.length === 0}
+					hint={t("hints.pressBlur")}
+				>
 					{blurItems.map((item) => (
 						<Item
 							id={item.id}
@@ -989,7 +1062,13 @@ function Timeline({
 				</Row>
 			)}
 
-			<Row id={SPEED_ROW_ID} isEmpty={speedItems.length === 0} hint={t("hints.pressSpeed")}>
+			<Row
+				id={SPEED_ROW_ID}
+				label={t("lanes.speed")}
+				cutSpans={cutSpans}
+				isEmpty={speedItems.length === 0}
+				hint={t("hints.pressSpeed")}
+			>
 				{speedItems.map((item) => (
 					<Item
 						id={item.id}
@@ -1069,6 +1148,9 @@ export default function TimelineEditor({
 	reviewZoomsLabel,
 	onAutoSyncMicrophone,
 	isSyncingMicrophone = false,
+	transcriptWords = EMPTY_TRANSCRIPT,
+	onTranscribe,
+	isTranscribing = false,
 }: TimelineEditorProps) {
 	const t = useScopedT("timeline");
 	const totalMs = useMemo(() => Math.max(0, Math.round(videoDuration * 1000)), [videoDuration]);
@@ -1840,6 +1922,9 @@ export default function TimelineEditor({
 						onMicrophoneMutedChange={onMicrophoneMutedChange}
 						onAutoSyncMicrophone={onAutoSyncMicrophone}
 						isSyncingMicrophone={isSyncingMicrophone}
+						transcriptWords={transcriptWords}
+						onTranscribe={onTranscribe}
+						isTranscribing={isTranscribing}
 					/>
 				</TimelineWrapper>
 			</div>

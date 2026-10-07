@@ -130,5 +130,9 @@
 		"maximize": "Phóng to",
 		"restore": "Khôi phục",
 		"close": "Đóng"
+	},
+	"transcriptLane": {
+		"done": "Bản ghi lời xong: {{words}} từ ({{engine}})",
+		"failed": "Chép lời thất bại"
 	}
 }

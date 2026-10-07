@@ -55,5 +55,22 @@
 	"microphone": {
 		"autoSync": "Auto",
 		"autoSyncHint": "Misura automaticamente lo scostamento del microfono"
+	},
+	"lanes": {
+		"zoom": "Zoom",
+		"transcript": "Trascrizione",
+		"microphone": "Microfono",
+		"trim": "Taglio",
+		"annotation": "Testo",
+		"blur": "Sfocatura",
+		"speed": "Velocità"
+	},
+	"transcript": {
+		"empty": "Nessuna trascrizione. Usa Trascrivi per vedere qui il parlato.",
+		"working": "Trascrizione in corso…",
+		"create": "Trascrivi",
+		"redo": "Rifai",
+		"createHint": "Trascrive la narrazione e la mostra sotto la traccia zoom",
+		"redoHint": "Trascrivi di nuovo e sostituisci la trascrizione attuale"
 	}
 }

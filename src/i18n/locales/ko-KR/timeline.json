@@ -55,5 +55,22 @@
 	"microphone": {
 		"autoSync": "자동",
 		"autoSyncHint": "마이크 오프셋을 자동으로 측정"
+	},
+	"lanes": {
+		"zoom": "줌",
+		"transcript": "자막 원고",
+		"microphone": "마이크",
+		"trim": "트림",
+		"annotation": "텍스트",
+		"blur": "흐림",
+		"speed": "속도"
+	},
+	"transcript": {
+		"empty": "아직 원고가 없습니다. 받아쓰기를 눌러 말한 내용을 여기에 표시하세요.",
+		"working": "받아쓰는 중…",
+		"create": "받아쓰기",
+		"redo": "다시",
+		"createHint": "내레이션을 받아써서 줌 레인 아래에 표시합니다",
+		"redoHint": "다시 받아써서 현재 원고를 바꿉니다"
 	}
 }

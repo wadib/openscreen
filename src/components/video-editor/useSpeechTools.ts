@@ -14,14 +14,17 @@ import {
 	DEFAULT_MIN_PAUSE_MS,
 	detectFillers,
 	detectPauses,
+	isCrisperWhisperReachable,
 	shiftSpans,
 	totalDurationMs,
 	transcribeWithCrisperWhisper,
 } from "@/lib/cleanup/speechCleanup";
+import { type ProjectTranscript, transcriptFromSeconds } from "@/lib/transcript/transcript";
 import type { TrimRegion } from "./types";
 
 const CLEANUP_TOAST_ID = "speech-cleanup-progress";
 const SYNC_TOAST_ID = "microphone-sync-progress";
+const TRANSCRIPT_TOAST_ID = "transcript-progress";
 const SETTINGS_KEY = "openscreen_cleanup_settings";
 const SAMPLE_RATE = 16_000;
 
@@ -114,10 +117,12 @@ export function useSpeechTools(options: {
 	trimRegions: TrimRegion[];
 	pushState: (update: (prev: EditorState) => Partial<EditorState>) => void;
 	nextTrimIdRef: MutableRefObject<number>;
+	setTranscript?: (transcript: ProjectTranscript) => void;
 	t: Translate;
 }) {
 	const [isCleaningUp, setIsCleaningUp] = useState(false);
 	const [isSyncingMicrophone, setIsSyncingMicrophone] = useState(false);
+	const [isTranscribing, setIsTranscribing] = useState(false);
 	const busy = useRef(false);
 	const latest = useRef(options);
 	latest.current = options;
@@ -271,5 +276,77 @@ export function useSpeechTools(options: {
 		}
 	}, []);
 
-	return { isCleaningUp, runCleanup, isSyncingMicrophone, autoSyncMicrophone };
+	/**
+	 * Transcribe the project for the timeline's transcript lane: the CrisperWhisper server
+	 * when it answers (accurate word timings), otherwise the built-in Whisper model.
+	 */
+	const transcribe = useCallback(async () => {
+		const { videoPath, microphoneAudioPath, microphoneMuted, microphoneOffsetMs, t } =
+			latest.current;
+		if (!videoPath || busy.current) return;
+		busy.current = true;
+		setIsTranscribing(true);
+		try {
+			const useMicrophone = Boolean(microphoneAudioPath && !microphoneMuted);
+			const sourceUrl = useMicrophone ? (microphoneAudioPath as string) : videoPath;
+			const offsetMs = useMicrophone ? microphoneOffsetMs : 0;
+			toast.loading(t("cleanup.analysing"), { id: TRANSCRIPT_TOAST_ID });
+			const samples = await loadMono16k(sourceUrl);
+			if (!samples || samples.length < SAMPLE_RATE / 2) {
+				toast.dismiss(TRANSCRIPT_TOAST_ID);
+				toast.error(t("autoCaptions.noAudio"));
+				return;
+			}
+			const { serverUrl } = loadCleanupSettings();
+			const useServer = await isCrisperWhisperReachable(serverUrl);
+			toast.loading(t("cleanup.transcribing"), { id: TRANSCRIPT_TOAST_ID });
+			const words = useServer
+				? await transcribeWithCrisperWhisper(serverUrl, samples)
+				: (
+						await transcribeMono16kToSegments(samples, {
+							trimRegions: [],
+							onStatus: (phase) =>
+								toast.loading(
+									phase === "model" ? t("autoCaptions.loadingModel") : t("cleanup.transcribing"),
+									{ id: TRANSCRIPT_TOAST_ID },
+								),
+						})
+					).segments;
+			const transcript = transcriptFromSeconds(
+				words,
+				useServer ? "crisperwhisper" : "whisper",
+				offsetMs,
+			);
+			toast.dismiss(TRANSCRIPT_TOAST_ID);
+			if (!transcript) {
+				toast.info(t("autoCaptions.noneHeard"));
+				return;
+			}
+			latest.current.setTranscript?.(transcript);
+			toast.success(
+				t("transcriptLane.done", {
+					words: String(transcript.words.length),
+					engine: useServer ? "CrisperWhisper" : "Whisper",
+				}),
+			);
+		} catch (error) {
+			console.error(error);
+			toast.dismiss(TRANSCRIPT_TOAST_ID);
+			toast.error(t("transcriptLane.failed"), {
+				description: error instanceof Error ? error.message : String(error),
+			});
+		} finally {
+			busy.current = false;
+			setIsTranscribing(false);
+		}
+	}, []);
+
+	return {
+		isCleaningUp,
+		runCleanup,
+		isSyncingMicrophone,
+		autoSyncMicrophone,
+		isTranscribing,
+		transcribe,
+	};
 }

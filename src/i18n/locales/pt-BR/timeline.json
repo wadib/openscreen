@@ -55,5 +55,22 @@
 	"microphone": {
 		"autoSync": "Auto",
 		"autoSyncHint": "Medir automaticamente o deslocamento do microfone"
+	},
+	"lanes": {
+		"zoom": "Zoom",
+		"transcript": "Transcrição",
+		"microphone": "Mic",
+		"trim": "Corte",
+		"annotation": "Texto",
+		"blur": "Desfoque",
+		"speed": "Velocidade"
+	},
+	"transcript": {
+		"empty": "Ainda não há transcrição. Use Transcrever para ver aqui o que é dito.",
+		"working": "Transcrevendo…",
+		"create": "Transcrever",
+		"redo": "Refazer",
+		"createHint": "Transcreve a narração e mostra abaixo da faixa de zoom",
+		"redoHint": "Transcrever de novo e substituir a transcrição atual"
 	}
 }

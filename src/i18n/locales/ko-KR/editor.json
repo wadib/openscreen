@@ -130,5 +130,9 @@
 		"maximize": "최대화",
 		"restore": "이전 크기로",
 		"close": "닫기"
+	},
+	"transcriptLane": {
+		"done": "원고 준비됨: {{words}}단어 ({{engine}})",
+		"failed": "받아쓰기 실패"
 	}
 }
