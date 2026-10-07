@@ -9,6 +9,7 @@ import {
 	Gauge,
 	ListVideo,
 	Loader2,
+	LocateFixed,
 	MessageSquare,
 	Mic,
 	Plus,
@@ -41,6 +42,7 @@ import { BLUR_REGIONS_ENABLED } from "../featureFlags";
 import type { AnnotationRegion, SpeedRegion, TrimRegion, ZoomRegion } from "../types";
 import { getZoomScale } from "../types";
 import BackgroundWaveform from "./BackgroundWaveform";
+import { followPlayheadRange, loadFollowPlayhead, saveFollowPlayhead } from "./followPlayhead";
 import Item from "./Item";
 import KeyframeMarkers from "./KeyframeMarkers";
 import Row from "./Row";
@@ -127,6 +129,8 @@ interface TimelineEditorProps {
 	isSyncingMicrophone?: boolean;
 	/** Timed words shown in the transcript lane under the zoom lane. */
 	transcriptWords?: readonly TranscriptWord[];
+	/** True while the preview plays; the timeline then follows the playhead if enabled. */
+	isPlaying?: boolean;
 	/** Creates or redoes the transcript. Hidden when omitted. */
 	onTranscribe?: () => void;
 	isTranscribing?: boolean;
@@ -1151,6 +1155,7 @@ export default function TimelineEditor({
 	transcriptWords = EMPTY_TRANSCRIPT,
 	onTranscribe,
 	isTranscribing = false,
+	isPlaying = false,
 }: TimelineEditorProps) {
 	const t = useScopedT("timeline");
 	const totalMs = useMemo(() => Math.max(0, Math.round(videoDuration * 1000)), [videoDuration]);
@@ -1237,6 +1242,19 @@ export default function TimelineEditor({
 	useEffect(() => {
 		setRange(createInitialRange(totalMs));
 	}, [totalMs]);
+
+	// Keep the playhead in view during playback by turning the page at the right edge.
+	const [followPlayhead, setFollowPlayhead] = useState(loadFollowPlayhead);
+	useEffect(() => {
+		if (!followPlayhead || !isPlaying) return;
+		setRange((previous) => followPlayheadRange(previous, currentTimeMs, totalMs) ?? previous);
+	}, [followPlayhead, isPlaying, currentTimeMs, totalMs]);
+	const toggleFollowPlayhead = useCallback(() => {
+		setFollowPlayhead((previous) => {
+			saveFollowPlayhead(!previous);
+			return !previous;
+		});
+	}, []);
 
 	// Normalize regions only when timeline bounds change. Reading via refs avoids a
 	// dependency loop that would re-fire on every drag and race dnd-timeline's state.
@@ -1853,6 +1871,20 @@ export default function TimelineEditor({
 					</DropdownMenu>
 				</div>
 				<div className="flex-1" />
+				<button
+					type="button"
+					onClick={toggleFollowPlayhead}
+					aria-pressed={followPlayhead}
+					title={t("labels.followPlayheadHint")}
+					className={`mr-3 flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-medium transition-colors ${
+						followPlayhead
+							? "border-[#34B27B]/40 bg-[#34B27B]/10 text-[#34B27B]"
+							: "border-white/10 bg-white/[0.03] text-slate-500 hover:text-slate-300"
+					}`}
+				>
+					<LocateFixed className="h-3.5 w-3.5" />
+					{t("labels.followPlayhead")}
+				</button>
 				<div className="hidden md:flex items-center gap-3 text-[10px] text-slate-500 font-medium">
 					<span className="flex items-center gap-1.5">
 						<kbd className="px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-[#34B27B] font-sans">

@@ -29,7 +29,9 @@
 		"annotationItem": "Annotation",
 		"blurItem": "Blur {{index}}",
 		"imageItem": "Image",
-		"emptyText": "Empty text"
+		"emptyText": "Empty text",
+		"followPlayhead": "Follow",
+		"followPlayheadHint": "Keep the playhead in view while playing (the timeline turns the page at the right edge)"
 	},
 	"emptyState": {
 		"noVideo": "No Video Loaded",

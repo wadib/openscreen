@@ -3400,6 +3400,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 								<TimelineEditor
 									videoDuration={duration}
 									currentTime={currentTime}
+									isPlaying={isPlaying}
 									onSeek={handleSeek}
 									zoomRegions={zoomRegions}
 									onZoomAdded={handleZoomAdded}

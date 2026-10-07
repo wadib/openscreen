@@ -25,7 +25,9 @@
 		"annotationItem": "شرح",
 		"blurItem": "تمويه {{index}}",
 		"imageItem": "صورة",
-		"emptyText": "نص فارغ"
+		"emptyText": "نص فارغ",
+		"followPlayhead": "متابعة",
+		"followPlayheadHint": "إبقاء مؤشر التشغيل ظاهرًا أثناء التشغيل (ينتقل الخط الزمني صفحةً عند الحافة اليمنى)"
 	},
 	"emptyState": {
 		"noVideo": "لم يتم تحميل أي فيديو",

@@ -25,7 +25,9 @@
 		"annotationItem": "標註",
 		"imageItem": "圖片",
 		"emptyText": "空文字",
-		"blurItem": "模糊 {{index}}"
+		"blurItem": "模糊 {{index}}",
+		"followPlayhead": "跟隨",
+		"followPlayheadHint": "播放時保持播放頭可見（到達右邊緣時時間軸自動翻頁）"
 	},
 	"emptyState": {
 		"noVideo": "未載入影片",

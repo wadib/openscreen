@@ -25,7 +25,9 @@
 		"annotationItem": "Аннотация",
 		"blurItem": "Размытие {{index}}",
 		"imageItem": "Изображение",
-		"emptyText": "Пустой текст"
+		"emptyText": "Пустой текст",
+		"followPlayhead": "Следовать",
+		"followPlayheadHint": "Держать указатель воспроизведения в поле зрения (таймлайн перелистывается у правого края)"
 	},
 	"emptyState": {
 		"noVideo": "Видео не загружено",

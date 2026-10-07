@@ -25,7 +25,9 @@
 		"annotationItem": "Chú thích",
 		"blurItem": "Làm mờ {{index}}",
 		"imageItem": "Hình ảnh",
-		"emptyText": "Văn bản trống"
+		"emptyText": "Văn bản trống",
+		"followPlayhead": "Theo dõi",
+		"followPlayheadHint": "Giữ đầu phát trong tầm nhìn khi phát (dòng thời gian lật trang ở mép phải)"
 	},
 	"emptyState": {
 		"noVideo": "Chưa tải video",

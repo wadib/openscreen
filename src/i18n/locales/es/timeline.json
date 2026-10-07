@@ -25,7 +25,9 @@
 		"annotationItem": "Anotación",
 		"imageItem": "Imagen",
 		"emptyText": "Texto vacío",
-		"blurItem": "Desenfoque {{index}}"
+		"blurItem": "Desenfoque {{index}}",
+		"followPlayhead": "Seguir",
+		"followPlayheadHint": "Mantener el cabezal visible al reproducir (la línea de tiempo avanza de página en el borde derecho)"
 	},
 	"emptyState": {
 		"noVideo": "No hay video cargado",

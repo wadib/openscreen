@@ -25,7 +25,9 @@
 		"annotationItem": "注釈",
 		"blurItem": "ぼかし {{index}}",
 		"imageItem": "画像",
-		"emptyText": "空のテキスト"
+		"emptyText": "空のテキスト",
+		"followPlayhead": "追従",
+		"followPlayheadHint": "再生中は再生ヘッドを表示し続けます（右端でタイムラインがページ送りされます）"
 	},
 	"emptyState": {
 		"noVideo": "ビデオが読み込まれていません",

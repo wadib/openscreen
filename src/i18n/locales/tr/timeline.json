@@ -25,7 +25,9 @@
 		"annotationItem": "Açıklama",
 		"imageItem": "Görüntü",
 		"emptyText": "Boş metin",
-		"blurItem": "Bulanık {{index}}"
+		"blurItem": "Bulanık {{index}}",
+		"followPlayhead": "Takip et",
+		"followPlayheadHint": "Oynatırken oynatma imlecini görünür tut (zaman çizelgesi sağ kenarda sayfa çevirir)"
 	},
 	"emptyState": {
 		"noVideo": "Video Yüklenmedi",

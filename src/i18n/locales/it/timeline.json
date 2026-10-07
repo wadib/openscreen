@@ -25,7 +25,9 @@
 		"annotationItem": "Annotazione",
 		"blurItem": "Sfocatura {{index}}",
 		"imageItem": "Immagine",
-		"emptyText": "Testo vuoto"
+		"emptyText": "Testo vuoto",
+		"followPlayhead": "Segui",
+		"followPlayheadHint": "Tieni visibile la testina durante la riproduzione (la timeline cambia pagina al bordo destro)"
 	},
 	"emptyState": {
 		"noVideo": "Nessun video caricato",

@@ -25,7 +25,9 @@
 		"annotationItem": "Annotation",
 		"imageItem": "Image",
 		"emptyText": "Texte vide",
-		"blurItem": "Flou {{index}}"
+		"blurItem": "Flou {{index}}",
+		"followPlayhead": "Suivre",
+		"followPlayheadHint": "Garder la tête de lecture visible pendant la lecture (la timeline change de page au bord droit)"
 	},
 	"emptyState": {
 		"noVideo": "Aucune vidéo chargée",
