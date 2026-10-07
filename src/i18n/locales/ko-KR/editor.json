@@ -161,6 +161,7 @@
 		"hide": "숨기기",
 		"close": "닫기",
 		"cancel": "중지",
-		"start": "프로젝트 {{count}}개 내보내기"
+		"start": "프로젝트 {{count}}개 내보내기",
+		"newBatch": "새 일괄 작업"
 	}
 }

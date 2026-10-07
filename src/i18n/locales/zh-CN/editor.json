@@ -161,6 +161,7 @@
 		"hide": "隐藏",
 		"close": "关闭",
 		"cancel": "停止",
-		"start": "导出 {{count}} 个项目"
+		"start": "导出 {{count}} 个项目",
+		"newBatch": "新批次"
 	}
 }

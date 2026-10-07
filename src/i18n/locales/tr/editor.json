@@ -161,6 +161,7 @@
 		"hide": "Gizle",
 		"close": "Kapat",
 		"cancel": "Durdur",
-		"start": "{{count}} projeyi dışa aktar"
+		"start": "{{count}} projeyi dışa aktar",
+		"newBatch": "Yeni toplu işlem"
 	}
 }

@@ -161,6 +161,7 @@
 		"hide": "Ẩn",
 		"close": "Đóng",
 		"cancel": "Dừng",
-		"start": "Xuất {{count}} dự án"
+		"start": "Xuất {{count}} dự án",
+		"newBatch": "Lô mới"
 	}
 }

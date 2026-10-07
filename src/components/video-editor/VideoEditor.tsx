@@ -3010,16 +3010,8 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 				className="relative h-11 flex-shrink-0 bg-[#070809]/85 backdrop-blur-xl border-b border-white/[0.07] flex items-center justify-between px-5 z-50 shadow-[0_1px_0_rgba(255,255,255,0.03)]"
 				style={{ WebkitAppRegion: "drag" } as CSSProperties}
 			>
-				<ProjectTitleBadge
-					projectPath={currentProjectPath}
-					hasUnsavedChanges={hasUnsavedChanges}
-					isExporting={isExporting}
-					exportPercentage={exportProgress?.percentage}
-					isStudio={isStudio}
-					t={t}
-				/>
 				<div
-					className="flex-1 flex items-center gap-1"
+					className="flex shrink-0 items-center gap-1"
 					style={{ WebkitAppRegion: "no-drag" } as CSSProperties}
 				>
 					<div
@@ -3040,38 +3032,50 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 						</select>
 					</div>
 					<button
+						title={t("newRecording.title")}
 						type="button"
 						onClick={() => setShowNewRecordingDialog(true)}
 						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white/50 hover:text-white/90 hover:bg-white/[0.08] transition-all duration-150 text-[11px] font-medium"
 					>
 						<Video size={14} />
-						{t("newRecording.title")}
+						<span className="hidden lg:inline">{t("newRecording.title")}</span>
 					</button>
 					<button
+						title={ts("project.load")}
 						type="button"
 						onClick={handleLoadProject}
 						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white/50 hover:text-white/90 hover:bg-white/[0.08] transition-all duration-150 text-[11px] font-medium"
 					>
 						<FolderOpen size={14} />
-						{ts("project.load")}
+						<span className="hidden lg:inline">{ts("project.load")}</span>
 					</button>
 					<button
+						title={ts("project.save")}
 						type="button"
 						onClick={handleSaveProject}
 						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white/50 hover:text-white/90 hover:bg-white/[0.08] transition-all duration-150 text-[11px] font-medium"
 					>
 						<Save size={14} />
-						{ts("project.save")}
+						<span className="hidden lg:inline">{ts("project.save")}</span>
 					</button>
 					<button
+						title={t("batchExport.button")}
 						type="button"
 						onClick={() => setShowBatchExport(true)}
 						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white/50 hover:text-white/90 hover:bg-white/[0.08] transition-all duration-150 text-[11px] font-medium"
 					>
 						<Layers size={14} />
-						{t("batchExport.button")}
+						<span className="hidden lg:inline">{t("batchExport.button")}</span>
 					</button>
 				</div>
+				<ProjectTitleBadge
+					projectPath={currentProjectPath}
+					hasUnsavedChanges={hasUnsavedChanges}
+					isExporting={isExporting}
+					exportPercentage={exportProgress?.percentage}
+					isStudio={isStudio}
+					t={t}
+				/>
 				<WindowControls t={t} />
 			</div>
 

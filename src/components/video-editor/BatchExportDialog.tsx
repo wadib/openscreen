@@ -1,5 +1,6 @@
 import { CheckCircle2, CircleSlash, FolderOpen, Loader2, XCircle } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -90,13 +91,35 @@ export function BatchExportDialog({
 	const [settings, setSettings] = useState<BatchExportOptions>(() => loadSettings(defaultFolder));
 	const [state, dispatch] = useReducer(reducer, INITIAL_BATCH_STATE);
 	const running = state.phase === "running";
+	const ended = state.phase === "finished" || state.phase === "cancelled";
 	const api = window.electronAPI;
 	const previewSeq = useRef(0);
+	// Settings the finished run used. Its results stay on screen until a setting changes or
+	// the user starts a new batch, instead of being replaced by a fresh "Export N" list.
+	const resultSettings = useRef<BatchExportOptions | null>(null);
+	const tRef = useRef(t);
+	tRef.current = t;
 
 	useEffect(
-		() => window.electronAPI?.onBatchExportEvent?.((event) => dispatch({ type: "event", event })),
+		() =>
+			window.electronAPI?.onBatchExportEvent?.((event) => {
+				dispatch({ type: "event", event });
+				if (event.type !== "summary") return;
+				// Also shown when the dialog is hidden, so the end of a batch is never missed.
+				const message = tRef.current("batchExport.summary", {
+					exported: String(event.exported),
+					total: String(event.total),
+					seconds: String(event.seconds),
+				});
+				if (event.exported === event.total) toast.success(message);
+				else toast.error(message);
+			}),
 		[],
 	);
+	useEffect(() => {
+		if (ended && resultSettings.current === null) resultSettings.current = settings;
+		if (!ended) resultSettings.current = null;
+	}, [ended, settings]);
 
 	const update = (patch: Partial<BatchExportOptions>) =>
 		setSettings((previous) => {
@@ -127,9 +150,10 @@ export function BatchExportDialog({
 	// Refresh the list while the dialog is open and nothing is running.
 	useEffect(() => {
 		if (!open || running) return;
+		if (ended && (resultSettings.current === null || resultSettings.current === settings)) return;
 		const timer = setTimeout(() => void refreshPreview(), 250);
 		return () => clearTimeout(timer);
-	}, [open, running, refreshPreview]);
+	}, [open, running, ended, settings, refreshPreview]);
 
 	const pick = async (key: "folder" | "outputDir") => {
 		const chosen = await api?.batchExportPickFolder?.(
@@ -139,7 +163,7 @@ export function BatchExportDialog({
 		if (chosen) update({ [key]: chosen });
 	};
 
-	const toExport = state.jobs.filter((job) => job.status !== "skipped").length;
+	const toExport = state.jobs.filter((job) => job.status === "queued").length;
 	const start = async () => {
 		dispatch({ type: "starting" });
 		const result = await api?.batchExportStart?.(settings);
@@ -304,13 +328,26 @@ export function BatchExportDialog({
 					)}
 				</div>
 				{state.summary && (
-					<p className="text-xs text-slate-300">
+					<div
+						role="status"
+						className={cn(
+							"flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium",
+							state.summary.exported === state.summary.total
+								? "border-[#34B27B]/40 bg-[#34B27B]/15 text-[#5fd6a0]"
+								: "border-red-400/40 bg-red-500/10 text-red-300",
+						)}
+					>
+						{state.summary.exported === state.summary.total ? (
+							<CheckCircle2 className="h-4 w-4 shrink-0" />
+						) : (
+							<XCircle className="h-4 w-4 shrink-0" />
+						)}
 						{t("batchExport.summary", {
 							exported: String(state.summary.exported),
 							total: String(state.summary.total),
 							seconds: String(state.summary.seconds),
 						})}
-					</p>
+					</div>
 				)}
 				{state.error && state.jobs.length > 0 && (
 					<p className="text-xs text-red-400">{state.error}</p>
@@ -325,7 +362,19 @@ export function BatchExportDialog({
 					>
 						{running ? t("batchExport.hide") : t("batchExport.close")}
 					</Button>
-					{running ? (
+					{ended ? (
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => {
+								resultSettings.current = null;
+								void refreshPreview();
+							}}
+							className="border-white/20 bg-transparent text-white hover:bg-white/10"
+						>
+							{t("batchExport.newBatch")}
+						</Button>
+					) : running ? (
 						<Button
 							type="button"
 							onClick={() => void cancel()}

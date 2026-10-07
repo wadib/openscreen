@@ -3,10 +3,11 @@ import { projectDisplayName } from "./studioTitle";
 type Translate = (key: string, vars?: Record<string, string>) => string;
 
 /**
- * Which project this window is working on, centred in the editor's top bar. Window titles
- * are invisible on tiling compositors without title bars (Omarchy), and several Studio
- * instances can be open at once, so the name, unsaved state and export progress are shown
- * inside the window itself.
+ * Which project this window is working on, in the editor's top bar. Window titles are
+ * invisible on tiling compositors without title bars (Omarchy), and several Studio instances
+ * can be open at once, so the name, unsaved state and export progress are shown inside the
+ * window. It fills the space between the buttons and the window controls and truncates
+ * instead of overlapping them.
  */
 export function ProjectTitleBadge({
 	projectPath,
@@ -32,7 +33,7 @@ export function ProjectTitleBadge({
 
 	return (
 		<div
-			className="pointer-events-none absolute left-1/2 top-1/2 flex max-w-[40%] -translate-x-1/2 -translate-y-1/2 items-center gap-2 text-[11px]"
+			className="pointer-events-none flex min-w-0 flex-1 items-center justify-center gap-2 px-3 text-[11px]"
 			data-testid="project-title"
 			title={projectPath ?? undefined}
 		>

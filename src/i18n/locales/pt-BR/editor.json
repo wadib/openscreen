@@ -144,6 +144,7 @@
 		"hide": "Ocultar",
 		"close": "Fechar",
 		"cancel": "Parar",
-		"start": "Exportar {{count}} projetos"
+		"start": "Exportar {{count}} projetos",
+		"newBatch": "Novo lote"
 	}
 }

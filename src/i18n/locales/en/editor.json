@@ -161,6 +161,7 @@
 		"hide": "Hide",
 		"close": "Close",
 		"cancel": "Stop",
-		"start": "Export {{count}} projects"
+		"start": "Export {{count}} projects",
+		"newBatch": "New batch"
 	}
 }

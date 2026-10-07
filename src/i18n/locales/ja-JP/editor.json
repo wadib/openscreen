@@ -161,6 +161,7 @@
 		"hide": "隠す",
 		"close": "閉じる",
 		"cancel": "停止",
-		"start": "{{count}} 件を書き出す"
+		"start": "{{count}} 件を書き出す",
+		"newBatch": "新しい一括書き出し"
 	}
 }

@@ -161,6 +161,7 @@
 		"hide": "隱藏",
 		"close": "關閉",
 		"cancel": "停止",
-		"start": "匯出 {{count}} 個專案"
+		"start": "匯出 {{count}} 個專案",
+		"newBatch": "新批次"
 	}
 }

@@ -145,6 +145,7 @@
 		"hide": "Nascondi",
 		"close": "Chiudi",
 		"cancel": "Interrompi",
-		"start": "Esporta {{count}} progetti"
+		"start": "Esporta {{count}} progetti",
+		"newBatch": "Nuovo blocco"
 	}
 }
