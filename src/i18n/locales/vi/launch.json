@@ -110,7 +110,8 @@
 		"upToDate": "Openscreen đã được cập nhật.",
 		"manifestUnavailable": "Bản phát hành này không có dữ liệu phiên bản thành phần chi tiết.",
 		"viewRelease": "Xem bản phát hành",
-		"updateCheckFailed": "Không thể kiểm tra cập nhật. Hãy kiểm tra kết nối và thử lại."
+		"updateCheckFailed": "Không thể kiểm tra cập nhật. Hãy kiểm tra kết nối và thử lại.",
+		"noPublishedReleases": "Chưa có bản cập nhật nào được phát hành trực tuyến. Phiên bản mới được cài thủ công từ thư mục phát hành."
 	},
 	"language": "Ngôn ngữ",
 	"systemLanguagePrompt": {

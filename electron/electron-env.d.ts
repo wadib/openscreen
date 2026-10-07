@@ -64,6 +64,9 @@ interface Window {
 		) => Promise<import("./afterRecording").AfterRecording>;
 		chooseRecordingEditor: () => Promise<string | null>;
 		closeSettings: () => Promise<void>;
+		windowControl?: (
+			action: "minimize" | "toggle-maximize" | "close" | "state",
+		) => Promise<{ maximized: boolean }>;
 		getAppInfo: () => Promise<{
 			name: string;
 			version: string;

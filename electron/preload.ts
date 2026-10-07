@@ -119,6 +119,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.invoke("save-after-recording-settings", settings),
 	chooseRecordingEditor: () => ipcRenderer.invoke("choose-recording-editor"),
 	closeSettings: () => ipcRenderer.invoke("close-settings"),
+	windowControl: (action: "minimize" | "toggle-maximize" | "close" | "state") =>
+		ipcRenderer.invoke("window-control", action),
 	getAppInfo: () => ipcRenderer.invoke("get-app-info"),
 	checkForUpdates: () => ipcRenderer.invoke("check-for-updates"),
 	onSettingsSectionChanged: (callback: (section: string) => void) => {

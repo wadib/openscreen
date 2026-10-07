@@ -83,7 +83,11 @@
 		"nothingFound": "Nada para limpar.",
 		"done": "{{cuts}} cortes adicionados ({{seconds}} s removidos)",
 		"doneDetail": "{{pauses}} pausas, {{fillers}} vícios",
-		"failed": "Falha na limpeza"
+		"failed": "Falha na limpeza",
+		"serverOnline": "Servidor online",
+		"serverChecking": "Verificando o servidor…",
+		"serverOffline": "Servidor inacessível. Inicie-o no Z13:",
+		"serverRetry": "Tentar novamente"
 	},
 	"microphone": {
 		"syncing": "Medindo a sincronia do microfone…",
@@ -103,5 +107,11 @@
 		"manual": "Manual",
 		"goTo": "Ir para o zoom",
 		"delete": "Excluir zoom"
+	},
+	"window": {
+		"minimize": "Minimizar",
+		"maximize": "Maximizar",
+		"restore": "Restaurar",
+		"close": "Fechar"
 	}
 }

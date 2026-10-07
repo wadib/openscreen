@@ -128,6 +128,7 @@ import { useStudioMcp } from "./useStudioMcp";
 import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
 import { clampFocusInsideMask, videoFocusToStageSpace } from "./videoPlayback/focusUtils";
 import { clampZoomAreaFocus, getZoomAreaSize } from "./videoPlayback/zoomArea";
+import { WindowControls } from "./WindowControls";
 import { ZoomReviewDialog } from "./ZoomReviewDialog";
 
 /** Single Sonner slot so auto-caption phases update in place instead of stacking. */
@@ -3036,6 +3037,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 						{ts("project.save")}
 					</button>
 				</div>
+				<WindowControls t={t} />
 			</div>
 
 			{/* Empty state shown when no video is loaded */}

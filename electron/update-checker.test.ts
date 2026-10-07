@@ -4,6 +4,7 @@ import {
 	checkForUpdates,
 	compareVersions,
 	isUpdateCheckEnabled,
+	NO_PUBLISHED_RELEASES,
 	UPDATE_MANIFEST_ASSET,
 } from "./update-checker";
 
@@ -95,4 +96,11 @@ describe("update checker", () => {
 		);
 		await expect(checkForUpdates("1.10.27", "win32", fetchUpdate)).rejects.toThrow("not trusted");
 	});
+});
+
+it("reports a repository without published releases distinctly", async () => {
+	const fetchUpdate = vi.fn().mockResolvedValue(response({ message: "Not Found" }, 404));
+	await expect(checkForUpdates("1.10.32", "linux", fetchUpdate)).rejects.toThrow(
+		NO_PUBLISHED_RELEASES,
+	);
 });

@@ -1,7 +1,7 @@
 {
 	"name": "openscreen",
 	"private": true,
-	"version": "1.10.31",
+	"version": "1.10.32",
 	"description": "Screen recorder and video editor for product demos",
 	"homepage": "https://github.com/wadib/openscreen",
 	"type": "module",

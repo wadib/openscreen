@@ -100,7 +100,11 @@
 		"nothingFound": "Nothing to clean up.",
 		"done": "Added {{cuts}} cuts ({{seconds}} s removed)",
 		"doneDetail": "{{pauses}} pauses, {{fillers}} filler words",
-		"failed": "Cleanup failed"
+		"failed": "Cleanup failed",
+		"serverOnline": "Server online",
+		"serverChecking": "Checking server…",
+		"serverOffline": "Server not reachable. Start it on the Z13:",
+		"serverRetry": "Retry"
 	},
 	"microphone": {
 		"syncing": "Measuring microphone sync…",
@@ -120,5 +124,11 @@
 		"manual": "Manual",
 		"goTo": "Go to zoom",
 		"delete": "Delete zoom"
+	},
+	"window": {
+		"minimize": "Minimize",
+		"maximize": "Maximize",
+		"restore": "Restore",
+		"close": "Close"
 	}
 }

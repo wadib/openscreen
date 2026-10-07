@@ -117,7 +117,8 @@
 		"upToDate": "Openscreen güncel.",
 		"manifestUnavailable": "Bu sürüm ayrıntılı bileşen sürüm verisi içermiyor.",
 		"viewRelease": "Sürümü görüntüle",
-		"updateCheckFailed": "Güncellemeler denetlenemedi. Bağlantınızı kontrol edip yeniden deneyin."
+		"updateCheckFailed": "Güncellemeler denetlenemedi. Bağlantınızı kontrol edip yeniden deneyin.",
+		"noPublishedReleases": "Henüz çevrim içi yayımlanmış güncelleme yok. Yeni sürümler sürüm klasöründen elle yüklenir."
 	},
 	"language": "Dil",
 	"systemLanguagePrompt": {

@@ -100,7 +100,11 @@
 		"nothingFound": "정리할 것이 없습니다.",
 		"done": "컷 {{cuts}}개 추가({{seconds}}초 제거)",
 		"doneDetail": "멈춤 {{pauses}}개, 군말 {{fillers}}개",
-		"failed": "정리 실패"
+		"failed": "정리 실패",
+		"serverOnline": "서버 온라인",
+		"serverChecking": "서버 확인 중…",
+		"serverOffline": "서버에 연결할 수 없습니다. Z13에서 시작하세요:",
+		"serverRetry": "다시 시도"
 	},
 	"microphone": {
 		"syncing": "마이크 동기화 측정 중…",
@@ -120,5 +124,11 @@
 		"manual": "수동",
 		"goTo": "줌으로 이동",
 		"delete": "줌 삭제"
+	},
+	"window": {
+		"minimize": "최소화",
+		"maximize": "최대화",
+		"restore": "이전 크기로",
+		"close": "닫기"
 	}
 }

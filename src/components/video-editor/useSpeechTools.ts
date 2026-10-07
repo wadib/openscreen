@@ -36,12 +36,24 @@ export interface CleanupSettings {
 
 export const MIN_PAUSE_CHOICES = [500, 800, 1200, 2000] as const;
 
+/** On the Z13 the server runs locally; elsewhere it is reached by its Tailscale name. */
+export function defaultCrisperWhisperUrl(userAgent = navigator.userAgent): string {
+	return /Linux/i.test(userAgent) && !/Android/i.test(userAgent)
+		? "http://127.0.0.1:8090/"
+		: "http://omarchy:8090/";
+}
+
+/** Addresses used by earlier versions, before the server moved to its own port (8090). */
+const LEGACY_SERVER_URLS = new Set(["http://192.168.86.250:8080/", "http://192.168.86.250:8080"]);
+
 export const DEFAULT_CLEANUP_SETTINGS: CleanupSettings = {
 	pauses: true,
 	minPauseMs: DEFAULT_MIN_PAUSE_MS,
 	fillers: "local",
-	serverUrl: "http://192.168.86.250:8080/",
+	serverUrl: defaultCrisperWhisperUrl(),
 };
+
+export const CRISPERWHISPER_START_COMMAND = "systemctl --user start crisperwhisper";
 
 export function loadCleanupSettings(): CleanupSettings {
 	try {
@@ -59,7 +71,9 @@ export function loadCleanupSettings(): CleanupSettings {
 					? raw.fillers
 					: DEFAULT_CLEANUP_SETTINGS.fillers,
 			serverUrl:
-				typeof raw.serverUrl === "string" && /^https?:\/\//i.test(raw.serverUrl)
+				typeof raw.serverUrl === "string" &&
+				/^https?:\/\//i.test(raw.serverUrl) &&
+				!LEGACY_SERVER_URLS.has(raw.serverUrl)
 					? raw.serverUrl
 					: DEFAULT_CLEANUP_SETTINGS.serverUrl,
 		};

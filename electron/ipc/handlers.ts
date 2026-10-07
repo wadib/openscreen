@@ -1821,6 +1821,21 @@ export function registerIpcHandlers(
 		});
 		return selected.canceled ? null : (selected.filePaths[0] ?? null);
 	});
+	// In-app window buttons for compositors that draw no title bar (Hyprland/Omarchy).
+	ipcMain.handle(
+		"window-control",
+		(event, action: "minimize" | "toggle-maximize" | "close" | "state") => {
+			const win = BrowserWindow.fromWebContents(event.sender);
+			if (!win || win.isDestroyed()) return { maximized: false };
+			if (action === "minimize") win.minimize();
+			else if (action === "toggle-maximize") {
+				if (win.isMaximized()) win.unmaximize();
+				else win.maximize();
+			} else if (action === "close") win.close();
+			return { maximized: !win.isDestroyed() && win.isMaximized() };
+		},
+	);
+
 	ipcMain.handle("close-settings", (event) => {
 		if (isSettingsWindow(event.sender.id)) closeSettingsWindow();
 	});

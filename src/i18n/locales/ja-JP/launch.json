@@ -117,7 +117,8 @@
 		"upToDate": "Openscreen は最新です。",
 		"manifestUnavailable": "このリリースには詳細なコンポーネントバージョン情報がありません。",
 		"viewRelease": "リリースを表示",
-		"updateCheckFailed": "更新を確認できませんでした。接続を確認して再試行してください。"
+		"updateCheckFailed": "更新を確認できませんでした。接続を確認して再試行してください。",
+		"noPublishedReleases": "オンラインで公開されている更新はまだありません。新しいバージョンはリリースフォルダーから手動でインストールします。"
 	},
 	"language": "言語",
 	"systemLanguagePrompt": {

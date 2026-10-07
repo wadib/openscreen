@@ -17,16 +17,23 @@ export function SettingsAbout({ appInfo }: { appInfo: AppInfo | null }) {
 	const [checking, setChecking] = useState(false);
 	const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
 	const [updateError, setUpdateError] = useState(false);
+	const [noReleases, setNoReleases] = useState(false);
 	const updatesEnabled = isUpdateCheckEnabled(appInfo?.version);
 	const open = (url: string) => void window.electronAPI.openExternalUrl(url);
 	const checkForUpdates = async () => {
 		setChecking(true);
 		setUpdateError(false);
+		setNoReleases(false);
 		try {
 			setUpdateResult(await window.electronAPI.checkForUpdates());
-		} catch {
+		} catch (error) {
 			setUpdateResult(null);
-			setUpdateError(true);
+			// Not a connection problem: the repository simply has no published release.
+			if (error instanceof Error && error.message.includes("NO_PUBLISHED_RELEASES")) {
+				setNoReleases(true);
+			} else {
+				setUpdateError(true);
+			}
 		} finally {
 			setChecking(false);
 		}
@@ -132,6 +139,11 @@ export function SettingsAbout({ appInfo }: { appInfo: AppInfo | null }) {
 									</button>
 								)}
 							</div>
+						)}
+						{noReleases && (
+							<p role="status" className="text-xs leading-5 text-zinc-400">
+								{t("about.noPublishedReleases")}
+							</p>
 						)}
 						{updateError && (
 							<p role="alert" className="text-xs leading-5 text-red-400">

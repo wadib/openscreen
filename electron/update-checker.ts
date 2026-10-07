@@ -3,6 +3,8 @@ import { STUDIO_MCP_VERSION } from "../src/lib/studioMcpContract";
 export const UPDATE_MANIFEST_ASSET = "openscreen-components.json";
 export const LATEST_RELEASE_API = "https://api.github.com/repos/wadib/openscreen/releases/latest";
 export const UPDATE_CHECK_MIN_APP_VERSION = "1.10.28";
+/** Thrown when the repository has no published release (GitHub answers 404). */
+export const NO_PUBLISHED_RELEASES = "NO_PUBLISHED_RELEASES";
 
 export type UpdateComponentId = "studioMcp" | "captureEngine" | "blurry" | "cameraControls";
 
@@ -56,6 +58,9 @@ export async function checkForUpdates(
 		},
 		signal: AbortSignal.timeout(10_000),
 	});
+	if (releaseResponse.status === 404) {
+		throw new Error(NO_PUBLISHED_RELEASES);
+	}
 	if (!releaseResponse.ok) {
 		throw new Error(`Update service returned HTTP ${releaseResponse.status}`);
 	}

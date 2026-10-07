@@ -4,6 +4,7 @@ import {
 	detectFillers,
 	detectPauses,
 	encodeWav16,
+	isCrisperWhisperReachable,
 	isFillerWord,
 	shiftSpans,
 } from "./speechCleanup";
@@ -109,4 +110,18 @@ it("writes a valid 16-bit mono WAV header", () => {
 	expect(wav.getUint32(24, true)).toBe(RATE);
 	expect(wav.getInt16(46, true)).toBe(32767);
 	expect(wav.getInt16(48, true)).toBe(-32768);
+});
+
+describe("isCrisperWhisperReachable", () => {
+	it("treats any HTTP answer (the server returns 501 for GET) as online", async () => {
+		const fetchStub = (async () => new Response("", { status: 501 })) as typeof fetch;
+		expect(await isCrisperWhisperReachable("http://x:8090/", 100, fetchStub)).toBe(true);
+	});
+
+	it("treats a network error as offline", async () => {
+		const fetchStub = (async () => {
+			throw new TypeError("Failed to fetch");
+		}) as typeof fetch;
+		expect(await isCrisperWhisperReachable("http://x:8090/", 100, fetchStub)).toBe(false);
+	});
 });

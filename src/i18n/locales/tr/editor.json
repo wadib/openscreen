@@ -100,7 +100,11 @@
 		"nothingFound": "Temizlenecek bir şey yok.",
 		"done": "{{cuts}} kesim eklendi ({{seconds}} sn kaldırıldı)",
 		"doneDetail": "{{pauses}} duraklama, {{fillers}} dolgu sözcüğü",
-		"failed": "Temizleme başarısız"
+		"failed": "Temizleme başarısız",
+		"serverOnline": "Sunucu çevrim içi",
+		"serverChecking": "Sunucu denetleniyor…",
+		"serverOffline": "Sunucuya ulaşılamıyor. Z13 üzerinde başlatın:",
+		"serverRetry": "Yeniden dene"
 	},
 	"microphone": {
 		"syncing": "Mikrofon senkronu ölçülüyor…",
@@ -120,5 +124,11 @@
 		"manual": "Elle",
 		"goTo": "Yakınlaştırmaya git",
 		"delete": "Yakınlaştırmayı sil"
+	},
+	"window": {
+		"minimize": "Simge durumuna küçült",
+		"maximize": "Ekranı kapla",
+		"restore": "Geri yükle",
+		"close": "Kapat"
 	}
 }

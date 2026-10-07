@@ -100,7 +100,11 @@
 		"nothingFound": "لا يوجد ما يُنظَّف.",
 		"done": "أُضيف {{cuts}} قطع (أُزيل {{seconds}} ث)",
 		"doneDetail": "{{pauses}} توقفات، {{fillers}} كلمات حشو",
-		"failed": "فشل التنظيف"
+		"failed": "فشل التنظيف",
+		"serverOnline": "الخادم متصل",
+		"serverChecking": "جارٍ فحص الخادم…",
+		"serverOffline": "تعذّر الوصول إلى الخادم. شغّله على Z13:",
+		"serverRetry": "إعادة المحاولة"
 	},
 	"microphone": {
 		"syncing": "جارٍ قياس مزامنة الميكروفون…",
@@ -120,5 +124,11 @@
 		"manual": "يدوي",
 		"goTo": "الانتقال إلى التكبير",
 		"delete": "حذف التكبير"
+	},
+	"window": {
+		"minimize": "تصغير",
+		"maximize": "تكبير",
+		"restore": "استعادة",
+		"close": "إغلاق"
 	}
 }

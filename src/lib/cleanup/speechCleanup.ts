@@ -249,6 +249,23 @@ export function encodeWav16(samples: Float32Array, sampleRate: number): ArrayBuf
 }
 
 /**
+ * True when something answers at the CrisperWhisper URL. The server only implements POST, so
+ * any HTTP response (including 501 for GET) means it is up; a network error means it is not.
+ */
+export async function isCrisperWhisperReachable(
+	url: string,
+	timeoutMs = 3000,
+	fetchImpl: typeof fetch = fetch,
+): Promise<boolean> {
+	try {
+		await fetchImpl(url, { method: "GET", signal: AbortSignal.timeout(timeoutMs) });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
  * Transcribe with a CrisperWhisper server (verbatim, keeps fillers as [UH]/[UM]).
  * Expects `POST <url>` with WAV bytes → `{ words: [{ word, start, end }] }`.
  */

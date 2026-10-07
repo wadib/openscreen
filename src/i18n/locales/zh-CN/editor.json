@@ -100,7 +100,11 @@
 		"nothingFound": "没有需要清理的内容。",
 		"done": "已添加 {{cuts}} 处剪切（删除 {{seconds}} 秒）",
 		"doneDetail": "{{pauses}} 处停顿，{{fillers}} 个口头禅",
-		"failed": "清理失败"
+		"failed": "清理失败",
+		"serverOnline": "服务器在线",
+		"serverChecking": "正在检查服务器…",
+		"serverOffline": "无法连接服务器。请在 Z13 上启动：",
+		"serverRetry": "重试"
 	},
 	"microphone": {
 		"syncing": "正在测量麦克风同步…",
@@ -120,5 +124,11 @@
 		"manual": "手动",
 		"goTo": "跳到缩放",
 		"delete": "删除缩放"
+	},
+	"window": {
+		"minimize": "最小化",
+		"maximize": "最大化",
+		"restore": "还原",
+		"close": "关闭"
 	}
 }

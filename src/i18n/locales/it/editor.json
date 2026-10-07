@@ -84,7 +84,11 @@
 		"nothingFound": "Niente da pulire.",
 		"done": "Aggiunti {{cuts}} tagli ({{seconds}} s rimossi)",
 		"doneDetail": "{{pauses}} pause, {{fillers}} intercalari",
-		"failed": "Pulizia non riuscita"
+		"failed": "Pulizia non riuscita",
+		"serverOnline": "Server online",
+		"serverChecking": "Verifica del server…",
+		"serverOffline": "Server non raggiungibile. Avvialo sullo Z13:",
+		"serverRetry": "Riprova"
 	},
 	"microphone": {
 		"syncing": "Misurazione della sincronia del microfono…",
@@ -104,5 +108,11 @@
 		"manual": "Manuale",
 		"goTo": "Vai allo zoom",
 		"delete": "Elimina zoom"
+	},
+	"window": {
+		"minimize": "Riduci a icona",
+		"maximize": "Ingrandisci",
+		"restore": "Ripristina",
+		"close": "Chiudi"
 	}
 }

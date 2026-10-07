@@ -117,7 +117,8 @@
 		"upToDate": "Openscreen 已是最新版本。",
 		"manifestUnavailable": "此版本未包含详细的组件版本数据。",
 		"viewRelease": "查看版本",
-		"updateCheckFailed": "无法检查更新。请检查网络连接后重试。"
+		"updateCheckFailed": "无法检查更新。请检查网络连接后重试。",
+		"noPublishedReleases": "目前还没有在线发布的更新。新版本需从发布文件夹手动安装。"
 	},
 	"language": "语言",
 	"systemLanguagePrompt": {

@@ -100,7 +100,11 @@
 		"nothingFound": "No hay nada que limpiar.",
 		"done": "Se añadieron {{cuts}} cortes ({{seconds}} s eliminados)",
 		"doneDetail": "{{pauses}} pausas, {{fillers}} muletillas",
-		"failed": "Error al limpiar"
+		"failed": "Error al limpiar",
+		"serverOnline": "Servidor en línea",
+		"serverChecking": "Comprobando el servidor…",
+		"serverOffline": "No se puede conectar con el servidor. Inícialo en el Z13:",
+		"serverRetry": "Reintentar"
 	},
 	"microphone": {
 		"syncing": "Midiendo la sincronización del micrófono…",
@@ -120,5 +124,11 @@
 		"manual": "Manual",
 		"goTo": "Ir al zoom",
 		"delete": "Eliminar zoom"
+	},
+	"window": {
+		"minimize": "Minimizar",
+		"maximize": "Maximizar",
+		"restore": "Restaurar",
+		"close": "Cerrar"
 	}
 }

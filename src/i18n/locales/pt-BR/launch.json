@@ -115,7 +115,8 @@
 		"upToDate": "O Openscreen está atualizado.",
 		"manifestUnavailable": "Esta versão não inclui dados detalhados dos componentes.",
 		"viewRelease": "Ver versão",
-		"updateCheckFailed": "Não foi possível verificar atualizações. Confira a conexão e tente novamente."
+		"updateCheckFailed": "Não foi possível verificar atualizações. Confira a conexão e tente novamente.",
+		"noPublishedReleases": "Ainda não há atualizações publicadas online. As novas versões são instaladas manualmente a partir da pasta de versões."
 	},
 	"language": "Idioma",
 	"systemLanguagePrompt": {

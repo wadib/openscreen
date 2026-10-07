@@ -17,12 +17,16 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { isCrisperWhisperReachable } from "@/lib/cleanup/speechCleanup";
 import {
 	type CleanupSettings,
+	CRISPERWHISPER_START_COMMAND,
 	type FillerEngine,
 	loadCleanupSettings,
 	MIN_PAUSE_CHOICES,
 } from "./useSpeechTools";
+
+type ServerStatus = "checking" | "online" | "offline";
 
 type Translate = (key: string, vars?: Record<string, string>) => string;
 
@@ -48,6 +52,27 @@ export function CleanupDialog({
 	const update = (patch: Partial<CleanupSettings>) =>
 		setSettings((prev) => ({ ...prev, ...patch }));
 	const nothingSelected = !settings.pauses && settings.fillers === "off";
+	const usesServer = settings.fillers === "crisperwhisper";
+	const validUrl = /^https?:\/\//i.test(settings.serverUrl);
+	const [serverStatus, setServerStatus] = useState<ServerStatus>("checking");
+	const [recheck, setRecheck] = useState(0);
+
+	// Check the server whenever the dialog opens, the option is chosen or the URL changes.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `recheck` re-runs the check on demand.
+	useEffect(() => {
+		if (!open || !usesServer || !validUrl) return;
+		let active = true;
+		setServerStatus("checking");
+		const timer = setTimeout(() => {
+			void isCrisperWhisperReachable(settings.serverUrl).then((reachable) => {
+				if (active) setServerStatus(reachable ? "online" : "offline");
+			});
+		}, 400);
+		return () => {
+			active = false;
+			clearTimeout(timer);
+		};
+	}, [open, usesServer, validUrl, settings.serverUrl, recheck]);
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -121,6 +146,40 @@ export function CleanupDialog({
 								className="h-9 rounded-md border border-white/15 bg-black/40 px-3 text-sm text-white outline-none focus:border-[#34B27B]"
 								spellCheck={false}
 							/>
+							{validUrl && (
+								<div className="flex items-start gap-2 text-xs">
+									<span
+										className={
+											serverStatus === "online"
+												? "mt-1 h-2 w-2 shrink-0 rounded-full bg-[#34B27B]"
+												: serverStatus === "offline"
+													? "mt-1 h-2 w-2 shrink-0 rounded-full bg-red-500"
+													: "mt-1 h-2 w-2 shrink-0 animate-pulse rounded-full bg-slate-500"
+										}
+									/>
+									<div className="min-w-0 flex-1 text-slate-300">
+										{serverStatus === "online" && t("cleanup.serverOnline")}
+										{serverStatus === "checking" && t("cleanup.serverChecking")}
+										{serverStatus === "offline" && (
+											<>
+												<div>{t("cleanup.serverOffline")}</div>
+												<code className="mt-1 block select-all rounded bg-black/50 px-2 py-1 text-[11px] text-slate-200">
+													{CRISPERWHISPER_START_COMMAND}
+												</code>
+											</>
+										)}
+									</div>
+									{serverStatus === "offline" && (
+										<button
+											type="button"
+											onClick={() => setRecheck((value) => value + 1)}
+											className="shrink-0 text-[#34B27B] hover:underline"
+										>
+											{t("cleanup.serverRetry")}
+										</button>
+									)}
+								</div>
+							)}
 						</div>
 					)}
 					<p className="text-xs text-slate-400">{t("cleanup.undoHint")}</p>
@@ -137,9 +196,7 @@ export function CleanupDialog({
 					<Button
 						type="button"
 						disabled={
-							busy ||
-							nothingSelected ||
-							(settings.fillers === "crisperwhisper" && !/^https?:\/\//i.test(settings.serverUrl))
+							busy || nothingSelected || (usesServer && (!validUrl || serverStatus !== "online"))
 						}
 						onClick={() => {
 							onOpenChange(false);

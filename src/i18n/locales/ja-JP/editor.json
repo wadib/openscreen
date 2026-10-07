@@ -100,7 +100,11 @@
 		"nothingFound": "整理するものはありません。",
 		"done": "{{cuts}} 件のカットを追加（{{seconds}} 秒削除）",
 		"doneDetail": "間 {{pauses}} 件、フィラー {{fillers}} 件",
-		"failed": "整理に失敗しました"
+		"failed": "整理に失敗しました",
+		"serverOnline": "サーバーはオンラインです",
+		"serverChecking": "サーバーを確認中…",
+		"serverOffline": "サーバーに接続できません。Z13 で起動してください:",
+		"serverRetry": "再試行"
 	},
 	"microphone": {
 		"syncing": "マイクの同期を測定中…",
@@ -120,5 +124,11 @@
 		"manual": "手動",
 		"goTo": "ズームへ移動",
 		"delete": "ズームを削除"
+	},
+	"window": {
+		"minimize": "最小化",
+		"maximize": "最大化",
+		"restore": "元に戻す",
+		"close": "閉じる"
 	}
 }

@@ -100,7 +100,11 @@
 		"nothingFound": "Không có gì để dọn.",
 		"done": "Đã thêm {{cuts}} đoạn cắt (bỏ {{seconds}} giây)",
 		"doneDetail": "{{pauses}} khoảng lặng, {{fillers}} từ đệm",
-		"failed": "Dọn thất bại"
+		"failed": "Dọn thất bại",
+		"serverOnline": "Máy chủ đang hoạt động",
+		"serverChecking": "Đang kiểm tra máy chủ…",
+		"serverOffline": "Không kết nối được máy chủ. Hãy khởi động nó trên Z13:",
+		"serverRetry": "Thử lại"
 	},
 	"microphone": {
 		"syncing": "Đang đo đồng bộ micrô…",
@@ -120,5 +124,11 @@
 		"manual": "Thủ công",
 		"goTo": "Đi tới thu phóng",
 		"delete": "Xóa thu phóng"
+	},
+	"window": {
+		"minimize": "Thu nhỏ",
+		"maximize": "Phóng to",
+		"restore": "Khôi phục",
+		"close": "Đóng"
 	}
 }

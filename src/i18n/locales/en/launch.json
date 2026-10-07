@@ -205,7 +205,8 @@
 		"upToDate": "Openscreen is up to date.",
 		"manifestUnavailable": "This release does not include detailed component version data.",
 		"viewRelease": "View release",
-		"updateCheckFailed": "Could not check for updates. Check your connection and try again."
+		"updateCheckFailed": "Could not check for updates. Check your connection and try again.",
+		"noPublishedReleases": "No updates are published online yet. New versions are installed manually from the release folder."
 	},
 	"language": "Language",
 	"systemLanguagePrompt": {

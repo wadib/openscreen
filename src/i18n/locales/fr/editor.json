@@ -100,7 +100,11 @@
 		"nothingFound": "Rien à nettoyer.",
 		"done": "{{cuts}} coupes ajoutées ({{seconds}} s supprimées)",
 		"doneDetail": "{{pauses}} pauses, {{fillers}} hésitations",
-		"failed": "Échec du nettoyage"
+		"failed": "Échec du nettoyage",
+		"serverOnline": "Serveur en ligne",
+		"serverChecking": "Vérification du serveur…",
+		"serverOffline": "Serveur injoignable. Démarrez-le sur le Z13 :",
+		"serverRetry": "Réessayer"
 	},
 	"microphone": {
 		"syncing": "Mesure de la synchro du micro…",
@@ -120,5 +124,11 @@
 		"manual": "Manuel",
 		"goTo": "Aller au zoom",
 		"delete": "Supprimer le zoom"
+	},
+	"window": {
+		"minimize": "Réduire",
+		"maximize": "Agrandir",
+		"restore": "Restaurer",
+		"close": "Fermer"
 	}
 }

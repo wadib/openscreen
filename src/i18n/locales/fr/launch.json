@@ -117,7 +117,8 @@
 		"upToDate": "Openscreen est à jour.",
 		"manifestUnavailable": "Cette version ne contient pas le détail des versions des composants.",
 		"viewRelease": "Voir la version",
-		"updateCheckFailed": "Impossible de rechercher les mises à jour. Vérifiez votre connexion et réessayez."
+		"updateCheckFailed": "Impossible de rechercher les mises à jour. Vérifiez votre connexion et réessayez.",
+		"noPublishedReleases": "Aucune mise à jour n’est encore publiée en ligne. Les nouvelles versions s’installent manuellement depuis le dossier des versions."
 	},
 	"language": "Langue",
 	"systemLanguagePrompt": {
