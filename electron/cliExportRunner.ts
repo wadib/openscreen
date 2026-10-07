@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { type BrowserWindow, ipcMain } from "electron";
+import { type BatchExportEvent, formatEventJson, formatEventText } from "./batchExportEvents";
 import {
 	type CliExportQuality,
 	type CliExportRequest,
@@ -25,8 +26,12 @@ export interface CliExportResultMessage {
 const READY_TIMEOUT_MS = 120_000;
 const JOB_TIMEOUT_MS = 6 * 60 * 60 * 1000;
 
-function log(line: string) {
-	process.stdout.write(`${line}\n`);
+let jsonProgress = false;
+
+/** Print a progress event as text for people, or as a JSON line for in-app Batch export. */
+function emit(event: BatchExportEvent) {
+	const line = jsonProgress ? formatEventJson(event) : formatEventText(event);
+	if (line) process.stdout.write(`${line}\n`);
 }
 
 function waitForReady(window: BrowserWindow): Promise<void> {
@@ -45,7 +50,11 @@ function waitForReady(window: BrowserWindow): Promise<void> {
 	});
 }
 
-function runJob(window: BrowserWindow, job: CliExportJobMessage): Promise<CliExportResultMessage> {
+function runJob(
+	window: BrowserWindow,
+	job: CliExportJobMessage,
+	index: number,
+): Promise<CliExportResultMessage> {
 	return new Promise((resolve) => {
 		let lastReported = -10;
 		const cleanup = () => {
@@ -60,14 +69,16 @@ function runJob(window: BrowserWindow, job: CliExportJobMessage): Promise<CliExp
 			message: { id: string; percentage: number },
 		) => {
 			if (event.sender !== window.webContents || message.id !== job.id) return;
-			if (message.percentage - lastReported >= 5 || message.percentage >= 100) {
-				lastReported = Math.floor(message.percentage / 5) * 5;
-				log(`  ${Math.round(message.percentage)}%`);
+			// Text output stays at every 5%; the JSON stream gets every whole percent.
+			const step = jsonProgress ? 1 : 5;
+			if (message.percentage - lastReported >= step || message.percentage >= 100) {
+				lastReported = Math.floor(message.percentage / step) * step;
+				emit({ type: "progress", index, percentage: message.percentage });
 			}
 		};
 		const onLog = (event: Electron.IpcMainEvent, message: { id: string; message: string }) => {
 			if (event.sender !== window.webContents || message.id !== job.id) return;
-			log(`  ${message.message}`);
+			emit({ type: "diagnostic", index, message: message.message });
 		};
 		const onResult = (event: Electron.IpcMainEvent, message: CliExportResultMessage) => {
 			if (event.sender !== window.webContents || message.id !== job.id) return;
@@ -95,51 +106,70 @@ export async function runCliExport(
 	request: CliExportRequest,
 	createWindow: () => BrowserWindow,
 ): Promise<number> {
+	jsonProgress = request.progressJson;
 	let resolved: Awaited<ReturnType<typeof resolveCliExportJobs>>;
 	try {
 		resolved = await resolveCliExportJobs(request);
 	} catch (error) {
-		log(`openscreen: ${error instanceof Error ? error.message : String(error)}`);
+		emit({ type: "error", message: error instanceof Error ? error.message : String(error) });
 		return 2;
 	}
-	for (const job of resolved.skipped) log(`skip ${job.output} (exists; use --overwrite)`);
-	if (resolved.jobs.length === 0) {
-		log("Nothing to export.");
-		return 0;
-	}
+	emit({
+		type: "start",
+		total: resolved.jobs.length,
+		skipped: resolved.skipped.map((job) => job.output),
+	});
+	if (resolved.jobs.length === 0) return 0;
 
 	const window = createWindow();
 	try {
 		await waitForReady(window);
 	} catch (error) {
-		log(`openscreen: ${error instanceof Error ? error.message : String(error)}`);
+		emit({ type: "error", message: error instanceof Error ? error.message : String(error) });
 		return 1;
 	}
 
 	let failures = 0;
 	const started = Date.now();
+	const total = resolved.jobs.length;
 	for (const [index, job] of resolved.jobs.entries()) {
-		log(`[${index + 1}/${resolved.jobs.length}] ${job.project} -> ${job.output}`);
+		emit({ type: "job", index, total, project: job.project, output: job.output });
 		const jobStarted = Date.now();
+		const seconds = () => Math.round((Date.now() - jobStarted) / 1000);
 		try {
 			await fs.mkdir(path.dirname(job.output), { recursive: true });
 		} catch (error) {
 			failures++;
-			log(`  FAILED: cannot create ${path.dirname(job.output)}: ${String(error)}`);
+			emit({
+				type: "jobDone",
+				index,
+				success: false,
+				seconds: seconds(),
+				error: `cannot create ${path.dirname(job.output)}: ${String(error)}`,
+			});
 			continue;
 		}
-		const result = await runJob(window, { id: randomUUID(), ...job, quality: request.quality });
-		const seconds = ((Date.now() - jobStarted) / 1000).toFixed(0);
-		if (result.success) {
-			log(`  done in ${seconds}s`);
-		} else {
-			failures++;
-			log(`  FAILED after ${seconds}s: ${result.error ?? "unknown error"}`);
-		}
+		const result = await runJob(
+			window,
+			{ id: randomUUID(), ...job, quality: request.quality },
+			index,
+		);
+		if (!result.success) failures++;
+		emit({
+			type: "jobDone",
+			index,
+			success: result.success,
+			seconds: seconds(),
+			error: result.error,
+		});
 		if (window.isDestroyed()) break;
 	}
-	const total = ((Date.now() - started) / 1000).toFixed(0);
-	log(`${resolved.jobs.length - failures}/${resolved.jobs.length} exported in ${total}s`);
+	emit({
+		type: "summary",
+		exported: total - failures,
+		total,
+		seconds: Math.round((Date.now() - started) / 1000),
+	});
 	return failures ? 1 : 0;
 }
 

@@ -141,5 +141,26 @@
 		"unsaved": "Thay đổi chưa lưu",
 		"exporting": "Đang xuất…",
 		"exportingPercent": "Đang xuất {{percent}}%"
+	},
+	"batchExport": {
+		"button": "Xuất hàng loạt",
+		"title": "Xuất hàng loạt",
+		"description": "Xuất nhiều dự án lần lượt ở chế độ nền. Bạn vẫn có thể chỉnh sửa trong lúc chạy.",
+		"projects": "Thư mục dự án",
+		"output": "Lưu video vào",
+		"chooseProjects": "Chọn thư mục chứa dự án",
+		"chooseOutput": "Chọn nơi lưu video",
+		"only": "Chỉ dự án khớp",
+		"exclude": "Bỏ qua dự án khớp",
+		"quality": "Chất lượng",
+		"source": "Gốc",
+		"overwrite": "Thay thế video đã có",
+		"nothing": "Không có dự án để xuất. Hãy kiểm tra thư mục và bộ lọc.",
+		"exists": "đã xuất",
+		"summary": "Đã xuất {{exported}}/{{total}} trong {{seconds}} giây",
+		"hide": "Ẩn",
+		"close": "Đóng",
+		"cancel": "Dừng",
+		"start": "Xuất {{count}} dự án"
 	}
 }

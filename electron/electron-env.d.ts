@@ -37,6 +37,19 @@ interface Window {
 		reportCliExportProgress?: (id: string, percentage: number) => void;
 		reportCliExportResult?: (result: import("./cliExportRunner").CliExportResultMessage) => void;
 		reportCliExportLog?: (id: string, message: string) => void;
+		batchExportPickFolder?: (title: string, defaultPath?: string) => Promise<string | null>;
+		batchExportPreview?: (options: import("./batchExport").BatchExportOptions) => Promise<{
+			jobs: Array<{ project: string; output: string }>;
+			skipped: Array<{ project: string; output: string }>;
+			error?: string;
+		}>;
+		batchExportStart?: (
+			options: import("./batchExport").BatchExportOptions,
+		) => Promise<{ started: boolean; error?: string }>;
+		batchExportCancel?: () => Promise<boolean>;
+		onBatchExportEvent?: (
+			callback: (event: import("./batchExport").BatchExportUiEvent) => void,
+		) => () => void;
 		invokeNativeBridge: <TData = unknown>(
 			request: import("../src/native/contracts").NativeBridgeRequest,
 		) => Promise<import("../src/native/contracts").NativeBridgeResponse<TData>>;

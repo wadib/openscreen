@@ -882,6 +882,225 @@ export function SettingsPanel({
 						<span className="text-sm font-semibold text-slate-100">{activeModeLabel}</span>
 						<KeyboardShortcutsHelp />
 					</div>
+					{/* Export options scroll with the panel; only the Export button stays pinned below,
+					    so the mode rail on the left is never squeezed or covered. */}
+					{activePanelMode === "export" && !hasTimelineSelection && (
+						<div className="pb-3">
+							<div className="flex items-center gap-2 mb-3">
+								<button
+									data-testid={getTestId("mp4-format-button")}
+									onClick={() => onExportFormatChange?.("mp4")}
+									className={cn(
+										"flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border transition-all text-xs font-medium",
+										exportFormat === "mp4"
+											? "bg-[#34B27B]/10 border-[#34B27B]/50 text-white"
+											: "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-slate-200",
+									)}
+								>
+									<Film className="w-3.5 h-3.5" />
+									{t("exportFormat.mp4")}
+								</button>
+								<button
+									data-testid={getTestId("gif-format-button")}
+									onClick={() => onExportFormatChange?.("gif")}
+									className={cn(
+										"flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border transition-all text-xs font-medium",
+										exportFormat === "gif"
+											? "bg-[#34B27B]/10 border-[#34B27B]/50 text-white"
+											: "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-slate-200",
+									)}
+								>
+									<Image className="w-3.5 h-3.5" />
+									{t("exportFormat.gif")}
+								</button>
+							</div>
+
+							{exportFormat === "mp4" && (
+								<div className="mb-3 space-y-1.5">
+									{sourceDimensions && (
+										<div className="flex items-center justify-between px-0.5 text-[10px] leading-none text-slate-500">
+											<span>{t("exportQuality.title")}</span>
+											<span>
+												Source {sourceDimensions.width}x{sourceDimensions.height}
+											</span>
+										</div>
+									)}
+									<div className="bg-white/5 border border-white/5 p-0.5 w-full grid grid-cols-3 h-9 rounded-lg">
+										<button
+											onClick={() => onExportQualityChange?.("medium")}
+											className={cn(
+												"rounded-md transition-all text-[10px] font-medium flex flex-col items-center justify-center leading-none gap-0.5",
+												exportQuality === "medium"
+													? "bg-white text-black"
+													: "text-slate-400 hover:text-slate-200",
+											)}
+										>
+											<span>{t("exportQuality.low")}</span>
+											{sourceDimensions &&
+												sourceDimensions.shortSide < MP4_EXPORT_SHORT_SIDES.medium && (
+													<span
+														className={cn(
+															"text-[8px] font-medium",
+															exportQuality === "medium" ? "text-black/55" : "text-amber-300/80",
+														)}
+													>
+														Upscale
+													</span>
+												)}
+										</button>
+										<button
+											onClick={() => onExportQualityChange?.("good")}
+											className={cn(
+												"rounded-md transition-all text-[10px] font-medium flex flex-col items-center justify-center leading-none gap-0.5",
+												exportQuality === "good"
+													? "bg-white text-black"
+													: "text-slate-400 hover:text-slate-200",
+											)}
+										>
+											<span>{t("exportQuality.medium")}</span>
+											{sourceDimensions &&
+												sourceDimensions.shortSide < MP4_EXPORT_SHORT_SIDES.good && (
+													<span
+														className={cn(
+															"text-[8px] font-medium",
+															exportQuality === "good" ? "text-black/55" : "text-amber-300/80",
+														)}
+													>
+														Upscale
+													</span>
+												)}
+										</button>
+										<button
+											onClick={() => onExportQualityChange?.("source")}
+											className={cn(
+												"rounded-md transition-all text-[10px] font-medium flex flex-col items-center justify-center leading-none gap-0.5",
+												exportQuality === "source"
+													? "bg-white text-black"
+													: "text-slate-400 hover:text-slate-200",
+											)}
+										>
+											<span>{t("exportQuality.high")}</span>
+											{sourceDimensions && (
+												<span
+													className={cn(
+														"text-[8px] font-medium",
+														exportQuality === "source" ? "text-black/55" : "text-slate-500",
+													)}
+												>
+													{sourceDimensions.shortSide}p
+												</span>
+											)}
+										</button>
+									</div>
+								</div>
+							)}
+
+							{exportFormat === "mp4" && (
+								<div className="mb-3 space-y-1.5">
+									<div className="px-0.5 text-[10px] leading-none text-slate-500">
+										{t("exportAudio.title")}
+									</div>
+									{(
+										[
+											["normalize", "exportAudio.normalize"],
+											["denoise", "exportAudio.denoise"],
+											["highpass", "exportAudio.highpass"],
+										] as const
+									).map(([key, label]) => (
+										<div
+											key={key}
+											className="flex items-center justify-between p-2 rounded-lg editor-control-surface"
+										>
+											<div className="text-[10px] font-medium text-slate-300">{t(label)}</div>
+											<Switch
+												checked={audioEnhancement[key]}
+												onCheckedChange={(checked) =>
+													onAudioEnhancementChange?.({ ...audioEnhancement, [key]: checked })
+												}
+												className="data-[state=checked]:bg-[#34B27B] scale-90"
+												aria-label={t(label)}
+											/>
+										</div>
+									))}
+									<div className="flex items-center justify-between px-0.5 pt-1 text-[10px] leading-none text-slate-500">
+										<span>{t("exportAudio.smoothCuts")}</span>
+									</div>
+									<div className="bg-white/5 border border-white/5 p-0.5 w-full grid grid-cols-4 h-7 rounded-lg">
+										{CUT_CROSSFADE_CHOICES.map((ms) => (
+											<button
+												key={ms}
+												type="button"
+												onClick={() => onCutCrossfadeMsChange?.(ms)}
+												className={cn(
+													"rounded-md transition-all text-[10px] font-medium",
+													cutCrossfadeMs === ms
+														? "bg-white text-black"
+														: "text-slate-400 hover:text-slate-200",
+												)}
+											>
+												{ms === 0 ? t("exportAudio.hardCut") : `${ms / 1000}s`}
+											</button>
+										))}
+									</div>
+								</div>
+							)}
+
+							{exportFormat === "gif" && (
+								<div className="mb-3 space-y-2">
+									<div className="flex items-center gap-2">
+										<div className="flex-1 bg-white/5 border border-white/5 p-0.5 grid grid-cols-4 h-7 rounded-lg">
+											{GIF_FRAME_RATES.map((rate) => (
+												<button
+													key={rate.value}
+													onClick={() => onGifFrameRateChange?.(rate.value)}
+													className={cn(
+														"rounded-md transition-all text-[10px] font-medium",
+														gifFrameRate === rate.value
+															? "bg-white text-black"
+															: "text-slate-400 hover:text-slate-200",
+													)}
+												>
+													{rate.value}
+												</button>
+											))}
+										</div>
+										<div className="flex-1 bg-white/5 border border-white/5 p-0.5 grid grid-cols-3 h-7 rounded-lg">
+											{Object.entries(GIF_SIZE_PRESETS).map(([key, _preset]) => (
+												<button
+													key={key}
+													data-testid={getTestId(`gif-size-button-${key}`)}
+													onClick={() => onGifSizePresetChange?.(key as GifSizePreset)}
+													className={cn(
+														"rounded-md transition-all text-[10px] font-medium",
+														gifSizePreset === key
+															? "bg-white text-black"
+															: "text-slate-400 hover:text-slate-200",
+													)}
+												>
+													{key === "original"
+														? "Orig"
+														: key.charAt(0).toUpperCase() + key.slice(1, 3)}
+												</button>
+											))}
+										</div>
+									</div>
+									<div className="flex items-center justify-between">
+										<span className="text-[10px] text-slate-500">
+											{gifOutputDimensions.width} × {gifOutputDimensions.height}px
+										</span>
+										<div className="flex items-center gap-2">
+											<span className="text-[10px] text-slate-400">{t("gifSettings.loop")}</span>
+											<Switch
+												checked={gifLoop}
+												onCheckedChange={onGifLoopChange}
+												className="data-[state=checked]:bg-[#34B27B] scale-75"
+											/>
+										</div>
+									</div>
+								</div>
+							)}
+						</div>
+					)}
 					{zoomEnabled && (
 						<div className="editor-panel-section mb-3 space-y-3 px-1">
 							<div className="flex items-center justify-between">
@@ -2005,220 +2224,6 @@ export function SettingsPanel({
 			<div className="flex-shrink-0 p-3 border-t border-white/[0.07] bg-black/25">
 				{activePanelMode === "export" && !hasTimelineSelection && (
 					<>
-						<div className="flex items-center gap-2 mb-3">
-							<button
-								data-testid={getTestId("mp4-format-button")}
-								onClick={() => onExportFormatChange?.("mp4")}
-								className={cn(
-									"flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border transition-all text-xs font-medium",
-									exportFormat === "mp4"
-										? "bg-[#34B27B]/10 border-[#34B27B]/50 text-white"
-										: "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-slate-200",
-								)}
-							>
-								<Film className="w-3.5 h-3.5" />
-								{t("exportFormat.mp4")}
-							</button>
-							<button
-								data-testid={getTestId("gif-format-button")}
-								onClick={() => onExportFormatChange?.("gif")}
-								className={cn(
-									"flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg border transition-all text-xs font-medium",
-									exportFormat === "gif"
-										? "bg-[#34B27B]/10 border-[#34B27B]/50 text-white"
-										: "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10 hover:text-slate-200",
-								)}
-							>
-								<Image className="w-3.5 h-3.5" />
-								{t("exportFormat.gif")}
-							</button>
-						</div>
-
-						{exportFormat === "mp4" && (
-							<div className="mb-3 space-y-1.5">
-								{sourceDimensions && (
-									<div className="flex items-center justify-between px-0.5 text-[10px] leading-none text-slate-500">
-										<span>{t("exportQuality.title")}</span>
-										<span>
-											Source {sourceDimensions.width}x{sourceDimensions.height}
-										</span>
-									</div>
-								)}
-								<div className="bg-white/5 border border-white/5 p-0.5 w-full grid grid-cols-3 h-9 rounded-lg">
-									<button
-										onClick={() => onExportQualityChange?.("medium")}
-										className={cn(
-											"rounded-md transition-all text-[10px] font-medium flex flex-col items-center justify-center leading-none gap-0.5",
-											exportQuality === "medium"
-												? "bg-white text-black"
-												: "text-slate-400 hover:text-slate-200",
-										)}
-									>
-										<span>{t("exportQuality.low")}</span>
-										{sourceDimensions &&
-											sourceDimensions.shortSide < MP4_EXPORT_SHORT_SIDES.medium && (
-												<span
-													className={cn(
-														"text-[8px] font-medium",
-														exportQuality === "medium" ? "text-black/55" : "text-amber-300/80",
-													)}
-												>
-													Upscale
-												</span>
-											)}
-									</button>
-									<button
-										onClick={() => onExportQualityChange?.("good")}
-										className={cn(
-											"rounded-md transition-all text-[10px] font-medium flex flex-col items-center justify-center leading-none gap-0.5",
-											exportQuality === "good"
-												? "bg-white text-black"
-												: "text-slate-400 hover:text-slate-200",
-										)}
-									>
-										<span>{t("exportQuality.medium")}</span>
-										{sourceDimensions &&
-											sourceDimensions.shortSide < MP4_EXPORT_SHORT_SIDES.good && (
-												<span
-													className={cn(
-														"text-[8px] font-medium",
-														exportQuality === "good" ? "text-black/55" : "text-amber-300/80",
-													)}
-												>
-													Upscale
-												</span>
-											)}
-									</button>
-									<button
-										onClick={() => onExportQualityChange?.("source")}
-										className={cn(
-											"rounded-md transition-all text-[10px] font-medium flex flex-col items-center justify-center leading-none gap-0.5",
-											exportQuality === "source"
-												? "bg-white text-black"
-												: "text-slate-400 hover:text-slate-200",
-										)}
-									>
-										<span>{t("exportQuality.high")}</span>
-										{sourceDimensions && (
-											<span
-												className={cn(
-													"text-[8px] font-medium",
-													exportQuality === "source" ? "text-black/55" : "text-slate-500",
-												)}
-											>
-												{sourceDimensions.shortSide}p
-											</span>
-										)}
-									</button>
-								</div>
-							</div>
-						)}
-
-						{exportFormat === "mp4" && (
-							<div className="mb-3 space-y-1.5">
-								<div className="px-0.5 text-[10px] leading-none text-slate-500">
-									{t("exportAudio.title")}
-								</div>
-								{(
-									[
-										["normalize", "exportAudio.normalize"],
-										["denoise", "exportAudio.denoise"],
-										["highpass", "exportAudio.highpass"],
-									] as const
-								).map(([key, label]) => (
-									<div
-										key={key}
-										className="flex items-center justify-between p-2 rounded-lg editor-control-surface"
-									>
-										<div className="text-[10px] font-medium text-slate-300">{t(label)}</div>
-										<Switch
-											checked={audioEnhancement[key]}
-											onCheckedChange={(checked) =>
-												onAudioEnhancementChange?.({ ...audioEnhancement, [key]: checked })
-											}
-											className="data-[state=checked]:bg-[#34B27B] scale-90"
-											aria-label={t(label)}
-										/>
-									</div>
-								))}
-								<div className="flex items-center justify-between px-0.5 pt-1 text-[10px] leading-none text-slate-500">
-									<span>{t("exportAudio.smoothCuts")}</span>
-								</div>
-								<div className="bg-white/5 border border-white/5 p-0.5 w-full grid grid-cols-4 h-7 rounded-lg">
-									{CUT_CROSSFADE_CHOICES.map((ms) => (
-										<button
-											key={ms}
-											type="button"
-											onClick={() => onCutCrossfadeMsChange?.(ms)}
-											className={cn(
-												"rounded-md transition-all text-[10px] font-medium",
-												cutCrossfadeMs === ms
-													? "bg-white text-black"
-													: "text-slate-400 hover:text-slate-200",
-											)}
-										>
-											{ms === 0 ? t("exportAudio.hardCut") : `${ms / 1000}s`}
-										</button>
-									))}
-								</div>
-							</div>
-						)}
-
-						{exportFormat === "gif" && (
-							<div className="mb-3 space-y-2">
-								<div className="flex items-center gap-2">
-									<div className="flex-1 bg-white/5 border border-white/5 p-0.5 grid grid-cols-4 h-7 rounded-lg">
-										{GIF_FRAME_RATES.map((rate) => (
-											<button
-												key={rate.value}
-												onClick={() => onGifFrameRateChange?.(rate.value)}
-												className={cn(
-													"rounded-md transition-all text-[10px] font-medium",
-													gifFrameRate === rate.value
-														? "bg-white text-black"
-														: "text-slate-400 hover:text-slate-200",
-												)}
-											>
-												{rate.value}
-											</button>
-										))}
-									</div>
-									<div className="flex-1 bg-white/5 border border-white/5 p-0.5 grid grid-cols-3 h-7 rounded-lg">
-										{Object.entries(GIF_SIZE_PRESETS).map(([key, _preset]) => (
-											<button
-												key={key}
-												data-testid={getTestId(`gif-size-button-${key}`)}
-												onClick={() => onGifSizePresetChange?.(key as GifSizePreset)}
-												className={cn(
-													"rounded-md transition-all text-[10px] font-medium",
-													gifSizePreset === key
-														? "bg-white text-black"
-														: "text-slate-400 hover:text-slate-200",
-												)}
-											>
-												{key === "original"
-													? "Orig"
-													: key.charAt(0).toUpperCase() + key.slice(1, 3)}
-											</button>
-										))}
-									</div>
-								</div>
-								<div className="flex items-center justify-between">
-									<span className="text-[10px] text-slate-500">
-										{gifOutputDimensions.width} × {gifOutputDimensions.height}px
-									</span>
-									<div className="flex items-center gap-2">
-										<span className="text-[10px] text-slate-400">{t("gifSettings.loop")}</span>
-										<Switch
-											checked={gifLoop}
-											onCheckedChange={onGifLoopChange}
-											className="data-[state=checked]:bg-[#34B27B] scale-75"
-										/>
-									</div>
-								</div>
-							</div>
-						)}
-
 						{unsavedExport && (
 							<Button
 								type="button"

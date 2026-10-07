@@ -141,5 +141,26 @@
 		"unsaved": "未儲存的變更",
 		"exporting": "正在匯出…",
 		"exportingPercent": "正在匯出 {{percent}}%"
+	},
+	"batchExport": {
+		"button": "批次匯出",
+		"title": "批次匯出",
+		"description": "在背景依序匯出多個專案。匯出時可以繼續編輯。",
+		"projects": "專案資料夾",
+		"output": "影片儲存到",
+		"chooseProjects": "選擇專案所在的資料夾",
+		"chooseOutput": "選擇影片儲存位置",
+		"only": "僅限符合的專案",
+		"exclude": "略過符合的專案",
+		"quality": "品質",
+		"source": "原始",
+		"overwrite": "取代既有影片",
+		"nothing": "沒有可匯出的專案。請檢查資料夾和篩選條件。",
+		"exists": "已匯出",
+		"summary": "已在 {{seconds}} 秒內匯出 {{exported}}/{{total}} 個",
+		"hide": "隱藏",
+		"close": "關閉",
+		"cancel": "停止",
+		"start": "匯出 {{count}} 個專案"
 	}
 }

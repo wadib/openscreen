@@ -141,5 +141,26 @@
 		"unsaved": "Unsaved changes",
 		"exporting": "Exporting…",
 		"exportingPercent": "Exporting {{percent}}%"
+	},
+	"batchExport": {
+		"button": "Batch export",
+		"title": "Batch export",
+		"description": "Export many projects one after another in the background. You can keep editing while it runs.",
+		"projects": "Projects folder",
+		"output": "Save videos to",
+		"chooseProjects": "Choose the folder with your projects",
+		"chooseOutput": "Choose where to save the videos",
+		"only": "Only projects matching",
+		"exclude": "Skip projects matching",
+		"quality": "Quality",
+		"source": "Source",
+		"overwrite": "Replace existing videos",
+		"nothing": "No projects to export. Check the folder and the filters.",
+		"exists": "already exported",
+		"summary": "{{exported}} of {{total}} exported in {{seconds}} s",
+		"hide": "Hide",
+		"close": "Close",
+		"cancel": "Stop",
+		"start": "Export {{count}} projects"
 	}
 }

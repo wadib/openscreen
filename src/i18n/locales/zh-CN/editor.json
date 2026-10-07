@@ -141,5 +141,26 @@
 		"unsaved": "未保存的更改",
 		"exporting": "正在导出…",
 		"exportingPercent": "正在导出 {{percent}}%"
+	},
+	"batchExport": {
+		"button": "批量导出",
+		"title": "批量导出",
+		"description": "在后台依次导出多个项目。导出时可以继续编辑。",
+		"projects": "项目文件夹",
+		"output": "视频保存到",
+		"chooseProjects": "选择项目所在的文件夹",
+		"chooseOutput": "选择视频保存位置",
+		"only": "仅限匹配的项目",
+		"exclude": "跳过匹配的项目",
+		"quality": "质量",
+		"source": "原始",
+		"overwrite": "替换已有视频",
+		"nothing": "没有可导出的项目。请检查文件夹和筛选条件。",
+		"exists": "已导出",
+		"summary": "已在 {{seconds}} 秒内导出 {{exported}}/{{total}} 个",
+		"hide": "隐藏",
+		"close": "关闭",
+		"cancel": "停止",
+		"start": "导出 {{count}} 个项目"
 	}
 }

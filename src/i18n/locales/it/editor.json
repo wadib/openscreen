@@ -125,5 +125,26 @@
 		"unsaved": "Modifiche non salvate",
 		"exporting": "Esportazione…",
 		"exportingPercent": "Esportazione {{percent}}%"
+	},
+	"batchExport": {
+		"button": "Esporta in blocco",
+		"title": "Esporta in blocco",
+		"description": "Esporta molti progetti uno dopo l’altro in background. Puoi continuare a modificare nel frattempo.",
+		"projects": "Cartella dei progetti",
+		"output": "Salva i video in",
+		"chooseProjects": "Scegli la cartella dei progetti",
+		"chooseOutput": "Scegli dove salvare i video",
+		"only": "Solo progetti corrispondenti a",
+		"exclude": "Salta progetti corrispondenti a",
+		"quality": "Qualità",
+		"source": "Originale",
+		"overwrite": "Sostituisci i video esistenti",
+		"nothing": "Nessun progetto da esportare. Controlla la cartella e i filtri.",
+		"exists": "già esportato",
+		"summary": "{{exported}} di {{total}} esportati in {{seconds}} s",
+		"hide": "Nascondi",
+		"close": "Chiudi",
+		"cancel": "Interrompi",
+		"start": "Esporta {{count}} progetti"
 	}
 }

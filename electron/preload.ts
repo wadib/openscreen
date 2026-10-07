@@ -65,6 +65,21 @@ contextBridge.exposeInMainWorld("electronAPI", {
 		ipcRenderer.send("cli-export-result", result),
 	reportCliExportLog: (id: string, message: string) =>
 		ipcRenderer.send("cli-export-log", { id, message }),
+	batchExportPickFolder: (title: string, defaultPath?: string) =>
+		ipcRenderer.invoke("batch-export-pick-folder", title, defaultPath) as Promise<string | null>,
+	batchExportPreview: (options: import("./batchExport").BatchExportOptions) =>
+		ipcRenderer.invoke("batch-export-preview", options),
+	batchExportStart: (options: import("./batchExport").BatchExportOptions) =>
+		ipcRenderer.invoke("batch-export-start", options),
+	batchExportCancel: () => ipcRenderer.invoke("batch-export-cancel"),
+	onBatchExportEvent: (callback: (event: import("./batchExport").BatchExportUiEvent) => void) => {
+		const listener = (
+			_event: Electron.IpcRendererEvent,
+			payload: import("./batchExport").BatchExportUiEvent,
+		) => callback(payload);
+		ipcRenderer.on("batch-export-event", listener);
+		return () => ipcRenderer.removeListener("batch-export-event", listener);
+	},
 	assetBaseUrl,
 	invokeNativeBridge: <TData>(request: NativeBridgeRequest) => {
 		return ipcRenderer.invoke(NATIVE_BRIDGE_CHANNEL, request) as Promise<TData>;

@@ -141,5 +141,26 @@
 		"unsaved": "Modifications non enregistrées",
 		"exporting": "Exportation…",
 		"exportingPercent": "Exportation {{percent}} %"
+	},
+	"batchExport": {
+		"button": "Export par lot",
+		"title": "Export par lot",
+		"description": "Exporte plusieurs projets l’un après l’autre en arrière-plan. Vous pouvez continuer à éditer pendant ce temps.",
+		"projects": "Dossier des projets",
+		"output": "Enregistrer les vidéos dans",
+		"chooseProjects": "Choisir le dossier de vos projets",
+		"chooseOutput": "Choisir où enregistrer les vidéos",
+		"only": "Seulement les projets correspondant à",
+		"exclude": "Ignorer les projets correspondant à",
+		"quality": "Qualité",
+		"source": "Source",
+		"overwrite": "Remplacer les vidéos existantes",
+		"nothing": "Aucun projet à exporter. Vérifiez le dossier et les filtres.",
+		"exists": "déjà exporté",
+		"summary": "{{exported}} sur {{total}} exportés en {{seconds}} s",
+		"hide": "Masquer",
+		"close": "Fermer",
+		"cancel": "Arrêter",
+		"start": "Exporter {{count}} projets"
 	}
 }

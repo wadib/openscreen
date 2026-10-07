@@ -141,5 +141,26 @@
 		"unsaved": "未保存の変更",
 		"exporting": "書き出し中…",
 		"exportingPercent": "書き出し中 {{percent}}%"
+	},
+	"batchExport": {
+		"button": "一括書き出し",
+		"title": "一括書き出し",
+		"description": "複数のプロジェクトをバックグラウンドで順番に書き出します。実行中も編集を続けられます。",
+		"projects": "プロジェクトフォルダー",
+		"output": "動画の保存先",
+		"chooseProjects": "プロジェクトのフォルダーを選択",
+		"chooseOutput": "動画の保存先を選択",
+		"only": "一致するプロジェクトのみ",
+		"exclude": "一致するプロジェクトを除外",
+		"quality": "画質",
+		"source": "元のサイズ",
+		"overwrite": "既存の動画を置き換える",
+		"nothing": "書き出すプロジェクトがありません。フォルダーとフィルターを確認してください。",
+		"exists": "書き出し済み",
+		"summary": "{{total}} 件中 {{exported}} 件を {{seconds}} 秒で書き出しました",
+		"hide": "隠す",
+		"close": "閉じる",
+		"cancel": "停止",
+		"start": "{{count}} 件を書き出す"
 	}
 }

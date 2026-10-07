@@ -12,6 +12,7 @@ import {
 	Tray,
 } from "electron";
 import { readAfterRecording } from "./afterRecording";
+import { registerBatchExportHandlers } from "./batchExport";
 import { CLI_USAGE, type CliExportRequest, CliUsageError, parseCliExportArgs } from "./cliExport";
 import { runCliExport } from "./cliExportRunner";
 import {
@@ -636,6 +637,7 @@ app.whenReady().then(async () => {
 	await ensureRecordingsDir();
 
 	let recordingStateRevision = 0;
+	registerBatchExportHandlers();
 	registerIpcHandlers(
 		createEditorWindowWrapper,
 		createSourceSelectorWindowWrapper,

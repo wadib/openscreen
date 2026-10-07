@@ -1,5 +1,5 @@
 import type { Span } from "dnd-timeline";
-import { FolderOpen, Languages, Save, Video } from "lucide-react";
+import { FolderOpen, Languages, Layers, Save, Video } from "lucide-react";
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import { toast } from "sonner";
@@ -70,6 +70,7 @@ import {
 	getNativeAspectRatioValue,
 	isPortraitAspectRatio,
 } from "@/utils/aspectRatioUtils";
+import { BatchExportDialog } from "./BatchExportDialog";
 import { CleanupDialog } from "./CleanupDialog";
 import { DirectExportControls } from "./DirectExportControls";
 import { EditorEmptyState } from "./EditorEmptyState";
@@ -360,6 +361,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 	const [showAutoCaptionsDialog, setShowAutoCaptionsDialog] = useState(false);
 	const [showCleanupDialog, setShowCleanupDialog] = useState(false);
 	const [showZoomReview, setShowZoomReview] = useState(false);
+	const [showBatchExport, setShowBatchExport] = useState(false);
 	const [captionWordsMin, setCaptionWordsMin] = useState(2);
 	const [captionWordsMax, setCaptionWordsMax] = useState(7);
 	const exporterRef = useRef<VideoExporter | null>(null);
@@ -3061,6 +3063,14 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 						<Save size={14} />
 						{ts("project.save")}
 					</button>
+					<button
+						type="button"
+						onClick={() => setShowBatchExport(true)}
+						className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-white/50 hover:text-white/90 hover:bg-white/[0.08] transition-all duration-150 text-[11px] font-medium"
+					>
+						<Layers size={14} />
+						{t("batchExport.button")}
+					</button>
 				</div>
 				<WindowControls t={t} />
 			</div>
@@ -3494,6 +3504,19 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 				</div>
 			)}
 
+			<BatchExportDialog
+				open={showBatchExport}
+				onOpenChange={setShowBatchExport}
+				defaultFolder={
+					currentProjectPath
+						? currentProjectPath.slice(
+								0,
+								Math.max(currentProjectPath.lastIndexOf("/"), currentProjectPath.lastIndexOf("\\")),
+							)
+						: ""
+				}
+				t={t}
+			/>
 			<CleanupDialog
 				open={showCleanupDialog}
 				onOpenChange={setShowCleanupDialog}

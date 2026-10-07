@@ -141,5 +141,26 @@
 		"unsaved": "Kaydedilmemiş değişiklikler",
 		"exporting": "Dışa aktarılıyor…",
 		"exportingPercent": "Dışa aktarılıyor %{{percent}}"
+	},
+	"batchExport": {
+		"button": "Toplu dışa aktar",
+		"title": "Toplu dışa aktar",
+		"description": "Birçok projeyi arka planda sırayla dışa aktarır. Bu sırada düzenlemeye devam edebilirsiniz.",
+		"projects": "Proje klasörü",
+		"output": "Videoların kaydedileceği yer",
+		"chooseProjects": "Projelerinizin klasörünü seçin",
+		"chooseOutput": "Videoların kaydedileceği yeri seçin",
+		"only": "Yalnızca eşleşen projeler",
+		"exclude": "Eşleşen projeleri atla",
+		"quality": "Kalite",
+		"source": "Kaynak",
+		"overwrite": "Mevcut videoların üzerine yaz",
+		"nothing": "Dışa aktarılacak proje yok. Klasörü ve filtreleri kontrol edin.",
+		"exists": "zaten dışa aktarıldı",
+		"summary": "{{total}} projeden {{exported}} tanesi {{seconds}} sn'de dışa aktarıldı",
+		"hide": "Gizle",
+		"close": "Kapat",
+		"cancel": "Durdur",
+		"start": "{{count}} projeyi dışa aktar"
 	}
 }

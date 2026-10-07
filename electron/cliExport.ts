@@ -29,6 +29,8 @@ export interface CliExportRequest {
 	/** --export-dir filters: shell-style patterns (* and ?) matched against project names. */
 	only: string[];
 	exclude: string[];
+	/** --progress-json: print machine-readable progress events (used by in-app Batch export). */
+	progressJson: boolean;
 }
 
 export class CliUsageError extends Error {}
@@ -50,6 +52,7 @@ export function parseCliExportArgs(
 		show: false,
 		only: [],
 		exclude: [],
+		progressJson: false,
 	};
 	const value = (index: number, flag: string) => {
 		const next = argv[index];
@@ -88,6 +91,8 @@ export function parseCliExportArgs(
 			request.overwrite = true;
 		} else if (arg === "--show") {
 			request.show = true;
+		} else if (arg === "--progress-json") {
+			request.progressJson = true;
 		} else if (arg === "--only" || arg === "--exclude") {
 			(arg === "--only" ? request.only : request.exclude).push(value(index + 1, arg));
 			index += 1;
