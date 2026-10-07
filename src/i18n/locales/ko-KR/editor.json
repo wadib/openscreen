@@ -134,5 +134,12 @@
 	"transcriptLane": {
 		"done": "원고 준비됨: {{words}}단어 ({{engine}})",
 		"failed": "받아쓰기 실패"
+	},
+	"projectTitle": {
+		"studio": "Studio",
+		"untitled": "제목 없는 프로젝트",
+		"unsaved": "저장되지 않은 변경 사항",
+		"exporting": "내보내는 중…",
+		"exportingPercent": "내보내는 중 {{percent}}%"
 	}
 }

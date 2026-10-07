@@ -134,5 +134,12 @@
 	"transcriptLane": {
 		"done": "Döküm hazır: {{words}} sözcük ({{engine}})",
 		"failed": "Döküm başarısız"
+	},
+	"projectTitle": {
+		"studio": "Studio",
+		"untitled": "Adsız proje",
+		"unsaved": "Kaydedilmemiş değişiklikler",
+		"exporting": "Dışa aktarılıyor…",
+		"exportingPercent": "Dışa aktarılıyor %{{percent}}"
 	}
 }

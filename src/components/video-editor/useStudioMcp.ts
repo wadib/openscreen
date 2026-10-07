@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { EditorState } from "@/hooks/useEditorHistory";
 import type { ExportProgress, ExportQuality } from "@/lib/exporter";
@@ -47,6 +47,8 @@ export function useStudioMcp(options: Options) {
 	const previous = useRef<string | null>(null);
 	// Only an agent-driven Studio receives commands; the normal editor keeps its own title.
 	const studioMode = useRef(false);
+	// Shown in the editor's top bar, since tiling compositors (Omarchy) have no title bar.
+	const [isStudio, setIsStudio] = useState(false);
 	if (previous.current !== options.snapshot) {
 		revision.current++;
 		previous.current = options.snapshot;
@@ -54,6 +56,7 @@ export function useStudioMcp(options: Options) {
 	useEffect(
 		() =>
 			window.electronAPI.onStudioMcpCommand(async ({ name, args }: StudioCommand) => {
+				if (!studioMode.current) setIsStudio(true);
 				studioMode.current = true;
 				showStudioTitle(latest.current);
 				const current = latest.current;
@@ -132,4 +135,5 @@ export function useStudioMcp(options: Options) {
 		if (studioMode.current)
 			document.title = studioWindowTitle(projectPath, isExporting, exportPercentage);
 	}, [projectPath, isExporting, exportPercentage]);
+	return { isStudio };
 }

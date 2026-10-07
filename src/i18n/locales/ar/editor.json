@@ -134,5 +134,12 @@
 	"transcriptLane": {
 		"done": "النص جاهز: {{words}} كلمة ({{engine}})",
 		"failed": "فشل التفريغ"
+	},
+	"projectTitle": {
+		"studio": "Studio",
+		"untitled": "مشروع بلا عنوان",
+		"unsaved": "تغييرات غير محفوظة",
+		"exporting": "جارٍ التصدير…",
+		"exportingPercent": "جارٍ التصدير {{percent}}%"
 	}
 }

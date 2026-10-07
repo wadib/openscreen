@@ -134,5 +134,12 @@
 	"transcriptLane": {
 		"done": "逐字稿完成：{{words}} 個詞（{{engine}}）",
 		"failed": "轉錄失敗"
+	},
+	"projectTitle": {
+		"studio": "Studio",
+		"untitled": "未命名專案",
+		"unsaved": "未儲存的變更",
+		"exporting": "正在匯出…",
+		"exportingPercent": "正在匯出 {{percent}}%"
 	}
 }

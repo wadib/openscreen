@@ -134,5 +134,12 @@
 	"transcriptLane": {
 		"done": "Transcripción lista: {{words}} palabras ({{engine}})",
 		"failed": "Error al transcribir"
+	},
+	"projectTitle": {
+		"studio": "Studio",
+		"untitled": "Proyecto sin título",
+		"unsaved": "Cambios sin guardar",
+		"exporting": "Exportando…",
+		"exportingPercent": "Exportando {{percent}} %"
 	}
 }

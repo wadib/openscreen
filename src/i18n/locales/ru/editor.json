@@ -134,5 +134,12 @@
 	"transcriptLane": {
 		"done": "Расшифровка готова: {{words}} слов ({{engine}})",
 		"failed": "Не удалось расшифровать"
+	},
+	"projectTitle": {
+		"studio": "Studio",
+		"untitled": "Проект без названия",
+		"unsaved": "Несохранённые изменения",
+		"exporting": "Экспорт…",
+		"exportingPercent": "Экспорт {{percent}}%"
 	}
 }

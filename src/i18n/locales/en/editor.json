@@ -134,5 +134,12 @@
 	"transcriptLane": {
 		"done": "Transcript ready: {{words}} words ({{engine}})",
 		"failed": "Transcription failed"
+	},
+	"projectTitle": {
+		"studio": "Studio",
+		"untitled": "Untitled project",
+		"unsaved": "Unsaved changes",
+		"exporting": "Exporting…",
+		"exportingPercent": "Exporting {{percent}}%"
 	}
 }

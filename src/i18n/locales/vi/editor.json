@@ -134,5 +134,12 @@
 	"transcriptLane": {
 		"done": "Bản ghi lời xong: {{words}} từ ({{engine}})",
 		"failed": "Chép lời thất bại"
+	},
+	"projectTitle": {
+		"studio": "Studio",
+		"untitled": "Dự án chưa đặt tên",
+		"unsaved": "Thay đổi chưa lưu",
+		"exporting": "Đang xuất…",
+		"exportingPercent": "Đang xuất {{percent}}%"
 	}
 }

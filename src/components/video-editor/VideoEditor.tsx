@@ -82,6 +82,7 @@ import {
 	DEFAULT_SOURCE_DIMENSIONS,
 } from "./editorDefaults";
 import PlaybackControls from "./PlaybackControls";
+import { ProjectTitleBadge } from "./ProjectTitleBadge";
 import {
 	createProjectData,
 	createProjectSnapshot,
@@ -2420,7 +2421,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 		],
 	);
 
-	useStudioMcp({
+	const { isStudio } = useStudioMcp({
 		snapshot: currentProjectSnapshot,
 		state: editorState,
 		loading,
@@ -3004,9 +3005,17 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			</Dialog>
 
 			<div
-				className="h-11 flex-shrink-0 bg-[#070809]/85 backdrop-blur-xl border-b border-white/[0.07] flex items-center justify-between px-5 z-50 shadow-[0_1px_0_rgba(255,255,255,0.03)]"
+				className="relative h-11 flex-shrink-0 bg-[#070809]/85 backdrop-blur-xl border-b border-white/[0.07] flex items-center justify-between px-5 z-50 shadow-[0_1px_0_rgba(255,255,255,0.03)]"
 				style={{ WebkitAppRegion: "drag" } as CSSProperties}
 			>
+				<ProjectTitleBadge
+					projectPath={currentProjectPath}
+					hasUnsavedChanges={hasUnsavedChanges}
+					isExporting={isExporting}
+					exportPercentage={exportProgress?.percentage}
+					isStudio={isStudio}
+					t={t}
+				/>
 				<div
 					className="flex-1 flex items-center gap-1"
 					style={{ WebkitAppRegion: "no-drag" } as CSSProperties}

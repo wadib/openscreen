@@ -118,5 +118,12 @@
 	"transcriptLane": {
 		"done": "Trascrizione pronta: {{words}} parole ({{engine}})",
 		"failed": "Trascrizione non riuscita"
+	},
+	"projectTitle": {
+		"studio": "Studio",
+		"untitled": "Progetto senza titolo",
+		"unsaved": "Modifiche non salvate",
+		"exporting": "Esportazione…",
+		"exportingPercent": "Esportazione {{percent}}%"
 	}
 }
