@@ -51,5 +51,9 @@
 	"success": {
 		"addedZoomSuggestions": "Aggiunto {{count}} suggerimento zoom basato sul cursore",
 		"addedZoomSuggestionsPlural": "Aggiunti {{count}} suggerimenti zoom basati sul cursore"
+	},
+	"microphone": {
+		"autoSync": "Auto",
+		"autoSyncHint": "Misura automaticamente lo scostamento del microfono"
 	}
 }

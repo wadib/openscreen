@@ -1,9 +1,15 @@
-import { ALL_FORMATS, AudioBufferSink, AudioSample, BlobSource, Input } from "mediabunny";
+import { AudioSample } from "mediabunny";
 import { WebDemuxer } from "web-demuxer";
 import type { SpeedRegion, TrimRegion } from "@/components/video-editor/types";
+import {
+	type AudioEnhancement,
+	enhanceAudioBuffer,
+	hasAudioEnhancement,
+	NO_AUDIO_ENHANCEMENT,
+} from "@/lib/audio/audioEnhance";
+import { decodeAudioTimeline } from "@/lib/audio/decodeAudioTimeline";
 import { renderAudioTimeline } from "./audioTimeline";
 import type { ExportAudioMuxerCodec, VideoMuxer } from "./muxer";
-import { StreamingVideoDecoder } from "./streamingDecoder";
 
 const AUDIO_BITRATE = 128_000;
 const DECODE_BACKPRESSURE_LIMIT = 20;
@@ -101,6 +107,22 @@ function createExportAudioEncoder(muxer: VideoMuxer, init: AudioEncoderInit): Ex
 	return muxer.acceptsAudioSamples
 		? new MuxerSampleEncoder(muxer, (error) => init.error(error as DOMException))
 		: new AudioEncoder(init);
+}
+
+/** Resample and remix a buffer to the export format. */
+async function resampleBuffer(
+	buffer: AudioBuffer,
+	sampleRate: number,
+	channels: number,
+): Promise<AudioBuffer> {
+	if (buffer.sampleRate === sampleRate && buffer.numberOfChannels === channels) return buffer;
+	const length = Math.max(1, Math.round(buffer.duration * sampleRate));
+	const context = new OfflineAudioContext(channels, length, sampleRate);
+	const source = context.createBufferSource();
+	source.buffer = buffer;
+	source.connect(context.destination);
+	source.start(0);
+	return context.startRendering();
 }
 
 function averageChannels(sourcePlanes: Float32Array[], frame: number) {
@@ -327,6 +349,7 @@ export class AudioProcessor {
 		microphoneOffsetMs = 0,
 		microphoneGain = 1,
 		microphoneMuted = false,
+		options: { enhancement?: AudioEnhancement; crossfadeSec?: number } = {},
 	): Promise<void> {
 		const sortedTrims = trimRegions ? [...trimRegions].sort((a, b) => a.startMs - b.startMs) : [];
 		const sortedSpeedRegions = speedRegions
@@ -335,64 +358,25 @@ export class AudioProcessor {
 					.sort((a, b) => a.startMs - b.startMs)
 			: [];
 
-		if (microphoneAudioUrl && sortedSpeedRegions.length === 0) {
-			const decode = async (url: string) => {
-				const source =
-					/^(https?:|blob:|data:)/i.test(url) || !window.electronAPI
-						? await StreamingVideoDecoder.loadRemoteSourceFile(url)
-						: await StreamingVideoDecoder.loadLocalSourceFile(url);
-				const input = new Input({ source: new BlobSource(source.blob), formats: ALL_FORMATS });
-				try {
-					const track = await input.getPrimaryAudioTrack();
-					if (!track) throw new Error("Microphone source has no audio track");
-					let buffer = new AudioBuffer({
-						numberOfChannels: track.numberOfChannels,
-						sampleRate: track.sampleRate,
-						length: Math.max(1, Math.ceil((await track.computeDuration()) * track.sampleRate)),
-					});
-					// Keep each packet's timestamp, including leading silence and pause gaps.
-					for await (const decoded of new AudioBufferSink(track).buffers()) {
-						if (this.cancelled) break;
-						const position = Math.round(decoded.timestamp * buffer.sampleRate);
-						// WebM duration can omit the final packet's duration. Keep its samples too.
-						const requiredLength = position + decoded.buffer.length;
-						if (requiredLength > buffer.length) {
-							const extended = new AudioBuffer({
-								numberOfChannels: buffer.numberOfChannels,
-								sampleRate: buffer.sampleRate,
-								length: requiredLength,
-							});
-							for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
-								extended.copyToChannel(buffer.getChannelData(channel), channel);
-							}
-							buffer = extended;
-						}
-						const skip = Math.max(0, -position);
-						const count = Math.min(
-							decoded.buffer.length - skip,
-							buffer.length - Math.max(0, position),
-						);
-						if (count <= 0) continue;
-						for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
-							buffer
-								.getChannelData(channel)
-								.set(
-									decoded.buffer.getChannelData(channel).subarray(skip, skip + count),
-									Math.max(0, position),
-								);
-						}
-					}
-					return buffer;
-				} finally {
-					input.dispose();
-				}
-			};
+		const enhancement = options.enhancement ?? NO_AUDIO_ENHANCEMENT;
+		const enhance = hasAudioEnhancement(enhancement);
+		const crossfadeSec = Math.max(0, options.crossfadeSec ?? 0);
+
+		// Mixing, crossfades and enhancement all need the whole timeline as one AudioBuffer.
+		if (sortedSpeedRegions.length === 0 && (microphoneAudioUrl || enhance || crossfadeSec > 0)) {
+			const decodeOptions = { isCancelled: () => this.cancelled };
 			const info = await demuxer.getMediaInfo();
 			const system = info.streams.some((stream) => stream.codec_type_string === "audio")
-				? await decode(videoUrl)
+				? await decodeAudioTimeline(videoUrl, decodeOptions)
 				: null;
-			const microphone = microphoneMuted ? null : await decode(microphoneAudioUrl);
-			const rendered = await renderAudioTimeline(system, microphone, {
+			const microphone =
+				microphoneAudioUrl && !microphoneMuted
+					? await decodeAudioTimeline(microphoneAudioUrl, decodeOptions)
+					: null;
+			if (microphoneAudioUrl && !microphoneMuted && !microphone) {
+				throw new Error("Microphone source has no audio track");
+			}
+			let rendered = await renderAudioTimeline(system, microphone, {
 				durationSec: validatedDurationSec,
 				sampleRate: exportCodec.sampleRate,
 				channels: exportCodec.numberOfChannels,
@@ -400,7 +384,11 @@ export class AudioProcessor {
 				microphoneOffsetMs,
 				microphoneGain,
 				microphoneMuted,
+				crossfadeSec,
 			});
+			if (rendered && enhance && !this.cancelled) {
+				rendered = await enhanceAudioBuffer(rendered, enhancement);
+			}
 			if (rendered && !this.cancelled) await this.encodeAudioBuffer(rendered, muxer, exportCodec);
 			return;
 		}
@@ -417,6 +405,21 @@ export class AudioProcessor {
 				microphoneGain,
 				microphoneMuted,
 			);
+			if (!this.cancelled && renderedAudioBlob.size > 0 && enhance) {
+				const decoded = await decodeAudioTimeline(renderedAudioBlob, {
+					isCancelled: () => this.cancelled,
+				});
+				if (decoded && !this.cancelled) {
+					const resampled = await resampleBuffer(
+						decoded,
+						exportCodec.sampleRate,
+						exportCodec.numberOfChannels,
+					);
+					const enhanced = await enhanceAudioBuffer(resampled, enhancement);
+					if (!this.cancelled) await this.encodeAudioBuffer(enhanced, muxer, exportCodec);
+				}
+				return;
+			}
 			if (!this.cancelled && renderedAudioBlob.size > 0) {
 				await this.muxRenderedAudioBlob(renderedAudioBlob, muxer, exportCodec);
 				return;

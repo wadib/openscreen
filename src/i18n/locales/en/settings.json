@@ -234,5 +234,13 @@
 	"timeline": {
 		"title": "Timeline",
 		"waveform": "Show Audio Waveform on Trim Track"
+	},
+	"exportAudio": {
+		"title": "Audio",
+		"normalize": "Normalize loudness (-16 LUFS)",
+		"denoise": "Reduce background noise",
+		"highpass": "Remove low rumble",
+		"smoothCuts": "Smooth cuts (crossfade)",
+		"hardCut": "Off"
 	}
 }

@@ -232,5 +232,13 @@
 	"timeline": {
 		"title": "タイムライン",
 		"waveform": "トリムトラックにオーディオ波形を表示"
+	},
+	"exportAudio": {
+		"title": "オーディオ",
+		"normalize": "ラウドネスを正規化（-16 LUFS）",
+		"denoise": "背景ノイズを低減",
+		"highpass": "低音のノイズを除去",
+		"smoothCuts": "なめらかなカット（クロスフェード）",
+		"hardCut": "オフ"
 	}
 }

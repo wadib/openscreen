@@ -51,5 +51,9 @@
 	"success": {
 		"addedZoomSuggestions": "カーソルに基づくズーム提案を {{count}} 件追加しました",
 		"addedZoomSuggestionsPlural": "カーソルに基づくズーム提案を {{count}} 件追加しました"
+	},
+	"microphone": {
+		"autoSync": "自動",
+		"autoSyncHint": "マイクのオフセットを自動で測定"
 	}
 }

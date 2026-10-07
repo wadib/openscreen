@@ -38,3 +38,33 @@ it("mixes system audio while keeping a muted microphone silent", async () => {
 	});
 	expect(output!.getChannelData(0)[24000]).toBeCloseTo(0.25, 5);
 });
+
+it("crossfades across a trim cut without changing the output length", async () => {
+	const sampleRate = 48000;
+	// Constant 0.5 before the cut, constant 0.25 in the trimmed part and after it.
+	const system = new AudioBuffer({ numberOfChannels: 1, length: sampleRate * 3, sampleRate });
+	const pcm = system.getChannelData(0);
+	pcm.fill(0.5, 0, sampleRate);
+	pcm.fill(0.25, sampleRate);
+	const output = await renderAudioTimeline(system, null, {
+		durationSec: 3,
+		sampleRate,
+		channels: 1,
+		trimRegions: [{ id: "trim", startMs: 1000, endMs: 2000 }],
+		microphoneOffsetMs: 0,
+		microphoneGain: 1,
+		microphoneMuted: false,
+		crossfadeSec: 0.2,
+	});
+	expect(output!.length).toBe(sampleRate * 2);
+	const mixed = output!.getChannelData(0);
+	// Before the cut: untouched.
+	expect(mixed[Math.round(sampleRate * 0.9)]).toBeCloseTo(0.5, 4);
+	// Halfway through the crossfade: equal-power mix of the outgoing tail (0.25, trimmed part)
+	// and the incoming audio (0.25): 0.25 * (cos 45° + sin 45°).
+	expect(mixed[Math.round(sampleRate * 1.1)]).toBeCloseTo(0.25 * Math.SQRT2, 2);
+	// After the crossfade: only the incoming audio.
+	expect(mixed[Math.round(sampleRate * 1.5)]).toBeCloseTo(0.25, 4);
+	// The cut itself starts the fade-in at zero and the fade-out at full level.
+	expect(mixed[sampleRate]).toBeCloseTo(0.25, 2);
+});

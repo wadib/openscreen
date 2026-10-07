@@ -231,5 +231,13 @@
 	"timeline": {
 		"title": "Timeline",
 		"waveform": "Mostra la forma d'onda sulla traccia di ritaglio"
+	},
+	"exportAudio": {
+		"title": "Audio",
+		"normalize": "Normalizza il volume (-16 LUFS)",
+		"denoise": "Riduci il rumore di fondo",
+		"highpass": "Rimuovi il rombo basso",
+		"smoothCuts": "Tagli morbidi (dissolvenza)",
+		"hardCut": "No"
 	}
 }

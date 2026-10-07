@@ -51,5 +51,9 @@
 	"success": {
 		"addedZoomSuggestions": "커서 기반 줌 제안 {{count}}개가 추가되었습니다",
 		"addedZoomSuggestionsPlural": "커서 기반 줌 제안 {{count}}개가 추가되었습니다"
+	},
+	"microphone": {
+		"autoSync": "자동",
+		"autoSyncHint": "마이크 오프셋을 자동으로 측정"
 	}
 }

@@ -55,5 +55,9 @@
 	"success": {
 		"addedZoomSuggestions": "Added {{count}} cursor-based zoom suggestion",
 		"addedZoomSuggestionsPlural": "Added {{count}} cursor-based zoom suggestions"
+	},
+	"microphone": {
+		"autoSync": "Auto",
+		"autoSyncHint": "Measure the microphone offset automatically"
 	}
 }

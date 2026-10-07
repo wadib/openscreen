@@ -113,6 +113,11 @@ interface FrameRenderConfig {
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
 	cursorClickTimestamps?: number[];
 	platform: string;
+	/**
+	 * Linux only: draw the WebGL canvas directly instead of reading it back through the CPU.
+	 * Much faster; the exporter verifies it on the first frame and falls back if needed.
+	 */
+	linuxGpuFramePath?: boolean;
 }
 
 interface AnimationState {
@@ -169,11 +174,15 @@ export class FrameRenderer {
 	private prevAnimationTimeMs: number | null = null;
 	private zoomSpringState = createZoomSpringState();
 	private prevTargetProgress = 0;
+	/** CPU-backed canvases (hint for frequent getImageData). */
 	private isLinux = false;
+	/** Read the WebGL canvas back with readPixels instead of drawImage. */
+	private useReadback = false;
 
 	constructor(config: FrameRenderConfig) {
 		this.config = config;
-		this.isLinux = config.platform === "linux";
+		this.isLinux = config.platform === "linux" && !config.linuxGpuFramePath;
+		this.useReadback = this.isLinux;
 		this.animationState = {
 			scale: 1,
 			focusX: DEFAULT_FOCUS.cx,
@@ -497,8 +506,8 @@ export class FrameRenderer {
 			const w = this.foregroundCanvas.width;
 			const h = this.foregroundCanvas.height;
 			this.foregroundCtx.clearRect(0, 0, w, h);
-			if (this.isLinux) {
-				// drawImage(webglCanvas) is unreliable on Linux/Wayland, so use readPixels
+			if (this.useReadback) {
+				// drawImage(webglCanvas) is unreliable on some Linux/Wayland setups, so use readPixels
 				const pixels = this.threeDPass.readPixels();
 				const imageData = this.foregroundCtx.createImageData(w, h);
 				imageData.data.set(pixels);
@@ -1008,7 +1017,7 @@ export class FrameRenderer {
 		)
 			return;
 
-		const videoCanvas = this.isLinux
+		const videoCanvas = this.useReadback
 			? this.readbackVideoCanvas()
 			: (this.app.canvas as HTMLCanvasElement);
 
@@ -1145,6 +1154,33 @@ export class FrameRenderer {
 		}
 	}
 
+	/** Switch from the direct GPU path back to CPU readback (Linux fallback). */
+	switchToCpuReadback(): void {
+		this.useReadback = true;
+	}
+
+	/**
+	 * Check that drawing the WebGL canvas directly gives the same picture as reading it back
+	 * through the CPU. Call after rendering a frame.
+	 */
+	verifyGpuFramePath(): boolean {
+		if (!this.app) return false;
+		const glCanvas = this.app.canvas as HTMLCanvasElement;
+		const width = 64;
+		const height = 36;
+		const probe = document.createElement("canvas");
+		probe.width = width;
+		probe.height = height;
+		const ctx = probe.getContext("2d", { willReadFrequently: true });
+		if (!ctx) return false;
+		ctx.drawImage(glCanvas, 0, 0, width, height);
+		const direct = ctx.getImageData(0, 0, width, height).data;
+		ctx.clearRect(0, 0, width, height);
+		ctx.drawImage(this.readbackVideoCanvas(), 0, 0, width, height);
+		const readback = ctx.getImageData(0, 0, width, height).data;
+		return imagesMatch(direct, readback);
+	}
+
 	getCanvas(): HTMLCanvasElement {
 		if (!this.compositeCanvas) {
 			throw new Error("Renderer not initialized");
@@ -1185,4 +1221,19 @@ export class FrameRenderer {
 		}
 		this.cursorImageCache.clear();
 	}
+}
+
+/** Mean absolute difference per channel below `tolerance`, and not blank where the other has content. */
+export function imagesMatch(a: Uint8ClampedArray, b: Uint8ClampedArray, tolerance = 6): boolean {
+	if (a.length !== b.length || a.length === 0) return false;
+	let difference = 0;
+	let aContent = 0;
+	let bContent = 0;
+	for (let index = 0; index < a.length; index++) {
+		difference += Math.abs(a[index] - b[index]);
+		aContent += a[index];
+		bContent += b[index];
+	}
+	if ((aContent === 0) !== (bContent === 0)) return false;
+	return difference / a.length < tolerance;
 }

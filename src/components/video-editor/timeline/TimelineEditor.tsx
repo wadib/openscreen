@@ -1,10 +1,13 @@
 import type { Range, Span } from "dnd-timeline";
 import { useTimelineContext } from "dnd-timeline";
 import {
+	AudioLines,
 	Captions,
 	Check,
 	ChevronDown,
 	Gauge,
+	ListVideo,
+	Loader2,
 	MessageSquare,
 	Mic,
 	Plus,
@@ -107,6 +110,16 @@ interface TimelineEditorProps {
 	isGeneratingCaptions?: boolean;
 	/** Localized label for the auto-captions button (lives in the `editor` namespace). */
 	captionsLabel?: string;
+	/** Opens the pause/filler cleanup flow. Hidden when omitted. */
+	onCleanUp?: () => void;
+	isCleaningUp?: boolean;
+	cleanUpLabel?: string;
+	/** Opens the zoom review list. Hidden when omitted. */
+	onReviewZooms?: () => void;
+	reviewZoomsLabel?: string;
+	/** Measures the microphone offset automatically. */
+	onAutoSyncMicrophone?: () => void;
+	isSyncingMicrophone?: boolean;
 }
 
 interface TimelineScaleConfig {
@@ -590,6 +603,8 @@ function Timeline({
 	onMicrophoneGainChange,
 	microphoneMuted = false,
 	onMicrophoneMutedChange,
+	onAutoSyncMicrophone,
+	isSyncingMicrophone = false,
 }: {
 	items: TimelineRenderItem[];
 	videoDurationMs: number;
@@ -616,6 +631,8 @@ function Timeline({
 	onMicrophoneGainChange?: (gain: number) => void;
 	microphoneMuted?: boolean;
 	onMicrophoneMutedChange?: (muted: boolean) => void;
+	onAutoSyncMicrophone?: () => void;
+	isSyncingMicrophone?: boolean;
 }) {
 	const t = useScopedT("timeline");
 	const { setTimelineRef, style, sidebarWidth, range, pixelsToValue } = useTimelineContext();
@@ -871,6 +888,22 @@ function Timeline({
 							/>
 							<span className="text-white/45">ms</span>
 						</label>
+						{onAutoSyncMicrophone && (
+							<button
+								type="button"
+								onClick={onAutoSyncMicrophone}
+								disabled={isSyncingMicrophone}
+								className="flex h-7 items-center gap-1 rounded border border-white/10 bg-black/50 px-2 text-white/80 hover:text-white disabled:opacity-60"
+								title={t("microphone.autoSyncHint")}
+							>
+								{isSyncingMicrophone ? (
+									<Loader2 className="h-3.5 w-3.5 animate-spin" />
+								) : (
+									<AudioLines className="h-3.5 w-3.5" />
+								)}
+								<span>{t("microphone.autoSync")}</span>
+							</button>
+						)}
 						<label className="flex items-center gap-1 bg-black/50 px-2 h-7 rounded border border-white/10">
 							<span>Level</span>
 							<input
@@ -1029,6 +1062,13 @@ export default function TimelineEditor({
 	onGenerateCaptions,
 	isGeneratingCaptions = false,
 	captionsLabel,
+	onCleanUp,
+	isCleaningUp = false,
+	cleanUpLabel,
+	onReviewZooms,
+	reviewZoomsLabel,
+	onAutoSyncMicrophone,
+	isSyncingMicrophone = false,
 }: TimelineEditorProps) {
 	const t = useScopedT("timeline");
 	const totalMs = useMemo(() => Math.max(0, Math.round(videoDuration * 1000)), [videoDuration]);
@@ -1675,6 +1715,34 @@ export default function TimelineEditor({
 							<Captions className="w-4 h-4" />
 						</Button>
 					)}
+					{onCleanUp && (
+						<Button
+							onClick={onCleanUp}
+							disabled={isCleaningUp || !videoUrl}
+							variant="ghost"
+							size="icon"
+							className="h-7 w-7 rounded-lg text-slate-400 hover:text-[#f472b6] hover:bg-[#f472b6]/10 transition-all"
+							title={cleanUpLabel}
+						>
+							{isCleaningUp ? (
+								<Loader2 className="w-4 h-4 animate-spin" />
+							) : (
+								<AudioLines className="w-4 h-4" />
+							)}
+						</Button>
+					)}
+					{onReviewZooms && (
+						<Button
+							onClick={onReviewZooms}
+							disabled={!videoUrl}
+							variant="ghost"
+							size="icon"
+							className="h-7 w-7 rounded-lg text-slate-400 hover:text-[#34B27B] hover:bg-[#34B27B]/10 transition-all"
+							title={reviewZoomsLabel}
+						>
+							<ListVideo className="w-4 h-4" />
+						</Button>
+					)}
 				</div>
 				<div className="flex items-center gap-1.5 min-w-0">
 					<DropdownMenu>
@@ -1770,6 +1838,8 @@ export default function TimelineEditor({
 						onMicrophoneGainChange={onMicrophoneGainChange}
 						microphoneMuted={microphoneMuted}
 						onMicrophoneMutedChange={onMicrophoneMutedChange}
+						onAutoSyncMicrophone={onAutoSyncMicrophone}
+						isSyncingMicrophone={isSyncingMicrophone}
 					/>
 				</TimelineWrapper>
 			</div>

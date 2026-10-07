@@ -86,6 +86,10 @@ export const DEFAULT_EXPORT_SETTINGS: {
 	format: "mp4",
 };
 
+/** Dissolve/crossfade lengths offered for trim cuts (ms); 0 is a hard cut. */
+export const CUT_CROSSFADE_CHOICES = [0, 100, 250, 500] as const;
+export const DEFAULT_CUT_CROSSFADE_MS = 0;
+
 export const DEFAULT_GIF_SETTINGS: {
 	frameRate: GifFrameRate;
 	loop: boolean;

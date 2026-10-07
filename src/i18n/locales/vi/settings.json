@@ -223,5 +223,13 @@
 	"timeline": {
 		"title": "Dòng thời gian",
 		"waveform": "Hiển thị dạng sóng âm thanh trên rãnh cắt"
+	},
+	"exportAudio": {
+		"title": "Âm thanh",
+		"normalize": "Chuẩn hóa âm lượng (-16 LUFS)",
+		"denoise": "Giảm tiếng ồn nền",
+		"highpass": "Loại tiếng ù trầm",
+		"smoothCuts": "Cắt mượt (chuyển mờ)",
+		"hardCut": "Tắt"
 	}
 }

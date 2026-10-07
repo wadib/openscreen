@@ -223,5 +223,13 @@
 	"timeline": {
 		"title": "Zaman Tüneli",
 		"waveform": "Kırpma Parçasında Ses Dalgasını Göster"
+	},
+	"exportAudio": {
+		"title": "Ses",
+		"normalize": "Ses yüksekliğini normalleştir (-16 LUFS)",
+		"denoise": "Arka plan gürültüsünü azalt",
+		"highpass": "Düşük uğultuyu kaldır",
+		"smoothCuts": "Yumuşak kesimler (çapraz geçiş)",
+		"hardCut": "Kapalı"
 	}
 }

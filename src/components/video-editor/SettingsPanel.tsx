@@ -43,6 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useScopedT } from "@/contexts/I18nContext";
 import { getAssetPath } from "@/lib/assetPath";
+import { type AudioEnhancement, NO_AUDIO_ENHANCEMENT } from "@/lib/audio/audioEnhance";
 import { WEBCAM_LAYOUT_PRESETS } from "@/lib/compositeLayout";
 import { CURSOR_THEMES, DEFAULT_CURSOR_THEME_ID } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
@@ -61,7 +62,9 @@ import { BACKGROUND_IMAGE_ACCEPT, isSupportedBackgroundImageType } from "./backg
 import { CropControl } from "./CropControl";
 import { parseCustomPlaybackSpeedInput } from "./customPlaybackSpeed";
 import {
+	CUT_CROSSFADE_CHOICES,
 	DEFAULT_CURSOR_SETTINGS,
+	DEFAULT_CUT_CROSSFADE_MS,
 	DEFAULT_EDITOR_LAYOUT_SETTINGS,
 	DEFAULT_EXPORT_SETTINGS,
 	DEFAULT_GIF_SETTINGS,
@@ -287,6 +290,10 @@ interface SettingsPanelProps {
 	videoElement?: HTMLVideoElement | null;
 	exportQuality?: ExportQuality;
 	onExportQualityChange?: (quality: ExportQuality) => void;
+	audioEnhancement?: AudioEnhancement;
+	onAudioEnhancementChange?: (enhancement: AudioEnhancement) => void;
+	cutCrossfadeMs?: number;
+	onCutCrossfadeMsChange?: (ms: number) => void;
 	// Export format settings
 	exportFormat?: ExportFormat;
 	onExportFormatChange?: (format: ExportFormat) => void;
@@ -432,6 +439,10 @@ export function SettingsPanel({
 	videoElement,
 	exportQuality = DEFAULT_EXPORT_SETTINGS.quality,
 	onExportQualityChange,
+	audioEnhancement = NO_AUDIO_ENHANCEMENT,
+	onAudioEnhancementChange,
+	cutCrossfadeMs = DEFAULT_CUT_CROSSFADE_MS,
+	onCutCrossfadeMsChange,
 	exportFormat = DEFAULT_EXPORT_SETTINGS.format,
 	onExportFormatChange,
 	gifFrameRate = DEFAULT_GIF_SETTINGS.frameRate,
@@ -2099,6 +2110,56 @@ export function SettingsPanel({
 											</span>
 										)}
 									</button>
+								</div>
+							</div>
+						)}
+
+						{exportFormat === "mp4" && (
+							<div className="mb-3 space-y-1.5">
+								<div className="px-0.5 text-[10px] leading-none text-slate-500">
+									{t("exportAudio.title")}
+								</div>
+								{(
+									[
+										["normalize", "exportAudio.normalize"],
+										["denoise", "exportAudio.denoise"],
+										["highpass", "exportAudio.highpass"],
+									] as const
+								).map(([key, label]) => (
+									<div
+										key={key}
+										className="flex items-center justify-between p-2 rounded-lg editor-control-surface"
+									>
+										<div className="text-[10px] font-medium text-slate-300">{t(label)}</div>
+										<Switch
+											checked={audioEnhancement[key]}
+											onCheckedChange={(checked) =>
+												onAudioEnhancementChange?.({ ...audioEnhancement, [key]: checked })
+											}
+											className="data-[state=checked]:bg-[#34B27B] scale-90"
+											aria-label={t(label)}
+										/>
+									</div>
+								))}
+								<div className="flex items-center justify-between px-0.5 pt-1 text-[10px] leading-none text-slate-500">
+									<span>{t("exportAudio.smoothCuts")}</span>
+								</div>
+								<div className="bg-white/5 border border-white/5 p-0.5 w-full grid grid-cols-4 h-7 rounded-lg">
+									{CUT_CROSSFADE_CHOICES.map((ms) => (
+										<button
+											key={ms}
+											type="button"
+											onClick={() => onCutCrossfadeMsChange?.(ms)}
+											className={cn(
+												"rounded-md transition-all text-[10px] font-medium",
+												cutCrossfadeMs === ms
+													? "bg-white text-black"
+													: "text-slate-400 hover:text-slate-200",
+											)}
+										>
+											{ms === 0 ? t("exportAudio.hardCut") : `${ms / 1000}s`}
+										</button>
+									))}
 								</div>
 							</div>
 						)}

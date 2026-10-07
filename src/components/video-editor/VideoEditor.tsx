@@ -25,6 +25,7 @@ import { useShortcuts } from "@/contexts/ShortcutsContext";
 import { INITIAL_EDITOR_STATE, useEditorHistory } from "@/hooks/useEditorHistory";
 import { type Locale } from "@/i18n/config";
 import { getAvailableLocales, getLocaleName } from "@/i18n/loader";
+import { type AudioEnhancement, NO_AUDIO_ENHANCEMENT } from "@/lib/audio/audioEnhance";
 import {
 	captionSegmentsToAnnotationRegions,
 	extractMono16kFromVideoUrl,
@@ -68,11 +69,13 @@ import {
 	getNativeAspectRatioValue,
 	isPortraitAspectRatio,
 } from "@/utils/aspectRatioUtils";
+import { CleanupDialog } from "./CleanupDialog";
 import { DirectExportControls } from "./DirectExportControls";
 import { EditorEmptyState } from "./EditorEmptyState";
 import { ExportDialog } from "./ExportDialog";
 import {
 	DEFAULT_CURSOR_SETTINGS,
+	DEFAULT_CUT_CROSSFADE_MS,
 	DEFAULT_EXPORT_SETTINGS,
 	DEFAULT_GIF_SETTINGS,
 	DEFAULT_SOURCE_DIMENSIONS,
@@ -119,10 +122,13 @@ import {
 	type ZoomRegion,
 } from "./types";
 import { UnsavedChangesDialog } from "./UnsavedChangesDialog";
+import { useCliExport } from "./useCliExport";
+import { useSpeechTools } from "./useSpeechTools";
 import { useStudioMcp } from "./useStudioMcp";
 import VideoPlayback, { VideoPlaybackRef } from "./VideoPlayback";
 import { clampFocusInsideMask, videoFocusToStageSpace } from "./videoPlayback/focusUtils";
 import { clampZoomAreaFocus, getZoomAreaSize } from "./videoPlayback/zoomArea";
+import { ZoomReviewDialog } from "./ZoomReviewDialog";
 
 /** Single Sonner slot so auto-caption phases update in place instead of stacking. */
 const AUTO_CAPTION_PROGRESS_TOAST_ID = "auto-caption-progress";
@@ -257,6 +263,8 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 		DEFAULT_EXPORT_SETTINGS.quality,
 	);
 	const [exportFormat, setExportFormat] = useState<ExportFormat>(DEFAULT_EXPORT_SETTINGS.format);
+	const [audioEnhancement, setAudioEnhancement] = useState<AudioEnhancement>(NO_AUDIO_ENHANCEMENT);
+	const [cutCrossfadeMs, setCutCrossfadeMs] = useState<number>(DEFAULT_CUT_CROSSFADE_MS);
 	const [originalExport, setOriginalExport] = useState(false);
 	const [gifFrameRate, setGifFrameRate] = useState<GifFrameRate>(DEFAULT_GIF_SETTINGS.frameRate);
 	const [gifLoop, setGifLoop] = useState(DEFAULT_GIF_SETTINGS.loop);
@@ -346,6 +354,8 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 	const isAutoCaptioningRef = useRef(false);
 	const [isAutoCaptioning, setIsAutoCaptioning] = useState(false);
 	const [showAutoCaptionsDialog, setShowAutoCaptionsDialog] = useState(false);
+	const [showCleanupDialog, setShowCleanupDialog] = useState(false);
+	const [showZoomReview, setShowZoomReview] = useState(false);
 	const [captionWordsMin, setCaptionWordsMin] = useState(2);
 	const [captionWordsMax, setCaptionWordsMax] = useState(7);
 	const exporterRef = useRef<VideoExporter | null>(null);
@@ -469,6 +479,8 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			});
 			setExportQuality(normalizedEditor.exportQuality);
 			setExportFormat(normalizedEditor.exportFormat);
+			setAudioEnhancement(normalizedEditor.audioEnhancement);
+			setCutCrossfadeMs(normalizedEditor.cutCrossfadeMs);
 			setGifFrameRate(normalizedEditor.gifFrameRate);
 			setGifLoop(normalizedEditor.gifLoop);
 			setGifSizePreset(normalizedEditor.gifSizePreset);
@@ -561,6 +573,8 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			gifFrameRate,
 			gifLoop,
 			gifSizePreset,
+			audioEnhancement,
+			cutCrossfadeMs,
 			cursorTheme,
 		});
 	}, [
@@ -592,6 +606,8 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 		gifFrameRate,
 		gifLoop,
 		gifSizePreset,
+		audioEnhancement,
+		cutCrossfadeMs,
 	]);
 
 	const hasUnsavedChanges = hasProjectUnsavedChanges(currentProjectSnapshot, lastSavedSnapshot);
@@ -748,6 +764,8 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 				gifFrameRate,
 				gifLoop,
 				gifSizePreset,
+				audioEnhancement,
+				cutCrossfadeMs,
 				cursorTheme,
 			};
 			const projectData = createProjectData(currentProjectMedia, editorState);
@@ -813,6 +831,8 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			gifFrameRate,
 			gifLoop,
 			gifSizePreset,
+			audioEnhancement,
+			cutCrossfadeMs,
 			cursorTheme,
 			videoPath,
 			t,
@@ -1062,6 +1082,21 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 		if (!video) return;
 		video.currentTime = time;
 	}
+
+	const { isCleaningUp, runCleanup, isSyncingMicrophone, autoSyncMicrophone } = useSpeechTools({
+		videoPath,
+		webcamVideoPath,
+		webcamOffsetMs,
+		microphoneAudioPath,
+		microphoneMuted,
+		microphoneOffsetMs,
+		setMicrophoneOffsetMs,
+		durationSec: duration,
+		trimRegions,
+		pushState,
+		nextTrimIdRef,
+		t,
+	});
 
 	const handleSelectZoom = useCallback((id: string | null) => {
 		setSelectedZoomId(id);
@@ -2029,7 +2064,11 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 	}, [unsavedExport, handleExportSaved]);
 
 	const handleExport = useCallback(
-		async (settings: ExportSettings, agentTarget?: string) => {
+		async (
+			settings: ExportSettings,
+			agentTarget?: string,
+			agentKind: "studio" | "cli" = "studio",
+		) => {
 			if (!videoPath) {
 				if (agentTarget) throw new Error("No video loaded");
 				toast.error("No video loaded");
@@ -2057,9 +2096,10 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			const targetPath = pickResult.path;
 			let agentResult: { success: boolean; path?: string; message?: string } | null = null;
 			const writeExport = async (data: ArrayBuffer) => {
-				const result = agentTarget
-					? await window.electronAPI.writeStudioMcpExport(data, targetPath)
-					: await window.electronAPI.writeExportToPath(data, targetPath);
+				const result =
+					agentTarget && agentKind === "studio"
+						? await window.electronAPI.writeStudioMcpExport(data, targetPath)
+						: await window.electronAPI.writeExportToPath(data, targetPath);
 				agentResult = result;
 				return result;
 			};
@@ -2233,6 +2273,8 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 						previewHeight,
 						cursorTelemetry,
 						cursorClickTimestamps,
+						audioEnhancement,
+						crossfadeMs: cutCrossfadeMs,
 						onProgress: (progress: ExportProgress) => {
 							setExportProgress(progress);
 						},
@@ -2312,7 +2354,7 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 				setExportProgress(null);
 			}
 			if (agentTarget && !agentResult?.success)
-				throw new Error(agentResult?.message || "Studio export failed or was canceled");
+				throw new Error(agentResult?.message || "Export failed or was canceled");
 			return agentResult;
 		},
 		[
@@ -2345,6 +2387,8 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 			webcamSizePreset,
 			webcamPosition,
 			exportQuality,
+			audioEnhancement,
+			cutCrossfadeMs,
 			handleExportSaved,
 			cursorTelemetry,
 			cursorClickTimestamps,
@@ -2420,6 +2464,13 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 		},
 		export: (path, quality) => handleExport({ format: "mp4", quality }, path),
 		cancelExport: () => exporterRef.current?.cancel(),
+	});
+
+	useCliExport({
+		applyProject: applyLoadedProject,
+		video: () => videoPlaybackRef.current?.video,
+		exportTo: (path, quality) => handleExport({ format: "mp4", quality }, path, "cli"),
+		exportProgress,
 	});
 
 	const handleOpenExportDialog = useCallback(() => {
@@ -3221,6 +3272,10 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 										videoElement={videoPlaybackRef.current?.video || null}
 										exportQuality={exportQuality}
 										onExportQualityChange={setExportQuality}
+										audioEnhancement={audioEnhancement}
+										onAudioEnhancementChange={setAudioEnhancement}
+										cutCrossfadeMs={cutCrossfadeMs}
+										onCutCrossfadeMsChange={setCutCrossfadeMs}
 										exportFormat={exportFormat}
 										onExportFormatChange={setExportFormat}
 										gifFrameRate={gifFrameRate}
@@ -3393,12 +3448,42 @@ export default function VideoEditor({ exportOnly = false }: { exportOnly?: boole
 										}
 										setShowAutoCaptionsDialog(true);
 									}}
+									cleanUpLabel={t("cleanup.button")}
+									isCleaningUp={isCleaningUp}
+									onCleanUp={() => setShowCleanupDialog(true)}
+									reviewZoomsLabel={t("zoomReview.button")}
+									onReviewZooms={() => setShowZoomReview(true)}
+									onAutoSyncMicrophone={() => void autoSyncMicrophone()}
+									isSyncingMicrophone={isSyncingMicrophone}
 								/>
 							</div>
 						</Panel>
 					</PanelGroup>
 				</div>
 			)}
+
+			<CleanupDialog
+				open={showCleanupDialog}
+				onOpenChange={setShowCleanupDialog}
+				onRun={(settings) => void runCleanup(settings)}
+				busy={isCleaningUp}
+				usesMicrophone={Boolean(microphoneAudioPath && !microphoneMuted)}
+				t={t}
+			/>
+			<ZoomReviewDialog
+				open={showZoomReview}
+				onOpenChange={setShowZoomReview}
+				zoomRegions={zoomRegions}
+				videoUrl={videoPath}
+				selectedZoomId={selectedZoomId}
+				geometry={showZoomReview ? (videoPlaybackRef.current?.getLayoutGeometry() ?? null) : null}
+				onGoTo={(region) => {
+					handleSelectZoom(region.id);
+					handleSeek(region.startMs / 1000);
+				}}
+				onDelete={handleZoomDelete}
+				t={t}
+			/>
 
 			<ExportDialog
 				isOpen={showExportDialog}

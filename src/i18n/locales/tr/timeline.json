@@ -51,5 +51,9 @@
 	"success": {
 		"addedZoomSuggestions": "{{count}} imleç tabanlı yakınlaştırma önerisi eklendi",
 		"addedZoomSuggestionsPlural": "{{count}} imleç tabanlı yakınlaştırma önerisi eklendi"
+	},
+	"microphone": {
+		"autoSync": "Otomatik",
+		"autoSyncHint": "Mikrofon kaymasını otomatik ölç"
 	}
 }

@@ -77,5 +77,48 @@
 			"couldNotOpenTitle": "Không thể mở tệp",
 			"couldNotOpenMessage": "Không thể mở tệp dự án. Video mà nó tham chiếu có thể đã bị di chuyển hoặc xóa."
 		}
+	},
+	"cleanup": {
+		"button": "Dọn khoảng lặng và từ đệm",
+		"dialogTitle": "Dọn lời nói",
+		"dialogDescription": "Rút ngắn khoảng lặng dài và xóa các từ đệm như “ờ”, “à” bằng cách thêm đoạn cắt. Tệp gốc không bị thay đổi.",
+		"sourceMicrophone": "Dùng rãnh micrô.",
+		"sourceScreen": "Dùng âm thanh của bản ghi.",
+		"pauses": "Rút ngắn khoảng lặng dài",
+		"minPause": "Khoảng lặng dài hơn",
+		"seconds": "{{count}} giây",
+		"fillers": "Từ đệm",
+		"fillersOff": "Giữ từ đệm",
+		"fillersLocal": "Phát hiện trên máy này (Whisper)",
+		"fillersServer": "Máy chủ CrisperWhisper (chính xác nhất)",
+		"fillersLocalHint": "Mô hình tích hợp thường bỏ sót từ đệm; máy chủ CrisperWhisper tìm được nhiều hơn hẳn.",
+		"serverUrl": "URL máy chủ CrisperWhisper",
+		"undoHint": "Mỗi đoạn cắt là một đoạn cắt bình thường: xem lại trên dòng thời gian hoặc hoàn tác bằng Ctrl+Z.",
+		"run": "Dọn",
+		"analysing": "Đang phân tích âm thanh…",
+		"transcribing": "Đang tìm từ đệm…",
+		"nothingFound": "Không có gì để dọn.",
+		"done": "Đã thêm {{cuts}} đoạn cắt (bỏ {{seconds}} giây)",
+		"doneDetail": "{{pauses}} khoảng lặng, {{fillers}} từ đệm",
+		"failed": "Dọn thất bại"
+	},
+	"microphone": {
+		"syncing": "Đang đo đồng bộ micrô…",
+		"noMicrophoneAudio": "Rãnh micrô không có âm thanh.",
+		"syncUnsure": "Không tìm thấy điểm đồng bộ đáng tin cậy; độ lệch không thay đổi.",
+		"synced": "Đã đồng bộ micrô: {{offset}} ms",
+		"driftWarning": "Các rãnh lệch {{drift}} ms ở cuối bản ghi.",
+		"syncFailed": "Đồng bộ micrô thất bại"
+	},
+	"zoomReview": {
+		"button": "Xem lại thu phóng",
+		"title": "Thu phóng ({{count}})",
+		"description": "Mọi thu phóng theo thứ tự. Khung xanh đánh dấu vùng mỗi thu phóng hiển thị. Nhấp để đi tới.",
+		"empty": "Chưa có thu phóng.",
+		"item": "Thu phóng {{index}}",
+		"auto": "Tự động",
+		"manual": "Thủ công",
+		"goTo": "Đi tới thu phóng",
+		"delete": "Xóa thu phóng"
 	}
 }

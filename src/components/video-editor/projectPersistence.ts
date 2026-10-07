@@ -1,4 +1,5 @@
 import { normalizeTextAnimation } from "@/lib/annotationTextAnimation";
+import { type AudioEnhancement, normalizeAudioEnhancement } from "@/lib/audio/audioEnhance";
 import { normalizeBlurColor, normalizeBlurType } from "@/lib/blurEffects";
 import { normalizeCursorThemeId } from "@/lib/cursor/cursorThemes";
 import type { ExportFormat, ExportQuality, GifFrameRate, GifSizePreset } from "@/lib/exporter";
@@ -7,6 +8,8 @@ import { normalizeProjectMedia } from "@/lib/recordingSession";
 import { DEFAULT_WALLPAPER, WALLPAPER_PATHS } from "@/lib/wallpaper";
 import { ASPECT_RATIOS, type AspectRatio, isPortraitAspectRatio } from "@/utils/aspectRatioUtils";
 import {
+	CUT_CROSSFADE_CHOICES,
+	DEFAULT_CUT_CROSSFADE_MS,
 	DEFAULT_EDITOR_APPEARANCE_SETTINGS,
 	DEFAULT_EDITOR_LAYOUT_SETTINGS,
 	DEFAULT_EXPORT_SETTINGS,
@@ -91,6 +94,8 @@ export interface ProjectEditorState {
 	webcamPosition: WebcamPosition | null;
 	exportQuality: ExportQuality;
 	exportFormat: ExportFormat;
+	audioEnhancement: AudioEnhancement;
+	cutCrossfadeMs: number;
 	gifFrameRate: GifFrameRate;
 	gifLoop: boolean;
 	gifSizePreset: GifSizePreset;
@@ -527,6 +532,12 @@ export function normalizeProjectEditor(editor: Partial<ProjectEditorState>): Pro
 				? editor.exportQuality
 				: DEFAULT_EXPORT_SETTINGS.quality,
 		exportFormat: editor.exportFormat === "gif" ? "gif" : DEFAULT_EXPORT_SETTINGS.format,
+		audioEnhancement: normalizeAudioEnhancement(editor.audioEnhancement),
+		cutCrossfadeMs:
+			isFiniteNumber(editor.cutCrossfadeMs) &&
+			(CUT_CROSSFADE_CHOICES as readonly number[]).includes(editor.cutCrossfadeMs)
+				? editor.cutCrossfadeMs
+				: DEFAULT_CUT_CROSSFADE_MS,
 		gifFrameRate:
 			editor.gifFrameRate === 15 ||
 			editor.gifFrameRate === 20 ||

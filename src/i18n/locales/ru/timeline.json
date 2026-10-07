@@ -51,5 +51,9 @@
 	"success": {
 		"addedZoomSuggestions": "Добавлено {{count}} предложение масштабирования на основе курсора",
 		"addedZoomSuggestionsPlural": "Добавлено {{count}} предложений масштабирования на основе курсора"
+	},
+	"microphone": {
+		"autoSync": "Авто",
+		"autoSyncHint": "Автоматически измерить смещение микрофона"
 	}
 }

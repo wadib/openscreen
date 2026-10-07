@@ -77,5 +77,48 @@
 			"couldNotOpenTitle": "Dosya Açılamadı",
 			"couldNotOpenMessage": "Proje dosyası açılamadı. Başvurulan video taşınmış veya silinmiş olabilir."
 		}
+	},
+	"cleanup": {
+		"button": "Duraklamaları ve dolgu sözcüklerini temizle",
+		"dialogTitle": "Konuşmayı temizle",
+		"dialogDescription": "Uzun duraklamaları kısaltır ve “ıı”, “ee” gibi dolgu sözcüklerini kırpma ekleyerek kaldırır. Orijinal medya değişmez.",
+		"sourceMicrophone": "Mikrofon kanalını kullanır.",
+		"sourceScreen": "Kaydın sesini kullanır.",
+		"pauses": "Uzun duraklamaları kısalt",
+		"minPause": "Şundan uzun duraklamalar",
+		"seconds": "{{count}} sn",
+		"fillers": "Dolgu sözcükleri",
+		"fillersOff": "Dolgu sözcüklerini koru",
+		"fillersLocal": "Bu bilgisayarda algıla (Whisper)",
+		"fillersServer": "CrisperWhisper sunucusu (en doğru)",
+		"fillersLocalHint": "Yerleşik model dolgu sözcüklerini sık atlar; CrisperWhisper sunucusu çok daha fazlasını bulur.",
+		"serverUrl": "CrisperWhisper sunucu adresi",
+		"undoHint": "Her kesim normal bir kırpmadır: zaman çizelgesinde inceleyin veya Ctrl+Z ile geri alın.",
+		"run": "Temizle",
+		"analysing": "Ses analiz ediliyor…",
+		"transcribing": "Dolgu sözcükleri aranıyor…",
+		"nothingFound": "Temizlenecek bir şey yok.",
+		"done": "{{cuts}} kesim eklendi ({{seconds}} sn kaldırıldı)",
+		"doneDetail": "{{pauses}} duraklama, {{fillers}} dolgu sözcüğü",
+		"failed": "Temizleme başarısız"
+	},
+	"microphone": {
+		"syncing": "Mikrofon senkronu ölçülüyor…",
+		"noMicrophoneAudio": "Mikrofon kanalında ses yok.",
+		"syncUnsure": "Güvenilir bir senkron noktası bulunamadı; kayma değiştirilmedi.",
+		"synced": "Mikrofon senkronlandı: {{offset}} ms",
+		"driftWarning": "Kanallar kaydın sonunda {{drift}} ms kayıyor.",
+		"syncFailed": "Mikrofon senkronu başarısız"
+	},
+	"zoomReview": {
+		"button": "Yakınlaştırmaları incele",
+		"title": "Yakınlaştırmalar ({{count}})",
+		"description": "Tüm yakınlaştırmalar sırayla. Yeşil kutu her yakınlaştırmanın gösterdiği alanı işaretler. Gitmek için tıklayın.",
+		"empty": "Henüz yakınlaştırma yok.",
+		"item": "Yakınlaştırma {{index}}",
+		"auto": "Otomatik",
+		"manual": "Elle",
+		"goTo": "Yakınlaştırmaya git",
+		"delete": "Yakınlaştırmayı sil"
 	}
 }

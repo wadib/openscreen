@@ -77,5 +77,48 @@
 			"couldNotOpenTitle": "No se pudo abrir el archivo",
 			"couldNotOpenMessage": "No se pudo abrir el archivo de proyecto. El video al que hace referencia puede haber sido movido o eliminado."
 		}
+	},
+	"cleanup": {
+		"button": "Limpiar pausas y muletillas",
+		"dialogTitle": "Limpiar el habla",
+		"dialogDescription": "Acorta las pausas largas y elimina muletillas como «eh» y «um» añadiendo recortes. Los archivos originales no cambian.",
+		"sourceMicrophone": "Usa la pista del micrófono.",
+		"sourceScreen": "Usa el audio de la grabación.",
+		"pauses": "Acortar pausas largas",
+		"minPause": "Pausas de más de",
+		"seconds": "{{count}} s",
+		"fillers": "Muletillas",
+		"fillersOff": "Conservar muletillas",
+		"fillersLocal": "Detectar en este equipo (Whisper)",
+		"fillersServer": "Servidor CrisperWhisper (más preciso)",
+		"fillersLocalHint": "El modelo integrado suele omitir muletillas; un servidor CrisperWhisper encuentra muchas más.",
+		"serverUrl": "URL del servidor CrisperWhisper",
+		"undoHint": "Cada corte es un recorte normal: revísalo en la línea de tiempo o deshazlo con Ctrl+Z.",
+		"run": "Limpiar",
+		"analysing": "Analizando el audio…",
+		"transcribing": "Buscando muletillas…",
+		"nothingFound": "No hay nada que limpiar.",
+		"done": "Se añadieron {{cuts}} cortes ({{seconds}} s eliminados)",
+		"doneDetail": "{{pauses}} pausas, {{fillers}} muletillas",
+		"failed": "Error al limpiar"
+	},
+	"microphone": {
+		"syncing": "Midiendo la sincronización del micrófono…",
+		"noMicrophoneAudio": "La pista del micrófono no tiene audio.",
+		"syncUnsure": "No se encontró un punto de sincronización fiable; el desfase no cambió.",
+		"synced": "Micrófono sincronizado: {{offset}} ms",
+		"driftWarning": "Las pistas se desfasan {{drift}} ms al final de la grabación.",
+		"syncFailed": "Error al sincronizar el micrófono"
+	},
+	"zoomReview": {
+		"button": "Revisar zooms",
+		"title": "Zooms ({{count}})",
+		"description": "Todos los zooms en orden. El recuadro verde marca lo que muestra cada zoom. Haz clic en uno para ir a él.",
+		"empty": "Aún no hay zooms.",
+		"item": "Zoom {{index}}",
+		"auto": "Auto",
+		"manual": "Manual",
+		"goTo": "Ir al zoom",
+		"delete": "Eliminar zoom"
 	}
 }

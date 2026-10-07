@@ -7,11 +7,14 @@ import type {
 	WebcamSizePreset,
 	ZoomRegion,
 } from "@/components/video-editor/types";
+import { type AudioEnhancement, hasAudioEnhancement } from "@/lib/audio/audioEnhance";
 import { BackgroundLoadError } from "@/lib/wallpaper";
 import type { CursorRecordingData } from "@/native/contracts";
 import { getPlatform } from "@/utils/platformUtils";
 import { AudioProcessor } from "./audioEncoder";
-import { FrameRenderer } from "./frameRenderer";
+import { CutCrossfader, crossfadeFrameCount } from "./cutCrossfade";
+import { emitExportDiagnostic } from "./exportDiagnostics";
+import { FrameRenderer, imagesMatch } from "./frameRenderer";
 import { VideoMuxer } from "./muxer";
 import { shiftRegionsToSidecar } from "./sidecarTiming";
 import { StreamingVideoDecoder } from "./streamingDecoder";
@@ -59,6 +62,12 @@ export interface VideoExporterConfig extends ExportConfig {
 	previewHeight?: number;
 	cursorTelemetry?: import("@/components/video-editor/types").CursorTelemetryPoint[];
 	cursorClickTimestamps?: number[];
+	/** Voice enhancement applied to the final audio mix. */
+	audioEnhancement?: AudioEnhancement;
+	/** Dissolve and audio crossfade at each trim cut (ms); 0 disables. */
+	crossfadeMs?: number;
+	/** Linux frame path: "auto" verifies the fast GPU path; "readback" forces CPU readback. */
+	linuxFramePath?: "auto" | "readback";
 	onProgress?: (progress: ExportProgress) => void;
 }
 
@@ -98,6 +107,36 @@ export function isSourceCopyFastPathEligible(
 	return getSourceCopyFastPathBlockers(config, videoInfo).length === 0;
 }
 
+/** True when a VideoFrame made directly from the canvas has the canvas's pixels. */
+async function canvasFrameMatchesPixels(canvas: HTMLCanvasElement): Promise<boolean> {
+	const ctx = canvas.getContext("2d", { willReadFrequently: true });
+	if (!ctx) return true;
+	const frame = new VideoFrame(canvas, { timestamp: 0 });
+	try {
+		const width = frame.displayWidth;
+		const height = frame.displayHeight;
+		const pixels = new Uint8ClampedArray(frame.allocationSize({ format: "RGBA" }));
+		await frame.copyTo(pixels, { format: "RGBA" });
+		const expected = ctx.getImageData(0, 0, width, height).data;
+		// Compare a sparse grid; full frames are large.
+		const step = 4 * 997;
+		const a: number[] = [];
+		const b: number[] = [];
+		for (let index = 0; index < expected.length; index += step) {
+			for (let channel = 0; channel < 3; channel++) {
+				a.push(pixels[index + channel]);
+				b.push(expected[index + channel]);
+			}
+		}
+		return imagesMatch(Uint8ClampedArray.from(a), Uint8ClampedArray.from(b), 8);
+	} catch (error) {
+		console.warn("[VideoExporter] Could not verify GPU frames:", error);
+		return false;
+	} finally {
+		frame.close();
+	}
+}
+
 export function getSourceCopyFastPathBlockers(
 	config: VideoExporterConfig,
 	videoInfo: { width: number; height: number },
@@ -111,6 +150,7 @@ export function getSourceCopyFastPathBlockers(
 	}
 	if (config.webcamVideoUrl) blockers.push("webcam overlay is enabled");
 	if (config.microphoneAudioUrl) blockers.push("separate microphone track is enabled");
+	if (hasAudioEnhancement(config.audioEnhancement)) blockers.push("audio enhancement is enabled");
 	if (hasActiveTimeRegions(config.trimRegions)) blockers.push("trim regions are present");
 	if (hasActiveSpeedRegions(config.speedRegions)) blockers.push("speed regions are present");
 	if (hasActiveTimeRegions(config.zoomRegions)) blockers.push("zoom regions are present");
@@ -217,6 +257,9 @@ export class VideoExporter {
 						`[VideoExporter] ${encoderPreference} export attempt failed:`,
 						normalizedError,
 					);
+					emitExportDiagnostic(
+						`${encoderPreference} attempt failed: ${normalizedError.message}; retrying`,
+					);
 				}
 			} finally {
 				this.cleanup();
@@ -299,6 +342,7 @@ export class VideoExporter {
 				cursorTelemetry: this.config.cursorTelemetry,
 				cursorClickTimestamps: this.config.cursorClickTimestamps,
 				platform,
+				linuxGpuFramePath: platform === "linux" && this.config.linuxFramePath !== "readback",
 			});
 			this.renderer = renderer;
 			await renderer.initialize();
@@ -315,6 +359,11 @@ export class VideoExporter {
 			if ((videoInfo.hasAudio || hasMicrophoneTrack) && !audioExportCodec) {
 				console.warn("[VideoExporter] No supported audio export codec, exporting video-only.");
 			}
+			emitExportDiagnostic(
+				audioExportCodec
+					? `Audio: ${audioExportCodec.label} ${audioExportCodec.sampleRate} Hz ${audioExportCodec.numberOfChannels} ch`
+					: "Audio: none",
+			);
 
 			const hasAudio = Boolean(audioExportCodec);
 			const muxer = new VideoMuxer(
@@ -378,6 +427,21 @@ export class VideoExporter {
 						})()
 					: null;
 
+			let linuxGpuFramePath = platform === "linux" && this.config.linuxFramePath !== "readback";
+			const crossfadeFrames = crossfadeFrameCount(
+				this.config.crossfadeMs ?? 0,
+				this.config.frameRate,
+			);
+			const crossfader =
+				crossfadeFrames > 0 && hasActiveTimeRegions(this.config.trimRegions)
+					? new CutCrossfader(
+							this.config.width,
+							this.config.height,
+							this.config.trimRegions ?? [],
+							crossfadeFrames,
+						)
+					: null;
+
 			await streamingDecoder.decodeAll(
 				this.config.frameRate,
 				this.config.trimRegions,
@@ -404,13 +468,37 @@ export class VideoExporter {
 						const sourceTimestampUs = sourceTimestampMs * 1000;
 						await renderer.renderFrame(videoFrame, sourceTimestampUs, webcamFrame);
 
-						const canvas = renderer.getCanvas();
+						if (linuxGpuFramePath && frameIndex === 0) {
+							// Verify the fast path once; some Linux GPU stacks return empty frames.
+							const verified =
+								renderer.verifyGpuFramePath() &&
+								(await canvasFrameMatchesPixels(renderer.getCanvas()));
+							if (!verified) {
+								console.warn(
+									"[VideoExporter] Linux GPU frame path failed verification; using CPU readback",
+								);
+								emitExportDiagnostic(
+									"Linux GPU frame path failed verification; using CPU readback",
+								);
+								linuxGpuFramePath = false;
+								renderer.switchToCpuReadback();
+								await renderer.renderFrame(videoFrame, sourceTimestampUs, webcamFrame);
+							} else {
+								console.info("[VideoExporter] Linux GPU frame path verified");
+								emitExportDiagnostic("Linux GPU frame path verified");
+							}
+						}
+
+						const canvas = crossfader
+							? crossfader.process(renderer.getCanvas(), sourceTimestampMs)
+							: renderer.getCanvas();
 
 						let exportFrame: VideoFrame;
 
 						// On some Linux systems the GPU shared-image path (EGL/Ozone) fails
-						// silently, producing empty frames, so we force a CPU readback instead.
-						if (platform === "linux") {
+						// silently, producing empty frames, so unless the fast path verified
+						// we force a CPU readback instead.
+						if (platform === "linux" && !linuxGpuFramePath) {
 							const canvasCtx = canvas.getContext("2d")!;
 							const imageData = canvasCtx.getImageData(0, 0, canvas.width, canvas.height);
 							exportFrame = new VideoFrame(imageData.data.buffer, {
@@ -526,6 +614,10 @@ export class VideoExporter {
 						this.config.microphoneOffsetMs,
 						this.config.microphoneGain,
 						this.config.microphoneMuted,
+						{
+							enhancement: this.config.audioEnhancement,
+							crossfadeSec: (this.config.crossfadeMs ?? 0) / 1000,
+						},
 					);
 				}
 			}
@@ -643,6 +735,9 @@ export class VideoExporter {
 		if (encoderConfig.codec !== (this.config.codec || DEFAULT_H264_CODEC)) {
 			console.warn(`[VideoExporter] Falling back to ${encoderConfig.codec}`);
 		}
+		emitExportDiagnostic(
+			`Video encoder: ${encoderConfig.codec} ${encoderConfig.width}x${encoderConfig.height} (${hardwareAcceleration})`,
+		);
 
 		console.log(
 			`[VideoExporter] Using ${hardwareAcceleration === "prefer-hardware" ? "hardware" : "software"} acceleration`,

@@ -77,5 +77,48 @@
 			"couldNotOpenTitle": "無法開啟檔案",
 			"couldNotOpenMessage": "無法開啟專案檔案。它所參照的影片可能已被移動或刪除。"
 		}
+	},
+	"cleanup": {
+		"button": "清理停頓和口頭禪",
+		"dialogTitle": "清理語音",
+		"dialogDescription": "透過新增修剪來縮短長停頓並移除「嗯」「呃」等口頭禪。原始媒體不會變更。",
+		"sourceMicrophone": "使用麥克風音軌。",
+		"sourceScreen": "使用錄製的音訊。",
+		"pauses": "縮短長停頓",
+		"minPause": "停頓長於",
+		"seconds": "{{count}} 秒",
+		"fillers": "口頭禪",
+		"fillersOff": "保留口頭禪",
+		"fillersLocal": "在本機偵測（Whisper）",
+		"fillersServer": "CrisperWhisper 伺服器（最準確）",
+		"fillersLocalHint": "內建模型常會漏掉口頭禪；CrisperWhisper 伺服器能找到更多。",
+		"serverUrl": "CrisperWhisper 伺服器網址",
+		"undoHint": "每個剪接都是一般修剪：可在時間軸上檢查，或按 Ctrl+Z 復原。",
+		"run": "清理",
+		"analysing": "正在分析音訊…",
+		"transcribing": "正在尋找口頭禪…",
+		"nothingFound": "沒有需要清理的內容。",
+		"done": "已新增 {{cuts}} 處剪接（移除 {{seconds}} 秒）",
+		"doneDetail": "{{pauses}} 處停頓，{{fillers}} 個口頭禪",
+		"failed": "清理失敗"
+	},
+	"microphone": {
+		"syncing": "正在測量麥克風同步…",
+		"noMicrophoneAudio": "麥克風音軌沒有音訊。",
+		"syncUnsure": "找不到可靠的同步點；偏移未變更。",
+		"synced": "麥克風已同步：{{offset}} 毫秒",
+		"driftWarning": "錄製結束時音軌偏差 {{drift}} 毫秒。",
+		"syncFailed": "麥克風同步失敗"
+	},
+	"zoomReview": {
+		"button": "檢查縮放",
+		"title": "縮放（{{count}}）",
+		"description": "依序列出所有縮放。綠框標出每個縮放顯示的區域。點一下即可跳轉。",
+		"empty": "尚無縮放。",
+		"item": "縮放 {{index}}",
+		"auto": "自動",
+		"manual": "手動",
+		"goTo": "跳到縮放",
+		"delete": "刪除縮放"
 	}
 }

@@ -77,5 +77,48 @@
 			"couldNotOpenTitle": "无法打开文件",
 			"couldNotOpenMessage": "无法打开项目文件。它引用的视频可能已被移动或删除。"
 		}
+	},
+	"cleanup": {
+		"button": "清理停顿和口头禅",
+		"dialogTitle": "清理语音",
+		"dialogDescription": "通过添加裁剪来缩短长停顿并删除“嗯”“呃”等口头禅。原始媒体不会改变。",
+		"sourceMicrophone": "使用麦克风音轨。",
+		"sourceScreen": "使用录制的音频。",
+		"pauses": "缩短长停顿",
+		"minPause": "停顿长于",
+		"seconds": "{{count}} 秒",
+		"fillers": "口头禅",
+		"fillersOff": "保留口头禅",
+		"fillersLocal": "在本机检测（Whisper）",
+		"fillersServer": "CrisperWhisper 服务器（最准确）",
+		"fillersLocalHint": "内置模型经常漏掉口头禅；CrisperWhisper 服务器能找到更多。",
+		"serverUrl": "CrisperWhisper 服务器地址",
+		"undoHint": "每个剪切都是普通裁剪：可在时间轴上检查，或按 Ctrl+Z 撤销。",
+		"run": "清理",
+		"analysing": "正在分析音频…",
+		"transcribing": "正在查找口头禅…",
+		"nothingFound": "没有需要清理的内容。",
+		"done": "已添加 {{cuts}} 处剪切（删除 {{seconds}} 秒）",
+		"doneDetail": "{{pauses}} 处停顿，{{fillers}} 个口头禅",
+		"failed": "清理失败"
+	},
+	"microphone": {
+		"syncing": "正在测量麦克风同步…",
+		"noMicrophoneAudio": "麦克风音轨没有音频。",
+		"syncUnsure": "未找到可靠的同步点；偏移未更改。",
+		"synced": "麦克风已同步：{{offset}} 毫秒",
+		"driftWarning": "到录制结束时音轨偏差 {{drift}} 毫秒。",
+		"syncFailed": "麦克风同步失败"
+	},
+	"zoomReview": {
+		"button": "检查缩放",
+		"title": "缩放（{{count}}）",
+		"description": "按顺序列出所有缩放。绿框标出每个缩放显示的区域。点击即可跳转。",
+		"empty": "还没有缩放。",
+		"item": "缩放 {{index}}",
+		"auto": "自动",
+		"manual": "手动",
+		"goTo": "跳到缩放",
+		"delete": "删除缩放"
 	}
 }

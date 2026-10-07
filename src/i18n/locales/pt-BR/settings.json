@@ -214,5 +214,13 @@
 	},
 	"language": {
 		"title": "Idioma"
+	},
+	"exportAudio": {
+		"title": "Áudio",
+		"normalize": "Normalizar volume (-16 LUFS)",
+		"denoise": "Reduzir ruído de fundo",
+		"highpass": "Remover ronco grave",
+		"smoothCuts": "Cortes suaves (crossfade)",
+		"hardCut": "Não"
 	}
 }

@@ -77,5 +77,48 @@
 			"couldNotOpenTitle": "파일을 열 수 없음",
 			"couldNotOpenMessage": "프로젝트 파일을 열 수 없습니다. 참조된 동영상이 이동되었거나 삭제되었을 수 있습니다."
 		}
+	},
+	"cleanup": {
+		"button": "멈춤과 군말 정리",
+		"dialogTitle": "말 정리",
+		"dialogDescription": "긴 멈춤을 줄이고 “음”, “어” 같은 군말을 트림으로 제거합니다. 원본 미디어는 바뀌지 않습니다.",
+		"sourceMicrophone": "마이크 트랙을 사용합니다.",
+		"sourceScreen": "녹화 오디오를 사용합니다.",
+		"pauses": "긴 멈춤 줄이기",
+		"minPause": "다음보다 긴 멈춤",
+		"seconds": "{{count}}초",
+		"fillers": "군말",
+		"fillersOff": "군말 유지",
+		"fillersLocal": "이 컴퓨터에서 감지(Whisper)",
+		"fillersServer": "CrisperWhisper 서버(가장 정확)",
+		"fillersLocalHint": "내장 모델은 군말을 자주 놓칩니다. CrisperWhisper 서버는 훨씬 더 많이 찾습니다.",
+		"serverUrl": "CrisperWhisper 서버 URL",
+		"undoHint": "모든 컷은 일반 트림입니다. 타임라인에서 확인하거나 Ctrl+Z로 되돌리세요.",
+		"run": "정리",
+		"analysing": "오디오 분석 중…",
+		"transcribing": "군말 찾는 중…",
+		"nothingFound": "정리할 것이 없습니다.",
+		"done": "컷 {{cuts}}개 추가({{seconds}}초 제거)",
+		"doneDetail": "멈춤 {{pauses}}개, 군말 {{fillers}}개",
+		"failed": "정리 실패"
+	},
+	"microphone": {
+		"syncing": "마이크 동기화 측정 중…",
+		"noMicrophoneAudio": "마이크 트랙에 오디오가 없습니다.",
+		"syncUnsure": "신뢰할 수 있는 동기화 지점을 찾지 못했습니다. 오프셋은 바뀌지 않았습니다.",
+		"synced": "마이크 동기화됨: {{offset}}ms",
+		"driftWarning": "녹화 끝에서 트랙이 {{drift}}ms 어긋납니다.",
+		"syncFailed": "마이크 동기화 실패"
+	},
+	"zoomReview": {
+		"button": "줌 검토",
+		"title": "줌 ({{count}})",
+		"description": "모든 줌을 순서대로 보여 줍니다. 녹색 상자는 각 줌이 보여 주는 영역입니다. 클릭하면 이동합니다.",
+		"empty": "아직 줌이 없습니다.",
+		"item": "줌 {{index}}",
+		"auto": "자동",
+		"manual": "수동",
+		"goTo": "줌으로 이동",
+		"delete": "줌 삭제"
 	}
 }

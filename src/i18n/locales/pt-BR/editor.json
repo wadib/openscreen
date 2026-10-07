@@ -60,5 +60,48 @@
 		"noAudio": "Este vídeo não tem áudio utilizável para transcrição.",
 		"failed": "Não foi possível gerar as legendas.",
 		"truncated": "Apenas os primeiros {{minutes}} minutos foram transcritos."
+	},
+	"cleanup": {
+		"button": "Limpar pausas e vícios de linguagem",
+		"dialogTitle": "Limpar a fala",
+		"dialogDescription": "Encurta pausas longas e remove vícios como “é” e “hum” adicionando cortes. A mídia original não é alterada.",
+		"sourceMicrophone": "Usa a faixa do microfone.",
+		"sourceScreen": "Usa o áudio da gravação.",
+		"pauses": "Encurtar pausas longas",
+		"minPause": "Pausas maiores que",
+		"seconds": "{{count}} s",
+		"fillers": "Vícios de linguagem",
+		"fillersOff": "Manter vícios",
+		"fillersLocal": "Detectar neste computador (Whisper)",
+		"fillersServer": "Servidor CrisperWhisper (mais preciso)",
+		"fillersLocalHint": "O modelo embutido costuma ignorar vícios; um servidor CrisperWhisper encontra muitos mais.",
+		"serverUrl": "URL do servidor CrisperWhisper",
+		"undoHint": "Cada corte é um recorte normal: revise na linha do tempo ou desfaça com Ctrl+Z.",
+		"run": "Limpar",
+		"analysing": "Analisando o áudio…",
+		"transcribing": "Procurando vícios de linguagem…",
+		"nothingFound": "Nada para limpar.",
+		"done": "{{cuts}} cortes adicionados ({{seconds}} s removidos)",
+		"doneDetail": "{{pauses}} pausas, {{fillers}} vícios",
+		"failed": "Falha na limpeza"
+	},
+	"microphone": {
+		"syncing": "Medindo a sincronia do microfone…",
+		"noMicrophoneAudio": "A faixa do microfone não tem áudio.",
+		"syncUnsure": "Não foi encontrado um ponto de sincronia confiável; o deslocamento não mudou.",
+		"synced": "Microfone sincronizado: {{offset}} ms",
+		"driftWarning": "As faixas se desviam {{drift}} ms no fim da gravação.",
+		"syncFailed": "Falha ao sincronizar o microfone"
+	},
+	"zoomReview": {
+		"button": "Revisar zooms",
+		"title": "Zooms ({{count}})",
+		"description": "Todos os zooms em ordem. A caixa verde marca o que cada zoom exibe. Clique para ir até ele.",
+		"empty": "Nenhum zoom ainda.",
+		"item": "Zoom {{index}}",
+		"auto": "Auto",
+		"manual": "Manual",
+		"goTo": "Ir para o zoom",
+		"delete": "Excluir zoom"
 	}
 }

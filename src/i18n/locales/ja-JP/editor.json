@@ -77,5 +77,48 @@
 			"couldNotOpenTitle": "ファイルを開けませんでした",
 			"couldNotOpenMessage": "プロジェクトファイルを開けませんでした。参照している動画が移動または削除された可能性があります。"
 		}
+	},
+	"cleanup": {
+		"button": "間とフィラーを整理",
+		"dialogTitle": "話し方を整理",
+		"dialogDescription": "長い間を短くし、「えー」「あの」などのフィラーをトリムで取り除きます。元のメディアは変更されません。",
+		"sourceMicrophone": "マイクトラックを使用します。",
+		"sourceScreen": "録画の音声を使用します。",
+		"pauses": "長い間を短くする",
+		"minPause": "次より長い間",
+		"seconds": "{{count}} 秒",
+		"fillers": "フィラー",
+		"fillersOff": "フィラーを残す",
+		"fillersLocal": "このコンピューターで検出（Whisper）",
+		"fillersServer": "CrisperWhisper サーバー（最も正確）",
+		"fillersLocalHint": "内蔵モデルはフィラーを見落としがちです。CrisperWhisper サーバーはずっと多く検出します。",
+		"serverUrl": "CrisperWhisper サーバーの URL",
+		"undoHint": "カットはすべて通常のトリムです。タイムラインで確認するか Ctrl+Z で元に戻せます。",
+		"run": "整理する",
+		"analysing": "音声を解析中…",
+		"transcribing": "フィラーを検索中…",
+		"nothingFound": "整理するものはありません。",
+		"done": "{{cuts}} 件のカットを追加（{{seconds}} 秒削除）",
+		"doneDetail": "間 {{pauses}} 件、フィラー {{fillers}} 件",
+		"failed": "整理に失敗しました"
+	},
+	"microphone": {
+		"syncing": "マイクの同期を測定中…",
+		"noMicrophoneAudio": "マイクトラックに音声がありません。",
+		"syncUnsure": "信頼できる同期点が見つかりませんでした。オフセットは変更していません。",
+		"synced": "マイクを同期しました: {{offset}} ms",
+		"driftWarning": "録画の終わりでトラックが {{drift}} ms ずれています。",
+		"syncFailed": "マイクの同期に失敗しました"
+	},
+	"zoomReview": {
+		"button": "ズームを確認",
+		"title": "ズーム（{{count}}）",
+		"description": "すべてのズームを順番に表示します。緑の枠が各ズームの表示範囲です。クリックで移動します。",
+		"empty": "ズームはまだありません。",
+		"item": "ズーム {{index}}",
+		"auto": "自動",
+		"manual": "手動",
+		"goTo": "ズームへ移動",
+		"delete": "ズームを削除"
 	}
 }

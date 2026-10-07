@@ -61,5 +61,48 @@
 		"noAudio": "Questo video non contiene audio utilizzabile per la trascrizione.",
 		"failed": "Impossibile generare i sottotitoli.",
 		"truncated": "Sono stati trascritti solo i primi {{minutes}} minuti."
+	},
+	"cleanup": {
+		"button": "Pulisci pause e intercalari",
+		"dialogTitle": "Pulisci il parlato",
+		"dialogDescription": "Accorcia le pause lunghe e rimuove intercalari come «ehm» aggiungendo tagli. I file originali non cambiano.",
+		"sourceMicrophone": "Usa la traccia del microfono.",
+		"sourceScreen": "Usa l’audio della registrazione.",
+		"pauses": "Accorcia le pause lunghe",
+		"minPause": "Pause più lunghe di",
+		"seconds": "{{count}} s",
+		"fillers": "Intercalari",
+		"fillersOff": "Mantieni gli intercalari",
+		"fillersLocal": "Rileva su questo computer (Whisper)",
+		"fillersServer": "Server CrisperWhisper (più preciso)",
+		"fillersLocalHint": "Il modello integrato spesso salta gli intercalari; un server CrisperWhisper ne trova molti di più.",
+		"serverUrl": "URL del server CrisperWhisper",
+		"undoHint": "Ogni taglio è un normale ritaglio: controllalo sulla timeline o annulla con Ctrl+Z.",
+		"run": "Pulisci",
+		"analysing": "Analisi dell’audio…",
+		"transcribing": "Ricerca degli intercalari…",
+		"nothingFound": "Niente da pulire.",
+		"done": "Aggiunti {{cuts}} tagli ({{seconds}} s rimossi)",
+		"doneDetail": "{{pauses}} pause, {{fillers}} intercalari",
+		"failed": "Pulizia non riuscita"
+	},
+	"microphone": {
+		"syncing": "Misurazione della sincronia del microfono…",
+		"noMicrophoneAudio": "La traccia del microfono non contiene audio.",
+		"syncUnsure": "Nessun punto di sincronia affidabile; lo scostamento non è cambiato.",
+		"synced": "Microfono sincronizzato: {{offset}} ms",
+		"driftWarning": "Le tracce si spostano di {{drift}} ms alla fine della registrazione.",
+		"syncFailed": "Sincronizzazione del microfono non riuscita"
+	},
+	"zoomReview": {
+		"button": "Rivedi gli zoom",
+		"title": "Zoom ({{count}})",
+		"description": "Tutti gli zoom in ordine. Il riquadro verde indica cosa mostra ogni zoom. Fai clic per andarci.",
+		"empty": "Ancora nessuno zoom.",
+		"item": "Zoom {{index}}",
+		"auto": "Auto",
+		"manual": "Manuale",
+		"goTo": "Vai allo zoom",
+		"delete": "Elimina zoom"
 	}
 }

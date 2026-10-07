@@ -232,5 +232,13 @@
 	"timeline": {
 		"title": "Línea de tiempo",
 		"waveform": "Mostrar forma de onda en pista de recorte"
+	},
+	"exportAudio": {
+		"title": "Audio",
+		"normalize": "Normalizar volumen (-16 LUFS)",
+		"denoise": "Reducir ruido de fondo",
+		"highpass": "Eliminar zumbido grave",
+		"smoothCuts": "Cortes suaves (fundido)",
+		"hardCut": "No"
 	}
 }

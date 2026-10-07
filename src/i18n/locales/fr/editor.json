@@ -77,5 +77,48 @@
 			"couldNotOpenTitle": "Impossible d'ouvrir le fichier",
 			"couldNotOpenMessage": "Le fichier de projet n'a pas pu être ouvert. La vidéo qu'il référence a peut-être été déplacée ou supprimée."
 		}
+	},
+	"cleanup": {
+		"button": "Nettoyer les pauses et les hésitations",
+		"dialogTitle": "Nettoyer la parole",
+		"dialogDescription": "Raccourcit les longues pauses et supprime les hésitations comme « euh » en ajoutant des coupes. Les médias d’origine ne sont pas modifiés.",
+		"sourceMicrophone": "Utilise la piste du micro.",
+		"sourceScreen": "Utilise l’audio de l’enregistrement.",
+		"pauses": "Raccourcir les longues pauses",
+		"minPause": "Pauses de plus de",
+		"seconds": "{{count}} s",
+		"fillers": "Hésitations",
+		"fillersOff": "Garder les hésitations",
+		"fillersLocal": "Détecter sur cet ordinateur (Whisper)",
+		"fillersServer": "Serveur CrisperWhisper (le plus précis)",
+		"fillersLocalHint": "Le modèle intégré ignore souvent les hésitations ; un serveur CrisperWhisper en trouve bien plus.",
+		"serverUrl": "URL du serveur CrisperWhisper",
+		"undoHint": "Chaque coupe est un rognage normal : vérifiez-la sur la timeline ou annulez avec Ctrl+Z.",
+		"run": "Nettoyer",
+		"analysing": "Analyse de l’audio…",
+		"transcribing": "Recherche des hésitations…",
+		"nothingFound": "Rien à nettoyer.",
+		"done": "{{cuts}} coupes ajoutées ({{seconds}} s supprimées)",
+		"doneDetail": "{{pauses}} pauses, {{fillers}} hésitations",
+		"failed": "Échec du nettoyage"
+	},
+	"microphone": {
+		"syncing": "Mesure de la synchro du micro…",
+		"noMicrophoneAudio": "La piste du micro ne contient pas d’audio.",
+		"syncUnsure": "Aucun point de synchro fiable trouvé ; le décalage n’a pas changé.",
+		"synced": "Micro synchronisé : {{offset}} ms",
+		"driftWarning": "Les pistes dérivent de {{drift}} ms à la fin de l’enregistrement.",
+		"syncFailed": "Échec de la synchro du micro"
+	},
+	"zoomReview": {
+		"button": "Revoir les zooms",
+		"title": "Zooms ({{count}})",
+		"description": "Tous les zooms dans l’ordre. Le cadre vert indique ce que montre chaque zoom. Cliquez pour y aller.",
+		"empty": "Aucun zoom pour l’instant.",
+		"item": "Zoom {{index}}",
+		"auto": "Auto",
+		"manual": "Manuel",
+		"goTo": "Aller au zoom",
+		"delete": "Supprimer le zoom"
 	}
 }

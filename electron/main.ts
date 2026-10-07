@@ -12,6 +12,8 @@ import {
 	Tray,
 } from "electron";
 import { readAfterRecording } from "./afterRecording";
+import { CLI_USAGE, type CliExportRequest, CliUsageError, parseCliExportArgs } from "./cliExport";
+import { runCliExport } from "./cliExportRunner";
 import {
 	type GlobalShortcutCallbacks,
 	loadAndRegisterGlobalShortcuts,
@@ -31,6 +33,20 @@ import {
 } from "./windows";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Headless command-line export (`--export project.openscreen out.mp4`); see cliExport.ts.
+let cliExportRequest: CliExportRequest | null = null;
+try {
+	cliExportRequest = parseCliExportArgs(process.argv.slice(1));
+} catch (error) {
+	if (error instanceof CliUsageError) {
+		process.stdout.write(`openscreen: ${error.message}
+
+${CLI_USAGE}`);
+		process.exit(2);
+	}
+	throw error;
+}
 
 // Use Screen & System Audio Recording permissions instead of the CoreAudio Tap API on macOS.
 // Tap needs NSAudioCaptureUsageDescription in the parent app's Info.plist, which breaks when
@@ -651,6 +667,17 @@ app.whenReady().then(async () => {
 		},
 		switchToHudWrapper,
 	);
+
+	if (cliExportRequest) {
+		const request = cliExportRequest;
+		const code = await runCliExport(request, () => {
+			createEditorWindowWrapper(false, request.show);
+			if (!mainWindow) throw new Error("Could not create the editor window");
+			return mainWindow;
+		});
+		app.exit(code);
+		return;
+	}
 
 	if (studioMcpEnabled) {
 		// The dedicated agent instance is offline, including imported project assets.

@@ -232,5 +232,13 @@
 	"timeline": {
 		"title": "타임라인",
 		"waveform": "트림 트랙에 오디오 파형 표시"
+	},
+	"exportAudio": {
+		"title": "오디오",
+		"normalize": "음량 정규화(-16 LUFS)",
+		"denoise": "배경 소음 줄이기",
+		"highpass": "저음 울림 제거",
+		"smoothCuts": "부드러운 컷(크로스페이드)",
+		"hardCut": "끔"
 	}
 }

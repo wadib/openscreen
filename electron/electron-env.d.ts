@@ -31,6 +31,12 @@ interface Window {
 			data: ArrayBuffer,
 			target: string,
 		) => Promise<{ success: boolean; path?: string; message?: string }>;
+		onCliExportJob?: (
+			callback: (job: import("./cliExportRunner").CliExportJobMessage) => Promise<void>,
+		) => () => void;
+		reportCliExportProgress?: (id: string, percentage: number) => void;
+		reportCliExportResult?: (result: import("./cliExportRunner").CliExportResultMessage) => void;
+		reportCliExportLog?: (id: string, message: string) => void;
 		invokeNativeBridge: <TData = unknown>(
 			request: import("../src/native/contracts").NativeBridgeRequest,
 		) => Promise<import("../src/native/contracts").NativeBridgeResponse<TData>>;

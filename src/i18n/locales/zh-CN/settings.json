@@ -223,5 +223,13 @@
 	"timeline": {
 		"title": "时间轴",
 		"waveform": "在剪辑轨道上显示音频波形"
+	},
+	"exportAudio": {
+		"title": "音频",
+		"normalize": "响度标准化（-16 LUFS）",
+		"denoise": "降低背景噪声",
+		"highpass": "去除低频隆隆声",
+		"smoothCuts": "平滑剪切（交叉淡化）",
+		"hardCut": "关闭"
 	}
 }

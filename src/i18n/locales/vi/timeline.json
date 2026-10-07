@@ -51,5 +51,9 @@
 	"success": {
 		"addedZoomSuggestions": "Đã thêm {{count}} đề xuất thu phóng dựa trên con trỏ",
 		"addedZoomSuggestionsPlural": "Đã thêm {{count}} đề xuất thu phóng dựa trên con trỏ"
+	},
+	"microphone": {
+		"autoSync": "Tự động",
+		"autoSyncHint": "Tự động đo độ lệch micrô"
 	}
 }

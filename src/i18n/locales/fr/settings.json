@@ -232,5 +232,13 @@
 	"timeline": {
 		"title": "Montage",
 		"waveform": "Afficher la forme d'onde sur la piste de découpe"
+	},
+	"exportAudio": {
+		"title": "Audio",
+		"normalize": "Normaliser le volume (-16 LUFS)",
+		"denoise": "Réduire le bruit de fond",
+		"highpass": "Supprimer les grondements",
+		"smoothCuts": "Coupes douces (fondu)",
+		"hardCut": "Non"
 	}
 }

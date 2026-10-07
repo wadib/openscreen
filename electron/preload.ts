@@ -46,6 +46,25 @@ contextBridge.exposeInMainWorld("electronAPI", {
 	},
 	writeStudioMcpExport: (data: ArrayBuffer, target: string) =>
 		ipcRenderer.invoke("studio-mcp-write-export", data, target),
+	onCliExportJob: (
+		callback: (job: import("./cliExportRunner").CliExportJobMessage) => Promise<void>,
+	) => {
+		const listener = (
+			_event: Electron.IpcRendererEvent,
+			job: import("./cliExportRunner").CliExportJobMessage,
+		) => {
+			void callback(job);
+		};
+		ipcRenderer.on("cli-export-job", listener);
+		ipcRenderer.send("cli-export-ready");
+		return () => ipcRenderer.removeListener("cli-export-job", listener);
+	},
+	reportCliExportProgress: (id: string, percentage: number) =>
+		ipcRenderer.send("cli-export-progress", { id, percentage }),
+	reportCliExportResult: (result: import("./cliExportRunner").CliExportResultMessage) =>
+		ipcRenderer.send("cli-export-result", result),
+	reportCliExportLog: (id: string, message: string) =>
+		ipcRenderer.send("cli-export-log", { id, message }),
 	assetBaseUrl,
 	invokeNativeBridge: <TData>(request: NativeBridgeRequest) => {
 		return ipcRenderer.invoke(NATIVE_BRIDGE_CHANNEL, request) as Promise<TData>;

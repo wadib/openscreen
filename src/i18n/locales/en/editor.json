@@ -77,5 +77,48 @@
 			"couldNotOpenTitle": "Could Not Open File",
 			"couldNotOpenMessage": "The project file could not be opened. The video it references may have been moved or deleted."
 		}
+	},
+	"cleanup": {
+		"button": "Clean up pauses and fillers",
+		"dialogTitle": "Clean up speech",
+		"dialogDescription": "Shortens long pauses and removes filler words like “um” and “uh” by adding trims. Original media is untouched.",
+		"sourceMicrophone": "Uses the microphone track.",
+		"sourceScreen": "Uses the recording’s audio.",
+		"pauses": "Shorten long pauses",
+		"minPause": "Pauses longer than",
+		"seconds": "{{count}} s",
+		"fillers": "Filler words",
+		"fillersOff": "Keep filler words",
+		"fillersLocal": "Detect on this computer (Whisper)",
+		"fillersServer": "CrisperWhisper server (most accurate)",
+		"fillersLocalHint": "The built-in model often skips fillers; a CrisperWhisper server finds far more.",
+		"serverUrl": "CrisperWhisper server URL",
+		"undoHint": "Every cut is a normal trim: review it on the timeline or undo with Ctrl+Z.",
+		"run": "Clean up",
+		"analysing": "Analysing audio…",
+		"transcribing": "Finding filler words…",
+		"nothingFound": "Nothing to clean up.",
+		"done": "Added {{cuts}} cuts ({{seconds}} s removed)",
+		"doneDetail": "{{pauses}} pauses, {{fillers}} filler words",
+		"failed": "Cleanup failed"
+	},
+	"microphone": {
+		"syncing": "Measuring microphone sync…",
+		"noMicrophoneAudio": "The microphone track has no audio.",
+		"syncUnsure": "Could not find a reliable sync point; the offset was not changed.",
+		"synced": "Microphone synced: {{offset}} ms",
+		"driftWarning": "The tracks drift by {{drift}} ms by the end of the recording.",
+		"syncFailed": "Microphone sync failed"
+	},
+	"zoomReview": {
+		"button": "Review zooms",
+		"title": "Zooms ({{count}})",
+		"description": "Every zoom in order. The green box marks what each zoom shows. Click one to jump to it.",
+		"empty": "No zooms yet.",
+		"item": "Zoom {{index}}",
+		"auto": "Auto",
+		"manual": "Manual",
+		"goTo": "Go to zoom",
+		"delete": "Delete zoom"
 	}
 }
