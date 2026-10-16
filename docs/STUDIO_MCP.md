@@ -36,10 +36,21 @@ For an MCP-enabled packaged Openscreen executable, set `--executable` to that
 executable and omit `--app`. Older installed releases do not support this bridge.
 This source change does not configure any agent client automatically.
 
-Launching the command explicitly opts in. Each launch creates a random,
-authenticated local named pipe (Windows) or Unix socket in a private temp
-directory. No TCP port is opened. The temporary Studio profile stays on disk;
-disconnecting the agent does not terminate Studio or discard its unsaved work.
+Connecting an agent does not start Openscreen: the launcher answers the
+handshake and the tool list itself, from `scripts/studio-mcp-tools.json`, and
+starts Studio on the first tool call. After changing the tool contract,
+regenerate that file with
+`OPENSCREEN_UPDATE_STUDIO_TOOLS=1 npx vitest run electron/studio-mcp/toolsSnapshot.test.ts`
+followed by `npx biome format --write scripts/studio-mcp-tools.json` (the test
+fails while the file is out of date). Register the server only for the projects
+that need it (for Claude Code, `claude mcp add-json -s local` in each folder)
+rather than for every session.
+
+Each Studio start creates a random, authenticated local named pipe (Windows) or
+Unix socket in a private temp directory. No TCP port is opened. The temporary
+Studio profile stays on disk. When the agent disconnects, the launcher asks
+Studio to close; Studio refuses while it has unsaved edits or an export is
+running, so it stays open and no work is lost.
 Optional `--profile <dedicated-directory>` reuses an agent-only profile. Never
 point this at the normal recorder's profile or share a profile between sessions.
 

@@ -1,0 +1,445 @@
+{
+	"version": "1.0.0",
+	"tools": [
+		{
+			"name": "studio_status",
+			"description": "Inspect Studio readiness, revision, media, timeline, and export job. Times are milliseconds. Read a fresh revision before editing.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {},
+				"required": [],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		},
+		{
+			"name": "studio_open_project",
+			"description": "Open a local .openscreen project inside an allowed folder. Refuses to discard unsaved changes or load remote media.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"path": {
+						"type": "string",
+						"maxLength": 4096
+					}
+				},
+				"required": ["path"],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		},
+		{
+			"name": "studio_set_zoom",
+			"description": "Add a zoom or replace the zoom with the given id. Coordinates and custom area dimensions are normalized 0..1. Returns the id. Overlapping zooms are rejected.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"revision": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991
+					},
+					"startMs": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 86400000
+					},
+					"endMs": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 86400000
+					},
+					"id": {
+						"type": "string",
+						"maxLength": 4096
+					},
+					"depth": {
+						"type": "integer",
+						"minimum": 1,
+						"maximum": 6
+					},
+					"scale": {
+						"type": "number",
+						"minimum": 1,
+						"maximum": 5
+					},
+					"focus": {
+						"type": "object",
+						"properties": {
+							"cx": {
+								"type": "number",
+								"minimum": 0,
+								"maximum": 1
+							},
+							"cy": {
+								"type": "number",
+								"minimum": 0,
+								"maximum": 1
+							}
+						},
+						"required": ["cx", "cy"],
+						"additionalProperties": false
+					},
+					"area": {
+						"type": "object",
+						"properties": {
+							"width": {
+								"type": "number",
+								"minimum": 0.05,
+								"maximum": 1
+							},
+							"height": {
+								"type": "number",
+								"minimum": 0.05,
+								"maximum": 1
+							},
+							"fit": {
+								"type": "string",
+								"enum": ["fit", "fill"]
+							}
+						},
+						"required": ["width", "height", "fit"],
+						"additionalProperties": false
+					}
+				},
+				"required": ["revision", "startMs", "endMs", "focus"],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		},
+		{
+			"name": "studio_add_trim",
+			"description": "Exclude an interval from playback/export; this is not a keep-range. Original media is untouched.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"revision": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991
+					},
+					"startMs": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 86400000
+					},
+					"endMs": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 86400000
+					}
+				},
+				"required": ["revision", "startMs", "endMs"],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		},
+		{
+			"name": "studio_add_speed",
+			"description": "Change playback speed over an interval (0.1..16x). Original media is untouched.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"revision": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991
+					},
+					"startMs": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 86400000
+					},
+					"endMs": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 86400000
+					},
+					"speed": {
+						"type": "number",
+						"minimum": 0.1,
+						"maximum": 16
+					}
+				},
+				"required": ["revision", "startMs", "endMs", "speed"],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		},
+		{
+			"name": "studio_remove_region",
+			"description": "Remove one timeline region by id without deleting media.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"revision": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991
+					},
+					"kind": {
+						"type": "string",
+						"enum": ["zoom", "trim", "speed", "annotation"]
+					},
+					"id": {
+						"type": "string",
+						"maxLength": 4096
+					}
+				},
+				"required": ["revision", "kind", "id"],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		},
+		{
+			"name": "studio_set_microphone",
+			"description": "Adjust the recorded microphone track. Positive offset delays audio; gain is a multiplier. Does not open a live microphone.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"revision": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991
+					},
+					"offsetMs": {
+						"type": "number",
+						"minimum": -60000,
+						"maximum": 60000
+					},
+					"gain": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 4
+					},
+					"muted": {
+						"type": "boolean"
+					}
+				},
+				"required": ["revision"],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		},
+		{
+			"name": "studio_set_layout",
+			"description": "Adjust output canvas, frame padding and webcam layout for recorded media. Uses Studio undo history.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"revision": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991
+					},
+					"aspectRatio": {
+						"type": "string",
+						"enum": ["native", "16:9", "9:16", "1:1", "4:3", "4:5", "16:10", "10:16"]
+					},
+					"padding": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 100
+					},
+					"borderRadius": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 100
+					},
+					"webcamLayoutPreset": {
+						"type": "string",
+						"enum": ["picture-in-picture", "no-webcam", "vertical-stack", "dual-frame"]
+					}
+				},
+				"required": ["revision"],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		},
+		{
+			"name": "studio_history",
+			"description": "Undo or redo Studio edits. Microphone settings are not in the existing undo history.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"revision": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991
+					},
+					"action": {
+						"type": "string",
+						"enum": ["undo", "redo"]
+					}
+				},
+				"required": ["revision", "action"],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		},
+		{
+			"name": "studio_preview",
+			"description": "Play, pause, or seek the recorded Studio preview; never starts screen capture.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"action": {
+						"type": "string",
+						"enum": ["play", "pause", "seek"]
+					},
+					"timeMs": {
+						"type": "number",
+						"minimum": 0,
+						"maximum": 86400000
+					}
+				},
+				"required": ["action"],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		},
+		{
+			"name": "studio_snapshot",
+			"description": "Return a PNG screenshot of the Studio window, including the preview and timeline.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {},
+				"required": [],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": true,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		},
+		{
+			"name": "studio_save_copy",
+			"description": "Save a new .openscreen copy in an allowed folder. Existing files and originals are never overwritten.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"path": {
+						"type": "string",
+						"maxLength": 4096
+					},
+					"revision": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991
+					}
+				},
+				"required": ["path", "revision"],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		},
+		{
+			"name": "studio_export",
+			"description": "Start an MP4 export through Studio's normal rendering/audio pipeline to a new file. Poll studio_status for completion or failure.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"path": {
+						"type": "string",
+						"maxLength": 4096
+					},
+					"revision": {
+						"type": "integer",
+						"minimum": 0,
+						"maximum": 9007199254740991
+					},
+					"quality": {
+						"type": "string",
+						"enum": ["medium", "good", "source"]
+					}
+				},
+				"required": ["path", "revision"],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		},
+		{
+			"name": "studio_cancel_export",
+			"description": "Cancel the current agent export. Does not stop recordings or close Openscreen.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {},
+				"required": [],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		},
+		{
+			"name": "studio_close",
+			"description": "Close this agent-only Studio instance when no export is running. Refuses while there are unsaved edits unless discardUnsaved is true. Never affects the normal Openscreen recorder.",
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"discardUnsaved": {
+						"type": "boolean"
+					}
+				},
+				"required": [],
+				"additionalProperties": false
+			},
+			"annotations": {
+				"readOnlyHint": false,
+				"destructiveHint": false,
+				"openWorldHint": false
+			}
+		}
+	]
+}
